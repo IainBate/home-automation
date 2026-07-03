@@ -1,0 +1,17 @@
+[Unit]
+Description=Home Automation System
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/home_automation
+ExecStart=/home/pi/home_automation/venv/bin/python /home/pi/home_automation/scripts/battery_mode_daemon.py /home/pi/home_automation/battery_mode_daemon_config.json
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
