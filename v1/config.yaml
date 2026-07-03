@@ -1,0 +1,158 @@
+# SolaX Modbus and Ohme EV Configuration
+# Edit this file with your actual settings before running scripts
+#
+# IMPORTANT: This package uses Modbus TCP for direct inverter access.
+# Cloud API fields (token_id, wifisn) are required by the config schema
+# but NOT USED for Modbus operations - leave as placeholders.
+
+# =============================================================================
+# SOLAX CONFIGURATION
+# =============================================================================
+# Direct hardware access to SolaX inverters via Modbus TCP
+#
+# How to find inverter IP addresses:
+#   1. Check your router's DHCP client list
+#   2. Look for devices named "Pocket WiFi" or SolaX serial numbers
+#   3. Recommended: Set static DHCP reservations to prevent IP changes
+solaX_cloud_api:
+  # Cloud API settings (NOT USED for Modbus - leave as placeholders)
+  base_url: "https://www.solaxcloud.com"
+  token_id: "NOT_USED_FOR_MODBUS"
+  master_wifisn: "NOT_USED_FOR_MODBUS"
+  slave_wifisn: "NOT_USED_FOR_MODBUS"
+
+  # REQUIRED: IP addresses of your SolaX inverters
+  master_ip: "YOUR_MASTER_INVERTER_IP"      # Example: "192.168.1.100"
+  slave_ip: "YOUR_SLAVE_INVERTER_IP"        # Example: "192.168.1.101"
+
+  # REQUIRED: Enable Modbus TCP access
+  modbus_enabled: true                      # Must be true for this package to work
+
+  # OPTIONAL: Modbus connection parameters (defaults shown)
+  modbus_port: 502                         # Standard Modbus TCP port
+  modbus_connection_timeout: 10            # Seconds to wait for connection
+  modbus_read_timeout: 5                   # Seconds to wait for read response
+  master_modbus_address: 1                 # Modbus slave address for master inverter
+  slave_modbus_address: 2                  # Modbus slave address for slave inverter
+  min_command_interval: 1.0                # Minimum seconds between Modbus commands
+
+# =============================================================================
+# BATTERY SYSTEM CONFIGURATION
+# =============================================================================
+# Physical battery capacity information
+battery_system:
+  master_capacity_kwh: 11.52               # Usable capacity of master battery (kWh)
+  slave_capacity_kwh: 11.52                # Usable capacity of slave battery (kWh)
+  absolute_min_soc_percent: 10             # Minimum SoC to maintain for battery health
+  standby_power_threshold_w: 20.0          # Power threshold for standby detection
+
+  # Simulation parameters (used for capacity calculations)
+  simulation:
+    enabled: false                         # Not used in this package
+    charge_efficiency_percent: 92
+    discharge_efficiency_percent: 92
+    max_charge_rate_kw: 12.5
+    max_discharge_rate_kw: 12.5
+    self_discharge_percent_per_hour: 0.01
+    soc_charge_taper_threshold_percent: 90
+    soc_charge_taper_rate_percent: 50
+
+# =============================================================================
+# OHME EV CHARGER CONFIGURATION
+# =============================================================================
+# Access to Ohme Home Pro EV charger via Ohme cloud API
+#
+# How to get credentials:
+#   Use your Ohme app login credentials (same as app.ohme.io)
+ohme_ev:
+  enabled: true                            # Set to false to disable Ohme features
+  username: "YOUR_OHME_EMAIL"              # Ohme account email/username
+  password: "YOUR_OHME_PASSWORD"           # Ohme account password
+  refresh_interval_minutes: 15             # How often to poll charger data
+  connection_timeout: 30                   # Connection timeout in seconds
+  retry_attempts: 3                        # Retry attempts for failed API calls
+
+# =============================================================================
+# FINANCIAL COSTS (Stub values - not used for basic Modbus operations)
+# =============================================================================
+financial_costs:
+  fixed_export_price_per_kwh: 0.15
+  battery_cycle_cost_per_kwh: 0.05
+  cheap_charge_threshold_per_kwh: 0.08
+  high_price_reserve_threshold_per_kwh: 0.20
+  gas_price_pkwh: 6.5
+  gas_water_heating_efficiency: 0.85
+  electric_water_heating_efficiency: 1.0
+
+# =============================================================================
+# HOUSEHOLD LOAD (Stub values - not used for basic Modbus operations)
+# =============================================================================
+household_load:
+  base_load_daytime_kw: 0.9
+  base_load_nighttime_kw: 0.4
+  daytime_start_hour: 7
+  daytime_end_hour: 23
+  hot_water_power_kw: 3.0
+  appliance_power_kw: 1.5
+
+# =============================================================================
+# CAR CHARGING (Stub values - not used for basic Modbus operations)
+# =============================================================================
+car_charging:
+  charger_demand_kw: 7.3
+  car_battery_size_kw: 84
+
+# =============================================================================
+# API SETTINGS (Stub values - not used for basic Modbus operations)
+# =============================================================================
+api_settings:
+  agilepredict_endpoint: "https://agilepredict.com/api/F/"
+  octopus_api_key: "NOT_USED"
+  octopus_product_code: "AGILE-24-10-01"
+  octopus_tariff_region_code: "E-1R-AGILE-24-10-01-F"
+  solcast_rooftop_resource_id: "NOT_USED"
+  solcast_api_key: "NOT_USED"
+  timeout_seconds: 30
+  calls_per_day: 8
+  solcast_cache:
+    enabled: false
+    cache_duration_hours: 3
+    cache_file_path: "./cache/solcast_data.json"
+
+# =============================================================================
+# LOCATION SETTINGS
+# =============================================================================
+location:
+  default_timezone_str: "Europe/London"    # Timezone for display conversions
+  city_name: "London"                      # City name (informational)
+  country_name: "United Kingdom"           # Country name (informational)
+
+# =============================================================================
+# SYSTEM SETTINGS (Stub values - not used for basic Modbus operations)
+# =============================================================================
+system_settings:
+  max_inverter_output_from_own_sources_kw: 12.6
+  significant_pv_threshold_kw: 1.0
+  min_significant_pv_duration_hours: 3.0
+  min_cheap_charge_duration_hours: 3.0
+  file_check_interval_seconds: 60
+  main_logic_interval_minutes: 30
+  cheap_period_top_up_window_hours: 3
+  daily_input_file_path: ""
+
+# =============================================================================
+# WEB INTERFACE (Disabled - not included in this package)
+# =============================================================================
+web_interface:
+  enabled: false
+  host: "127.0.0.1"
+  port: 8000
+  debug_mode: false
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+# Use DEBUG for troubleshooting, WARNING for normal operation
+logging:
+  console_level: "WARNING"                 # Console log level
+  file_level: "DEBUG"                      # File log level
