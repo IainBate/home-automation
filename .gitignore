@@ -15,3 +15,10 @@ logs/
 
 # IDE
 .claude/settings.local.json
+
+# Runtime data (generated at runtime)
+config/solax_mode_change_log.json
+data/battery_mode_daemon_log.json
+
+# Historical zip archives (not tracked in git)
+*.zip

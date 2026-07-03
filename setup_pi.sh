@@ -107,7 +107,7 @@ else
     fi
 fi
 
-# Restore other runtime files from backup
+# Restore or create runtime data files from backup
 if [ -d "$BACKUP_DIR" ]; then
     for f in config/solax_mode_change_log.json data/battery_mode_daemon_log.json; do
         if [ -f "$BACKUP_DIR/$f" ]; then
@@ -116,6 +116,19 @@ if [ -d "$BACKUP_DIR" ]; then
             echo "  Restored $f from backup."
         fi
     done
+fi
+
+# Create runtime data files if they don't exist (not tracked in git)
+if [ ! -f "config/solax_mode_change_log.json" ]; then
+    mkdir -p config
+    echo '{"last_mode_change": null, "change_history": []}' > config/solax_mode_change_log.json
+    echo "  Created config/solax_mode_change_log.json (empty)."
+fi
+
+if [ ! -f "data/battery_mode_daemon_log.json" ]; then
+    mkdir -p data
+    echo '{"last_change_timestamp": null, "last_change_mode": null, "last_change_reason": null, "change_history": []}' > data/battery_mode_daemon_log.json
+    echo "  Created data/battery_mode_daemon_log.json (empty)."
 fi
 echo ""
 
