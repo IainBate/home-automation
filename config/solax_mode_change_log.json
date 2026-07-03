@@ -1,0 +1,9 @@
+{
+  "last_mode_change": {
+    "timestamp": "2026-07-03T04:31:11.350191+00:00",
+    "previous_mode": "FORCE_CHARGE",
+    "new_mode": "SELF_USE",
+    "changed_by": "daemon",
+    "forced": false
+  }
+}

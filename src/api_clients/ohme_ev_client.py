@@ -1,7 +1,7 @@
 """Ohme EV Charger API Client.
 
 Provides integration with Ohme Home Pro EV charger via Ohme API.
-Includes monkey-patch fix for api-beta.ohme.io domain issue and robust error handling.
+Includes monkey-patch to use production api.ohme.io endpoint and robust error handling.
 
 Key Features:
 - Charger status monitoring (charging state, power, battery)
@@ -184,14 +184,14 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
     """Ohme EV Charger API Client.
 
     Handles communication with Ohme Home Pro charger via Ohme API.
-    Includes automatic domain fix (api-beta.ohme.io), error handling, and retry logic.
+    Includes automatic production endpoint configuration (api.ohme.io), error handling, and retry logic.
 
     Justification for too-many-instance-attributes (18/12): Comprehensive EV charging
     state including config, device info, charging state, session data, price caps,
     schedule, and advanced settings. All attributes are necessary and distinct.
     """
 
-    # Apply monkey-patch for api-beta.ohme.io domain fix ONCE at class level
+    # Apply monkey-patch for production api.ohme.io endpoint ONCE at class level
     _monkey_patch_applied = False
 
     def __init__(
@@ -241,7 +241,7 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
             self._apply_domain_fix()
             self._configure_ohme_library_logging()
             OhmeEVClient._monkey_patch_applied = True
-            logger.info("Applied api-beta.ohme.io domain fix to OhmeApiClient")
+            logger.info("Applied production api.ohme.io endpoint to OhmeApiClient")
 
     def _load_config(self) -> None:
         """Load Ohme configuration from config file."""
@@ -288,10 +288,10 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
             return OhmeRetryConfig()
 
     def _apply_domain_fix(self) -> None:  # pragma: no cover
-        """Apply monkey-patch to fix api.ohme.io → api-beta.ohme.io domain issue.
+        """Apply monkey-patch to ensure production api.ohme.io endpoint is used.
 
-        This is a critical fix - the library uses api.ohme.io which returns empty/default data.
-        The iPhone app uses api-beta.ohme.io which returns real live data.
+        The ohme library uses api.ohme.io which works for standard accounts.
+        Beta accounts may use api-beta.ohme.io but most users should use production.
 
         See SOLUTION.md for detailed explanation.
 
@@ -309,12 +309,12 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
             skip_json: bool = False,
             data: object | None = None,
         ) -> object:
-            """Use api-beta.ohme.io instead of api.ohme.io."""
+            """Use api.ohme.io production endpoint."""
             # pylint: disable=import-outside-toplevel
             import aiohttp  # noqa: PLC0415 - lazy loading for beta domain monkey patch (only used when beta_domain=true in config)
 
-            # Use beta domain for real data
-            full_url = f"https://api-beta.ohme.io{url}"
+            # Use production domain for non-beta accounts
+            full_url = f"https://api.ohme.io{url}"
 
             if self._session is None:
                 self._session = aiohttp.ClientSession()
@@ -748,21 +748,23 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
         Returns:
             Response dict on success, None on failure.
 
+        Note:
+            If 401 is encountered, this method does NOT re-authenticate because:
+            1. It's likely the endpoint requires AppCheck (like /advancedSettings and /max-price)
+            2. Re-auth won't help and wastes time/API calls
+            3. Graceful degradation is the correct behavior for optional data
+
         """
         try:
             return await self.client._make_request("GET", endpoint)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
         except ApiException as e:
             error_msg = str(e)
-            # If 401, try re-auth once and retry
+            # Log 401 but don't retry - endpoint likely requires AppCheck
             if "401" in error_msg or "Unauthorized" in error_msg or "Unauthorised" in error_msg:
-                logger.debug("Got 401 on %s, attempting re-auth...", endpoint)
-                try:
-                    await self._re_authenticate()
-                    return await self.client._make_request("GET", endpoint)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                # Graceful degradation: re-auth retry failed
-                except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
-                    logger.debug("Re-auth failed for %s", endpoint)
-                    return None
+                logger.debug(
+                    "Got 401 on %s - endpoint likely requires AppCheck, skipping re-auth", endpoint
+                )
+                return None
             return None
         # Graceful degradation: private API access
         except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
@@ -794,7 +796,7 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
             # pylint: disable=import-outside-toplevel
             import aiohttp  # noqa: PLC0415 - Lazy import for optional AppCheck feature
 
-            url = f"https://api-beta.ohme.io{endpoint}"
+            url = f"https://api.ohme.io{endpoint}"
             headers = {
                 "Authorization": f"Firebase {self.client._token}",  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
                 "Content-Type": "application/json",
@@ -849,7 +851,7 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
             # pylint: disable=import-outside-toplevel
             import aiohttp  # noqa: PLC0415 - Lazy import for AppCheck feature
 
-            url = f"https://api-beta.ohme.io{endpoint}"
+            url = f"https://api.ohme.io{endpoint}"
             headers = {
                 "Authorization": f"Firebase {self.client._token}",  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
                 "Content-Type": "application/json",
@@ -877,19 +879,19 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
     async def _set_price_cap_v2(self, *, enabled: bool, value_pence: int) -> bool:
         """Set price cap using V2 endpoint directly.
 
-        This endpoint works WITHOUT AppCheck and is used for the pause workaround.
-        Setting an extreme negative price cap (e.g., -100p) effectively stops charging
-        because no electricity price will ever be that low.
+        NOTE: As of January 2026, Ohme has added AppCheck authentication to this endpoint.
+        This method now gracefully handles 401 errors and returns False instead of raising
+        an exception. Use set_max_charge(enabled=False) for pause functionality instead.
 
         Args:
             enabled: Enable or disable price cap
             value_pence: Price cap in pence (e.g., 15 for 15p/kWh, -100 for extreme stop)
 
         Returns:
-            True on success
+            True on success, False if endpoint requires AppCheck (401 error)
 
         Raises:
-            OhmeConnectionError: If the API call fails
+            OhmeConnectionError: If the API call fails with non-401 error
 
         """
         if not self.session_established or self.client is None:
@@ -922,6 +924,15 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
                     # Invalidate cache since price cap changed
                     self._invalidate_cache()
                     return True
+
+                # Handle 401 Unauthorized - endpoint now requires AppCheck
+                if status == HTTP_STATUS_UNAUTHORIZED:
+                    logger.warning(
+                        "V2 price cap endpoint requires AppCheck (401 Unauthorized). "
+                        "Use set_max_charge(enabled=False) for pause functionality instead. "
+                        "Or set price cap permanently in the Ohme app."
+                    )
+                    return False
 
                 body = await resp.text()
                 logger.warning(
@@ -1493,7 +1504,16 @@ class OhmeEVClient:  # pylint: disable=too-many-instance-attributes
 
             # Use V2 price cap endpoint with extreme negative value
             # This automatically switches to SMART_CHARGE and stops charging
-            await self._set_price_cap_v2(enabled=True, value_pence=-100)
+            success = await self._set_price_cap_v2(enabled=True, value_pence=-100)
+
+            # Handle AppCheck 401 error gracefully
+            if not success:
+                logger.warning(
+                    "❌ Price cap endpoint requires AppCheck (no longer works). "
+                    "RECOMMENDATION: Use set_max_charge(enabled=False) instead for pause functionality. "
+                    "Or set price cap to -100p permanently in the Ohme iOS app."
+                )
+                return False
 
             if verify:
                 # Wait for power to ramp down (observed ~10-15 seconds in testing)

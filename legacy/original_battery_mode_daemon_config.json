@@ -1,0 +1,51 @@
+{
+  "daemon_settings": {
+    "hardware_poll_interval_seconds": 60,
+    "min_mode_change_interval_seconds": 600,
+    "ohme_charging_threshold_watts": 500
+  },
+  "ohme_charging": {
+    "enabled": true,
+    "force_charge_mode": "FORCE_CHARGE"
+  },
+  "schedule": {
+    "enabled": true,
+    "default_mode": "SELF_USE",
+    "time_ranges": [
+      {
+        "start_time": "00:00",
+        "end_time": "02:00",
+        "battery_mode": "FORCE_CHARGE",
+        "description": "Cheap rate overnight charging"
+      },
+      {
+        "start_time": "02:00",
+        "end_time": "03:00",
+        "battery_mode": "FORCE_DISCHARGE",
+        "description": "Peak rate battery export"
+      },
+      {
+        "start_time": "03:00",
+        "end_time": "05:30",
+        "battery_mode": "FORCE_CHARGE",
+        "description": "Cheap rate overnight charging"
+      },
+      {
+        "start_time": "05:30",
+        "end_time": "23:30",
+        "battery_mode": "SELF_USE",
+        "description": "Normal self-use mode"
+      },
+      {
+        "start_time": "23:30",
+        "end_time": "00:00",
+        "battery_mode": "FORCE_CHARGE",
+        "description": "Cheap rate overnight charging"
+      }
+    ]
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "logs/battery_mode_daemon.log"
+  }
+}

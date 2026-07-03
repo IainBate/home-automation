@@ -22,8 +22,8 @@ solaX_cloud_api:
   slave_wifisn: "NOT_USED_FOR_MODBUS"
 
   # REQUIRED: IP addresses of your SolaX inverters
-  master_ip: "YOUR_MASTER_INVERTER_IP"      # Example: "192.168.1.100"
-  slave_ip: "YOUR_SLAVE_INVERTER_IP"        # Example: "192.168.1.101"
+  master_ip: "192.168.68.105"      # Example: "192.168.1.100"
+  slave_ip: "192.168.68.103"        # Example: "192.168.1.101"
 
   # REQUIRED: Enable Modbus TCP access
   modbus_enabled: true                      # Must be true for this package to work
@@ -66,8 +66,8 @@ battery_system:
 #   Use your Ohme app login credentials (same as app.ohme.io)
 ohme_ev:
   enabled: true                            # Set to false to disable Ohme features
-  username: "YOUR_OHME_EMAIL"              # Ohme account email/username
-  password: "YOUR_OHME_PASSWORD"           # Ohme account password
+  username: "iain.bate@gmail.com"          # Ohme account email/username
+  password: "U88PXFLMQkD@!XB"              # Ohme account password
   refresh_interval_minutes: 15             # How often to poll charger data
   connection_timeout: 30                   # Connection timeout in seconds
   retry_attempts: 3                        # Retry attempts for failed API calls

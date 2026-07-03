@@ -1,0 +1,17 @@
+# Virtual environments
+venv/
+myenv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# Logs (symlink, not stored)
+logs/
+
+# IDE
+.claude/settings.local.json

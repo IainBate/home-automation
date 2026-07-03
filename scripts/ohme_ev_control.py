@@ -575,7 +575,7 @@ async def _handle_test_appcheck_pause(
         # pylint: disable=import-outside-toplevel
         import aiohttp  # noqa: PLC0415, I001
 
-        url = f"https://api-beta.ohme.io/v1/chargeSessions/{client.client.serial}/stop"
+        url = f"https://api.ohme.io/v1/chargeSessions/{client.client.serial}/stop"
         headers = {
             "Authorization": f"Firebase {client.client._token}",  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
             "Content-Type": "application/json",
@@ -632,7 +632,7 @@ async def _handle_test_appcheck_resume(
         # pylint: disable=import-outside-toplevel
         import aiohttp  # noqa: PLC0415, I001
 
-        url = f"https://api-beta.ohme.io/v1/chargeSessions/{client.client.serial}/resume"
+        url = f"https://api.ohme.io/v1/chargeSessions/{client.client.serial}/resume"
         headers = {
             "Authorization": f"Firebase {client.client._token}",  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
             "Content-Type": "application/json",
@@ -678,7 +678,11 @@ async def _handle_test_appcheck_resume(
 async def _execute_simple_actions(client: OhmeEVClient, args: argparse.Namespace) -> int | None:
     """Execute simple success/failure actions. Returns None if no match."""
     if args.pause:
-        return await _handle_simple_action("Pause charge", client.pause_charge(), args)
+        # Use set_max_charge(enabled=False) instead of pause_charge()
+        # since price cap endpoint now requires AppCheck (returns to SMART_CHARGE mode)
+        return await _handle_simple_action(
+            "Pause charge", client.set_max_charge(enabled=False), args
+        )
     if args.resume:
         # resume_charge() was removed - use set_max_charge() directly
         return await _handle_simple_action(

@@ -745,7 +745,7 @@ result = solax_modbus_set_work_mode(
 **Problem**: `ConnectionError: Failed to connect to Ohme API`
 
 **Solutions**:
-1. Check internet connection: `ping api-beta.ohme.io`
+1. Check internet connection: `ping api.ohme.io`
 2. Verify firewall isn't blocking HTTPS
 3. Check if Ohme API is down (check Ohme app)
 
