@@ -10,12 +10,17 @@ Standalone package for controlling SolaX inverters and Ohme EV chargers. Provide
 - **solax_modbus_status_report.py** - Read comprehensive inverter status via Modbus TCP
 - **solax_modbus_read_and_set_workmode.py** - Read/set inverter work mode (Self-Use, Charge, Discharge, Hold)
 - **ohme_ev_control.py** - Control Ohme Home Pro EV charger (status, mode, settings)
+- **solax_cloud_data_logger.py** - Collect 5-minute granularity historical energy data from SolaX Cloud API
 
 ### API Clients
 - **SolaX Modbus Client** - Direct Modbus TCP access to SolaX X3 Hybrid G4 inverters
   - Read PV generation, battery SoC, grid power, work mode
   - Set work mode with hardware safety mechanisms
   - Support for dual-inverter systems (master + slave)
+- **SolaX Cloud Client** - Historical data collection from SolaX Cloud API
+  - 5-minute granularity energy flow data
+  - Incremental data collection (only fetches new data)
+  - JSON storage with CSV export support
 - **Ohme EV Client** - Ohme Home Pro charger control
   - Read charger status, power, battery SoC
   - Control charging modes (max charge, smart charge)
@@ -858,11 +863,21 @@ Add to crontab (`crontab -e`):
 solax_ohme_package/
 ├── src/                          # Python package
 │   ├── api_clients/              # SolaX and Ohme API clients
+│   │   ├── solax_modbus_client.py      # Direct Modbus TCP communication
+│   │   ├── solax_cloud_client.py       # Cloud API historical data logger
+│   │   └── ohme_ev_client.py           # Ohme Home Pro charger client
 │   ├── config_manager/           # Configuration loading
 │   ├── utils/                    # Utilities (exceptions, paths)
 │   └── core_logic/               # Battery models and constants
 ├── scripts/                      # CLI tools
+│   ├── solax_modbus_status_report.py          # Read inverter status
+│   ├── solax_modbus_read_and_set_workmode.py  # Set work mode
+│   ├── ohme_ev_control.py                     # Control Ohme charger
+│   └── solax_cloud_data_logger.py             # Collect historical data
 ├── config/                       # Runtime data (mode change log)
+├── data/                         # Daemon state and collected data
+│   ├── battery_mode_daemon_log.json
+│   └── solax_historical_data.json    # 5-min granularity energy data
 ├── config.yaml                   # Configuration file (edit with your settings)
 ├── requirements.txt              # Python dependencies
 └── README.md                     # This file
@@ -892,6 +907,113 @@ This will show:
 - Network communication details
 - API request/response data
 - Detailed error traces
+
+---
+
+## SolaX Cloud Data Logger
+
+Collect 5-minute granularity historical energy data from the SolaX Cloud API.
+
+### Prerequisites
+
+To use the Cloud API data logger, you need your SolaX Cloud API credentials:
+
+1. Open the [SolaX Cloud](https://www.solaxcloud.com) web interface or app
+2. Go to Settings > Advanced > Modbus TCP
+3. Copy your `token_id` and `wifisn` (WiFi serial number)
+4. Update your `config.yaml`:
+
+```yaml
+solaX_cloud_api:
+  token_id: "YOUR_TOKEN_ID"
+  master_wifisn: "YOUR_WIFI_SERIAL_NUMBER"
+```
+
+### Basic Usage
+
+```bash
+# Fetch missing data (incremental - only fetches new dates)
+python3 scripts/solax_cloud_data_logger.py --config config.yaml
+
+# Show summary after collection
+python3 solax_cloud_data_logger.py --summary
+
+# Export to CSV
+python3 solax_cloud_data_logger.py --export-csv
+```
+
+### Command-Line Options
+
+| Option | Description |
+|--------|-------------|
+| `--config FILE` | Path to config file (default: ./config.yaml) |
+| `--data-dir DIR` | Directory for data files (default: ./data) |
+| `--start-date YYYY-MM-DD` | Start date for collection |
+| `--end-date YYYY-MM-DD` | End date for collection |
+| `--summary` | Show summary statistics of collected data |
+| `--export-csv` | Export collected data to CSV file |
+| `--verbose`, `-v` | Enable verbose logging |
+
+### Data Storage
+
+Data is stored in `data/solax_historical_data.json` with the following structure:
+
+```json
+{
+  "meta": {
+    "last_updated": "2025-01-15T12:34:56Z",
+    "data_points": 1234,
+    "date_range": {"start": "2024-07-01", "end": "2025-01-15"}
+  },
+  "data": [
+    {
+      "timestamp": "2025-01-15 10:30:00",
+      "pv_power_kw": 4.2,
+      "battery_power_kw": -1.5,
+      "grid_power_kw": 2.7,
+      "load_power_kw": 5.4,
+      "soc_percent": 85
+    }
+  ]
+}
+```
+
+### CSV Export
+
+Export your collected data to CSV for analysis in other tools:
+
+```bash
+python3 scripts/solax_cloud_data_logger.py --export-csv
+```
+
+The CSV file contains all data points with columns:
+- `timestamp` - ISO format timestamp
+- `pv_power_kw` - PV generation (kW)
+- `battery_power_kw` - Battery power (negative = discharge)
+- `grid_power_kw` - Grid power (positive = export)
+- `load_power_kw` - Load consumption (kW)
+- `soc_percent` - State of Charge percentage
+
+### Incremental Collection
+
+The logger automatically tracks which dates have been collected and only fetches new data:
+
+```bash
+# First run - fetches last year of data
+python3 scripts/solax_cloud_data_logger.py
+
+# Later - only fetches since last collection
+python3 scripts/solax_cloud_data_logger.py
+```
+
+### Scheduled Collection
+
+Add to crontab for regular updates:
+
+```bash
+# Update data every day at 08:00
+0 8 * * * cd /path/to/package && python3 scripts/solax_cloud_data_logger.py --summary >> /var/log/solax_data.log 2>&1
+```
 
 ---
 

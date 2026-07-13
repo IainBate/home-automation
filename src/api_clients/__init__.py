@@ -1,5 +1,9 @@
 """API clients for SolaX Modbus and Ohme EV."""
 
+from src.api_clients.solax_cloud_client import (
+    SolaxDataLogger,
+    solax_cloud_get_daily_yield,
+)
 from src.api_clients.solax_modbus_client import (
     solax_modbus_ac_power,
     solax_modbus_battery_capacity,
@@ -17,6 +21,8 @@ from src.api_clients.solax_modbus_client import (
 )
 
 __all__ = [
+    "SolaxDataLogger",
+    "solax_cloud_get_daily_yield",
     "solax_modbus_ac_power",
     "solax_modbus_battery_capacity",
     "solax_modbus_battery_power",
