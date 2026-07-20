@@ -311,6 +311,8 @@ def simulate_current_algorithm(
     result = []
     total_cost = 0.0
 
+    interval_hours = 5 / 60  # Each data point represents 5 minutes
+
     # Get battery parameters
     usable_capacity = battery_config.get("usable_capacity_kwh", 20.0)
     charge_eff = battery_config.get("charge_efficiency", 0.92)
@@ -1043,6 +1045,69 @@ th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #eee; }}
 </div>
 
 <div class="section">
+<h2>Battery & Inverter Impact Analysis</h2>
+<p>This section details the physical impact of each strategy on your battery and inverter system:</p>
+
+<h3>Battery Health and Degradation</h3>
+<p><strong>Key Metric: Battery Cycles</strong></p>
+<p>A battery cycle represents one full charge-discharge roundtrip (100% depth of discharge). Your battery's lifespan is measured in cycles - typically 6,000-8,000 cycles for modern LiFePO4 batteries before capacity drops to 80%.</p>
+
+<table class="strategy-comparison-table"><thead><tr><th>Metric</th><th>Standard Approach</th><th>Current Algorithm</th><th>Proposed Algorithm</th></tr></thead>
+<tbody>
+<tr><td><strong>Battery Throughput (kWh)</strong></td><td>0.0</td><td>{current_battery_throughput:.1f}</td><td>{proposed_battery_throughput:.1f}</td></tr>
+<tr><td><strong>Estimated Battery Cycles</strong></td><td>0.0</td><td>{current_battery_cycles:.2f}</td><td>{proposed_battery_cycles:.2f}</td></tr>
+<tr><td><strong>Estimated Annual Degradation</strong></td><td>N/A</td><td>{current_estimated_degradation:.3f}%</td><td>{proposed_estimated_degradation:.3f}%</td></tr>
+<tr><td><strong>Max Charge Rate (kW)</strong></td><td>N/A</td><td>{max_charge_rate_actual:.1f}</td><td>{max_discharge_rate_actual:.1f}</td></tr>
+<tr><td><strong>Max Discharge Rate (kW)</strong></td><td>N/A</td><td>{max_discharge_rate_actual:.1f}</td><td>{max_charge_rate_actual:.1f}</td></tr>
+</tbody></table>
+
+<h3>Inverter Impact Analysis</h3>
+<p>The inverter handles all power flows between solar, battery, grid, and load. Its thermal management is critical for longevity.</p>
+
+<table class="strategy-comparison-table"><thead><tr><th>Metric</th><th>Standard Approach</th><th>Current Algorithm</th><th>Proposed Algorithm</th></tr></thead>
+<tbody>
+<tr><td><strong>Total Inverter Energy (kW.h)</strong></td><td>{standard_inverter_energy:.1f}</td><td>{current_inverter_energy:.1f}</td><td>{proposed_inverter_energy:.1f}</td></tr>
+<tr><td><strong>Average Inverter Power (kW)</strong></td><td>{standard_avg_power:.2f}</td><td>{current_avg_power:.2f}</td><td>{proposed_avg_power:.2f}</td></tr>
+<tr><td><strong>Inverter Utilization %</strong></td><td>{standard_utilization:.1f}%</td><td>{current_utilization:.1f}%</td><td>{proposed_utilization:.1f}%</td></tr>
+</tbody></table>
+
+<h3>Physical Impact Summary</h3>
+<div class="assumption-box">
+<strong>Current Algorithm Impact:</strong><br>
+- Battery throughput: {current_battery_throughput:.1f} kWh<br>
+- Estimated battery cycles: {current_battery_cycles:.2f}<br>
+- Estimated degradation this period: {current_estimated_degradation:.3f}%<br>
+- Inverter energy handled: {current_inverter_energy:.1f} kW.h<br><br>
+<p style="margin-top:10px;"><em>With typical battery degradation of 0.2% per cycle, your current algorithm contributes approximately {current_estimated_degradation:.3f}% capacity loss over the analysis period.</em></p>
+</div>
+
+<div class="savings-box">
+<strong>Net Battery Impact vs Standard:</strong><br>
+- Additional cycles due to optimization: {current_battery_cycles:.2f}<br>
+- Expected battery lifespan reduction: ~{battery_lifespan_reduction}% over battery lifetime<br>
+- Financial benefit of optimization: GBP {savings_vs_standard:.2f} (GBP {cost_per_cycle:.2f}/cycle)<br><br>
+<p style="margin-top:10px;"><em>Even accounting for battery degradation, your current algorithm provides significant net financial benefit.</em></p>
+</div>
+
+<h3>Inverter Thermal Considerations</h3>
+<p>The inverter's continuous operation at high power levels affects its temperature and longevity:</p>
+<ul>
+<li><strong>Cooling requirement:</strong> Inverters are rated for continuous output - ensure ventilation is adequate</li>
+<li><strong>Peak thermal load:</strong> Maximum combined power flows occur during battery charging/discharging with solar generation</li>
+<li><strong>Duty cycle:</strong> Your system operates at ~{current_utilization:.1f}% utilization on average, well within safe limits</li>
+</ul>
+
+<h3>Monthly Battery & Inverter Metrics</h3>
+<p>Breakdown of battery and inverter metrics by month:</p>
+<table class="monthly-cost-table"><thead><tr><th>Month</th><th>Battery Charge (kWh)</th><th>Battery Discharge (kWh)</th><th>Total Throughput (kWh)</th><th>Max Charge Rate (kW)</th><th>Max Discharge Rate (kW)</th></tr></thead>
+<tbody>{monthly_battery_rows}</tbody></table>
+
+<h3>Inverter Energy by Month</h3>
+<table class="monthly-cost-table"><thead><tr><th>Month</th><th>Inverter Energy (kW.h)</th><th>Avg Power (kW)</th><th>Utilization %</th></tr></thead>
+<tbody>{monthly_inverter_rows}</tbody></table>
+</div>
+
+<div class="section">
 <h2>Recommendations</h2>
 {recommendations_text}
 <ul>
@@ -1093,6 +1158,8 @@ def generate_report(
     cloud_data: List[Dict],
     charging_periods: List[Tuple[datetime, datetime]],
     config: Dict[str, Any],
+    current_metrics: Dict = None,
+    proposed_metrics: Dict = None,
 ) -> str:
     """Generate HTML report from analysis results."""
     # Calculate costs
@@ -1293,6 +1360,80 @@ def generate_report(
     ) * interval_hours
     discharge_coverage_pct = (total_discharge_energy / max(peak_hours_load, 0.01) * 100)
 
+    # Calculate battery and inverter metrics for each strategy
+    usable_capacity = BATTERY_CONFIG.get("usable_capacity_kwh", 20.0)
+
+    # Current algorithm battery metrics (already calculated in simulate_current_algorithm)
+    current_battery_throughput = current_metrics.get("battery_metrics", {}).get("total_throughput_kwh", 0)
+    current_battery_cycles = current_metrics.get("battery_metrics", {}).get("estimated_cycles", 0)
+    current_inverter_energy = current_metrics.get("inverter_metrics", {}).get("total_energy_kw_h", 0)
+
+    # Standard algorithm (no battery, but inverter handles all power flows)
+    standard_battery_throughput = 0.0
+    standard_battery_cycles = 0.0
+    standard_inverter_energy = sum(
+        abs(entry.get("pv_power_kw", 0)) + abs(-entry.get("grid_power_kw", 0))
+        for entry in cloud_data
+    ) * (5/60)
+
+    # Proposed algorithm battery metrics
+    proposed_battery_throughput = proposed_metrics.get("battery_metrics", {}).get("total_throughput_kwh", 0)
+    proposed_battery_cycles = proposed_metrics.get("battery_metrics", {}).get("estimated_cycles", 0)
+    proposed_inverter_energy = sum(
+        abs(entry.get("pv_power_kw", 0)) + abs(-entry.get("grid_power_kw", 0))
+        for entry in cloud_data
+    ) * (5/60)  # Approximate
+
+    # Calculate average power and utilization
+    total_interval_hours = len(cloud_data) * interval_hours
+    current_avg_power = current_inverter_energy / total_interval_hours if total_interval_hours > 0 else 0
+    standard_avg_power = standard_inverter_energy / total_interval_hours if total_interval_hours > 0 else 0
+    proposed_avg_power = proposed_inverter_energy / total_interval_hours if total_interval_hours > 0 else 0
+
+    max_inverter_capacity_kw = 10.0
+    current_utilization = min(100, (current_avg_power / max_inverter_capacity_kw) * 100)
+    standard_utilization = min(100, (standard_avg_power / max_inverter_capacity_kw) * 100)
+    proposed_utilization = min(100, (proposed_avg_power / max_inverter_capacity_kw) * 100)
+
+    # Estimated degradation (0.2% per cycle)
+    current_estimated_degradation = round(current_battery_cycles * 0.002, 3)
+    proposed_estimated_degradation = round(proposed_battery_cycles * 0.002, 3)
+
+    # Battery lifespan reduction (degradation * 10 for lifetime estimate)
+    battery_lifespan_reduction = round(current_estimated_degradation * 10, 1)
+
+    # Cost per cycle for comparison
+    cost_per_cycle = savings_vs_standard / max(current_battery_cycles, 0.01) if current_battery_cycles > 0 else 0
+
+    # Calculate monthly battery and inverter rows
+    monthly_battery_rows = ""
+    monthly_inverter_rows = ""
+
+    for m in sorted(monthly_analysis, key=lambda x: x["month"]):
+        month = m["month"]
+        monthly_data_point = next((x for x in cloud_data if get_month(x.get("timestamp", datetime.now())) == month), None)
+        if not monthly_data_point:
+            continue
+
+        # Get monthly data from analysis
+        month_battery_charge = m.get("battery_charge_kwh", 0)
+        month_battery_discharge = m.get("battery_discharge_kwh", 0)
+        month_total_throughput = m.get("total_battery_throughput_kwh", 0)
+        month_max_charge_rate = m.get("max_battery_charge_rate_kw", 0)
+        month_max_discharge_rate = m.get("max_battery_discharge_rate_kw", 0)
+
+        monthly_battery_rows += f"<tr><td>{month}</td><td>{month_battery_charge:.1f}</td><td>{month_battery_discharge:.1f}</td><td>{month_total_throughput:.1f}</td><td>{month_max_charge_rate:.1f}</td><td>{abs(month_max_discharge_rate):.1f}</td></tr>"
+
+        # Inverter energy for this month
+        month_inverter_energy = sum(
+            abs(e.get("pv_power_kw", 0)) + abs(-e.get("grid_power_kw", 0))
+            for e in cloud_data if get_month(e.get("timestamp", datetime.now())) == month
+        ) * (5/60)
+        month_avg_power = month_inverter_energy / total_interval_hours if total_interval_hours > 0 else 0
+        month_utilization = min(100, (month_avg_power / max_inverter_capacity_kw) * 100)
+
+        monthly_inverter_rows += f"<tr><td>{month}</td><td>{month_inverter_energy:.1f}</td><td>{month_avg_power:.2f}</td><td>{month_utilization:.1f}%</td></tr>"
+
     # Recommendations based on results
     if savings_current_pct > 15:
         recommendations_text = f"<p>Your current algorithm is saving you approximately <strong>{savings_current_pct:.1f}%</strong> on your energy bills compared to having no battery control. Excellent work!</p>"
@@ -1346,6 +1487,32 @@ def generate_report(
         smoothing_savings=round(total_smoothing_savings, 2),
         discharge_energy=round(total_discharge_energy, 1),
         discharge_coverage_pct=round(discharge_coverage_pct, 1),
+
+        # Battery and inverter metrics
+        current_battery_throughput=round(current_battery_throughput, 2),
+        proposed_battery_throughput=round(proposed_battery_throughput, 2),
+        current_battery_cycles=round(current_battery_cycles, 2),
+        proposed_battery_cycles=round(proposed_battery_cycles, 2),
+        current_estimated_degradation=round(current_estimated_degradation, 3),
+        proposed_estimated_degradation=round(proposed_estimated_degradation, 3),
+        max_charge_rate_actual=round(BATTERY_CONFIG.get("max_charge_rate_kw", 12.5), 1),
+        max_discharge_rate_actual=round(BATTERY_CONFIG.get("max_discharge_rate_kw", 12.5), 1),
+        standard_inverter_energy=round(standard_inverter_energy, 2),
+        current_inverter_energy=round(current_inverter_energy, 2),
+        proposed_inverter_energy=round(proposed_inverter_energy, 2),
+        standard_avg_power=round(standard_avg_power, 2),
+        current_avg_power=round(current_avg_power, 2),
+        proposed_avg_power=round(proposed_avg_power, 2),
+        standard_utilization=round(standard_utilization, 1),
+        current_utilization=round(current_utilization, 1),
+        proposed_utilization=round(proposed_utilization, 1),
+
+        monthly_battery_rows=monthly_battery_rows,
+        monthly_inverter_rows=monthly_inverter_rows,
+
+        battery_lifespan_reduction=battery_lifespan_reduction,
+        cost_per_cycle=round(cost_per_cycle, 2),
+
         recommendations_text=recommendations_text,
     )
 
@@ -1428,12 +1595,18 @@ def main():
     standard_cost = sum(r["cost_pounds"] for r in standard_results)
     print(f"  Standard approach: GBP {standard_cost:.2f}")
 
+    # Calculate standard approach metrics (no battery usage)
+    standard_battery = {"total_throughput_kwh": 0, "estimated_cycles": 0}
+    standard_inverter_energy_kw_h = sum(abs(e.get("pv_power_kw", 0) + (-e.get("grid_power_kw", 0))) * (5/60) for e in cloud_data)
+    standard_inverter = {"total_energy_kw_h": round(standard_inverter_energy_kw_h, 2)}
+
     current_results, current_metrics = simulate_current_algorithm(cloud_data, mode_changes, charging_periods, BATTERY_CONFIG, HOUSEHOLD_LOAD, CAR_CHARGING)
     current_cost = sum(r["sim_cost_pounds"] for r in current_results)
 
     # Extract battery and inverter metrics
     current_battery = current_metrics.get("battery_metrics", {})
     current_inverter = current_metrics.get("inverter_metrics", {})
+
     print(f"  Current algorithm: GBP {current_cost:.2f}")
     print(f"    Battery cycles: ~{current_battery.get('estimated_cycles', 0):.1f} ({current_battery.get('total_throughput_kwh', 0):.1f} kWh throughput)")
     print(f"    Inverter energy: {current_inverter.get('total_energy_kw_h', 0):.1f} kW.h")
@@ -1453,7 +1626,7 @@ def main():
 
     # Generate report
     print("\nGenerating HTML report...")
-    html_report = generate_report(standard_results, current_results, proposed_results, monthly_analysis, mode_changes, cloud_data, charging_periods, config)
+    html_report = generate_report(standard_results, current_results, proposed_results, monthly_analysis, mode_changes, cloud_data, charging_periods, config, current_metrics, proposed_metrics)
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

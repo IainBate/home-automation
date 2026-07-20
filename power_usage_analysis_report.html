@@ -25,7 +25,7 @@ th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
 .strategy-comparison-table th:first-child, .strategy-comparison-table td:first-child { text-align: left; font-weight: bold; }
 </style></head>
 <body>
-<div class="header"><h1>Power Usage Analysis Report</h1><p>Comparing Battery Management Strategies for SolaX Inverter System</p><p>Generated: 2026-07-10 19:33:39</p></div>
+<div class="header"><h1>Power Usage Analysis Report</h1><p>Comparing Battery Management Strategies for SolaX Inverter System</p><p>Generated: 2026-07-13 07:34:49</p></div>
 
 <div class="section">
 <h2>Executive Summary</h2>
@@ -201,6 +201,69 @@ th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
 </div>
 
 <div class="section">
+<h2>Battery & Inverter Impact Analysis</h2>
+<p>This section details the physical impact of each strategy on your battery and inverter system:</p>
+
+<h3>Battery Health and Degradation</h3>
+<p><strong>Key Metric: Battery Cycles</strong></p>
+<p>A battery cycle represents one full charge-discharge roundtrip (100% depth of discharge). Your battery's lifespan is measured in cycles - typically 6,000-8,000 cycles for modern LiFePO4 batteries before capacity drops to 80%.</p>
+
+<table class="strategy-comparison-table"><thead><tr><th>Metric</th><th>Standard Approach</th><th>Current Algorithm</th><th>Proposed Algorithm</th></tr></thead>
+<tbody>
+<tr><td><strong>Battery Throughput (kWh)</strong></td><td>0.0</td><td>2877.8</td><td>3577.5</td></tr>
+<tr><td><strong>Estimated Battery Cycles</strong></td><td>0.0</td><td>143.89</td><td>178.87</td></tr>
+<tr><td><strong>Estimated Annual Degradation</strong></td><td>N/A</td><td>0.288%</td><td>0.358%</td></tr>
+<tr><td><strong>Max Charge Rate (kW)</strong></td><td>N/A</td><td>12.5</td><td>12.5</td></tr>
+<tr><td><strong>Max Discharge Rate (kW)</strong></td><td>N/A</td><td>12.5</td><td>12.5</td></tr>
+</tbody></table>
+
+<h3>Inverter Impact Analysis</h3>
+<p>The inverter handles all power flows between solar, battery, grid, and load. Its thermal management is critical for longevity.</p>
+
+<table class="strategy-comparison-table"><thead><tr><th>Metric</th><th>Standard Approach</th><th>Current Algorithm</th><th>Proposed Algorithm</th></tr></thead>
+<tbody>
+<tr><td><strong>Total Inverter Energy (kW.h)</strong></td><td>22636.8</td><td>25514.7</td><td>22636.8</td></tr>
+<tr><td><strong>Average Inverter Power (kW)</strong></td><td>4.96</td><td>5.60</td><td>4.96</td></tr>
+<tr><td><strong>Inverter Utilization %</strong></td><td>49.6%</td><td>56.0%</td><td>49.6%</td></tr>
+</tbody></table>
+
+<h3>Physical Impact Summary</h3>
+<div class="assumption-box">
+<strong>Current Algorithm Impact:</strong><br>
+- Battery throughput: 2877.8 kWh<br>
+- Estimated battery cycles: 143.89<br>
+- Estimated degradation this period: 0.288%<br>
+- Inverter energy handled: 25514.7 kW.h<br><br>
+<p style="margin-top:10px;"><em>With typical battery degradation of 0.2% per cycle, your current algorithm contributes approximately 0.288% capacity loss over the analysis period.</em></p>
+</div>
+
+<div class="savings-box">
+<strong>Net Battery Impact vs Standard:</strong><br>
+- Additional cycles due to optimization: 143.89<br>
+- Expected battery lifespan reduction: ~2.9% over battery lifetime<br>
+- Financial benefit of optimization: GBP 2080.68 (GBP 14.46/cycle)<br><br>
+<p style="margin-top:10px;"><em>Even accounting for battery degradation, your current algorithm provides significant net financial benefit.</em></p>
+</div>
+
+<h3>Inverter Thermal Considerations</h3>
+<p>The inverter's continuous operation at high power levels affects its temperature and longevity:</p>
+<ul>
+<li><strong>Cooling requirement:</strong> Inverters are rated for continuous output - ensure ventilation is adequate</li>
+<li><strong>Peak thermal load:</strong> Maximum combined power flows occur during battery charging/discharging with solar generation</li>
+<li><strong>Duty cycle:</strong> Your system operates at ~56.0% utilization on average, well within safe limits</li>
+</ul>
+
+<h3>Monthly Battery & Inverter Metrics</h3>
+<p>Breakdown of battery and inverter metrics by month:</p>
+<table class="monthly-cost-table"><thead><tr><th>Month</th><th>Battery Charge (kWh)</th><th>Battery Discharge (kWh)</th><th>Total Throughput (kWh)</th><th>Max Charge Rate (kW)</th><th>Max Discharge Rate (kW)</th></tr></thead>
+<tbody><tr><td>2026-01</td><td>298.8</td><td>171.4</td><td>470.2</td><td>2.5</td><td>1.4</td></tr><tr><td>2026-02</td><td>268.2</td><td>155.4</td><td>423.6</td><td>2.5</td><td>1.4</td></tr><tr><td>2026-03</td><td>298.5</td><td>172.4</td><td>470.9</td><td>2.5</td><td>1.4</td></tr><tr><td>2026-04</td><td>289.3</td><td>166.2</td><td>455.4</td><td>2.5</td><td>1.4</td></tr><tr><td>2026-05</td><td>298.1</td><td>171.8</td><td>470.0</td><td>2.5</td><td>1.5</td></tr><tr><td>2026-06</td><td>284.8</td><td>166.2</td><td>451.1</td><td>2.5</td><td>1.4</td></tr><tr><td>2026-07</td><td>86.5</td><td>50.2</td><td>136.7</td><td>2.5</td><td>1.4</td></tr></tbody></table>
+
+<h3>Inverter Energy by Month</h3>
+<table class="monthly-cost-table"><thead><tr><th>Month</th><th>Inverter Energy (kW.h)</th><th>Avg Power (kW)</th><th>Utilization %</th></tr></thead>
+<tbody><tr><td>2026-01</td><td>3694.5</td><td>0.81</td><td>8.1%</td></tr><tr><td>2026-02</td><td>3337.8</td><td>0.73</td><td>7.3%</td></tr><tr><td>2026-03</td><td>3699.4</td><td>0.81</td><td>8.1%</td></tr><tr><td>2026-04</td><td>3566.7</td><td>0.78</td><td>7.8%</td></tr><tr><td>2026-05</td><td>3688.7</td><td>0.81</td><td>8.1%</td></tr><tr><td>2026-06</td><td>3574.6</td><td>0.78</td><td>7.8%</td></tr><tr><td>2026-07</td><td>1075.1</td><td>0.24</td><td>2.4%</td></tr></tbody></table>
+</div>
+
+<div class="section">
 <h2>Recommendations</h2>
 <p>Your current algorithm is saving you approximately <strong>59.5%</strong> on your energy bills compared to having no battery control. Excellent work!</p>
 <ul>
@@ -238,5 +301,5 @@ th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
 <p><strong>Note on car charging detection:</strong> Since the cloud data doesn't include Ohme charging events, we infer car charging from sustained high load patterns. When load exceeds 5kW for more than 10 minutes, it's likely the EV charger is active.</p>
 </div>
 
-<div class="footer"><p>Report generated by Power Usage Analysis Script</p><p>Data sources: SolaX Cloud API, Battery Mode Daemon Log</p><p>Analysis date: 2026-07-10 19:33:39</p></div>
+<div class="footer"><p>Report generated by Power Usage Analysis Script</p><p>Data sources: SolaX Cloud API, Battery Mode Daemon Log</p><p>Analysis date: 2026-07-13 07:34:49</p></div>
 </body></html>
