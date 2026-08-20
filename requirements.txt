@@ -1,25 +1,52 @@
 # SolaX and Ohme Package Dependencies
-# Python 3.9+ required
+#
+# Requires Python 3.11+ (previously stated 3.9+, which was wrong): the code uses
+# `from datetime import UTC` (8 places) and `asyncio.timeout()` (3 places), both
+# added in 3.11. Neither is a syntax error on 3.9/3.10, so the code compiles
+# there and only fails later, at import or call time.
+#
+# Known-good stack. Production runs on a Raspberry Pi on Python 3.13.5 with the
+# versions in the "Pi:" comments below. A fresh install from the floors here
+# resolves considerably higher (ohme 1.9.1, pymodbus 3.15.0, aiohttp 3.14.3), so
+# for off-Pi testing that should predict production behaviour, pin to the Pi
+# column rather than taking whatever resolves on the day.
 
 # Configuration and data handling
-pyyaml>=6.0
-jsonschema>=4.0.0
+pyyaml>=6.0                # Pi: 6.0.3
+jsonschema>=4.0.0          # Pi: 4.26.0
 
 # SolaX Modbus communication
-pymodbus>=3.0.0
+# pymodbus changes its API across minor releases; _modbus_mode_controller.py
+# already falls back device_id -> slave -> unit to cope.
+pymodbus>=3.0.0            # Pi: 3.11.4
 
 # Ohme EV charger API
-ohme>=1.5.2
-aiohttp>=3.8.0
+# ohme_ev_client.py monkey-patches the private OhmeApiClient._make_request to
+# force the production endpoint, and relies on the private _session,
+# _close_session, _timeout and _token attributes. Intact as of ohme 1.9.1, but
+# it is the most likely thing to break on an upgrade and it is marked
+# `pragma: no cover`, so no test would catch it. Re-check whenever this moves.
+ohme>=1.5.2                # Pi: 1.6.0
+aiohttp>=3.8.0             # Pi: 3.13.3
 
 # HTTP client (for Cloud API comparison feature)
-requests>=2.28.0
+requests>=2.28.0           # Pi: 2.32.5
 
 # Utilities
-pytz>=2021.1
-tabulate>=0.9.0
+pytz>=2021.1               # Pi: 2025.2
+tabulate>=0.9.0            # Pi: 0.9.0
 
-# Analysis and reporting (for power_usage_analysis.py)
-pandas>=2.0.0
-numpy>=1.24.0
-jinja2>=3.1.0
+# ---------------------------------------------------------------------------
+# Removed 2026-08-18: pandas, numpy, jinja2
+#
+# They were listed as "Analysis and reporting (for power_usage_analysis.py)",
+# but nothing under src/ or scripts/ imports any of them — that script uses only
+# argparse, json, math, datetime, pathlib and yaml. They are not installed on the
+# Pi either. Declaring them pulled pandas 3.x and numpy 2.x (major-version jumps
+# above the declared floors) into every fresh install for no benefit, making
+# those installs slow and carrying the project's largest compatibility risk.
+#
+# Not listed, deliberately: hardware_debug_access. It is an optional dev-only
+# debug helper imported under try/except ImportError with stub fallbacks, from a
+# directory added to sys.path. It is not a PyPI package; its absence is normal.
+# ---------------------------------------------------------------------------
