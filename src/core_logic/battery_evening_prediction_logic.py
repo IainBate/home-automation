@@ -261,7 +261,7 @@ def compute_historical_soc_drift_samples(
     samples: list[SocDriftSample] = []
     for date_str, trigger_day_readings in readings_by_day.items():
         day_start = datetime.strptime(date_str, "%Y-%m-%d")
-        if day_start.month != month:
+        if _day_of_year_distance(day_start.timetuple().tm_yday, reference_day_of_year) > window_days:
             continue
 
         trigger_ts = day_start + timedelta(hours=trigger_hour)
