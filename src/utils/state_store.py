@@ -37,6 +37,22 @@ def read_json_state(path: str | Path) -> dict[str, Any]:
         return {}
 
 
+def write_json_atomic(path: str | Path, record: dict[str, Any]) -> None:
+    """Write a JSON file atomically (tmp file + rename), no locking.
+
+    For single-writer cache files (a cron-driven poller writing its own
+    dashboard cache, say) where nothing else ever writes the same path - no
+    concurrent-writer race to guard against, so this skips locked_json_state's
+    fcntl overhead. Reuse this instead of copy-pasting the same tmp+replace
+    pattern into every new poller script.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    tmp_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
 @contextlib.contextmanager
 def locked_json_state(
     path: str | Path, timeout: float = DEFAULT_LOCK_TIMEOUT_SECONDS
