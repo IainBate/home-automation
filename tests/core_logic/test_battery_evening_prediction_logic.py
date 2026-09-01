@@ -40,7 +40,9 @@ def test_same_day_horizon_produces_samples():
             ("2026-01-02 21:00:00", 60.0),
         ]
     )
-    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, month=1)
+    samples = compute_historical_soc_drift_samples(
+        records, trigger_hour=18, horizon_hours=3.0, reference_day_of_year=1
+    )
     assert len(samples) == 2
     assert all(sample.drift_percent == -20.0 for sample in samples)
 
@@ -57,32 +59,40 @@ def test_midnight_crossing_horizon_still_finds_the_next_day_reading():
             ("2026-01-03 01:00:00", 70.0),
         ]
     )
-    samples = compute_historical_soc_drift_samples(records, trigger_hour=22, horizon_hours=3.0, month=1)
+    samples = compute_historical_soc_drift_samples(
+        records, trigger_hour=22, horizon_hours=3.0, reference_day_of_year=1
+    )
     assert len(samples) == 2
     assert all(sample.drift_percent == -20.0 for sample in samples)
 
 
-def test_midnight_crossing_horizon_across_a_month_boundary_still_works():
-    """The sub-case that would still break even with a naive "check the next
-    day" fix that itself only searched within the already month-filtered set:
-    the horizon reading falls in a *different month* than the trigger day.
+def test_midnight_crossing_horizon_is_found_even_outside_the_trigger_days_window():
+    """The horizon reading lookup must not itself be window-filtered: even
+    with window_days=0 (only the exact reference day-of-year counts as a
+    valid trigger day), a horizon reading landing on the next calendar day -
+    a different, out-of-window day-of-year - must still be found. This is
+    the sliding-window equivalent of the old month-boundary case (trigger on
+    Jan 31, horizon reading on Feb 1).
     """
     records = _records(
         [
             ("2026-01-31 22:00:00", 90.0),
-            ("2026-02-01 01:00:00", 65.0),  # different month from the trigger day
+            ("2026-02-01 01:00:00", 65.0),  # different day-of-year, outside window_days=0
         ]
     )
-    samples = compute_historical_soc_drift_samples(records, trigger_hour=22, horizon_hours=3.0, month=1)
+    samples = compute_historical_soc_drift_samples(
+        records, trigger_hour=22, horizon_hours=3.0, reference_day_of_year=31, window_days=0
+    )
     assert len(samples) == 1
     assert samples[0].date == "2026-01-31"
     assert samples[0].drift_percent == -25.0
 
 
-def test_trigger_day_restricted_to_requested_month_but_horizon_day_is_not():
+def test_trigger_day_outside_window_is_excluded_even_though_its_data_can_serve_as_an_horizon_match():
     """A reading on Feb 1 must not itself be treated as a valid *trigger* day
-    when querying month=1, even though its data can serve as an horizon match
-    for a January 31 trigger (previous test).
+    when it falls outside window_days of the reference day-of-year, even
+    though (per the previous test) its data can serve as an horizon match
+    for a January 31 trigger.
     """
     records = _records(
         [
@@ -90,7 +100,9 @@ def test_trigger_day_restricted_to_requested_month_but_horizon_day_is_not():
             ("2026-02-02 01:00:00", 65.0),
         ]
     )
-    samples = compute_historical_soc_drift_samples(records, trigger_hour=22, horizon_hours=3.0, month=1)
+    samples = compute_historical_soc_drift_samples(
+        records, trigger_hour=22, horizon_hours=3.0, reference_day_of_year=31, window_days=0
+    )
     assert samples == []
 
 
