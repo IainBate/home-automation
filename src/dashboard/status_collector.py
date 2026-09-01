@@ -110,6 +110,7 @@ def collect_status(config: dict[str, Any], config_path: str | None = None) -> di
         "battery_forecast": _collect_battery_forecast(config),
         "claude_usage": _collect_claude_usage(config),
         "mg_saic": _collect_mg_saic(config),
+        "service_health": _collect_service_health(),
     }
 
 
