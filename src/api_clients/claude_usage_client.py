@@ -62,6 +62,37 @@ def _label(kind: str) -> str:
     return _KIND_LABELS.get(kind, kind.replace("_", " ").title())
 
 
+def _read_local_claude_code_access_token() -> str | None:
+    """Read this machine's own Claude Code OAuth access token, or None if unavailable.
+
+    macOS: the login Keychain entry (service "Claude Code-credentials") -
+    same one the "Claude Usage" menu bar app reads. Linux: Claude Code's own
+    ~/.claude/.credentials.json. Neither is written by this function - purely
+    a read of whatever Claude Code itself already keeps fresh through normal
+    use on this machine.
+    """
+    try:
+        if sys.platform == "darwin":
+            result = subprocess.run(  # noqa: S603  # Fixed argv, no shell, no user input
+                ["/usr/bin/security", "find-generic-password", "-s", CLAUDE_CODE_KEYCHAIN_SERVICE, "-w"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return None
+            payload = json.loads(result.stdout)
+        elif CLAUDE_CODE_LINUX_CREDENTIALS_PATH.exists():
+            payload = json.loads(CLAUDE_CODE_LINUX_CREDENTIALS_PATH.read_text(encoding="utf-8"))
+        else:
+            return None
+
+        return payload["claudeAiOauth"]["accessToken"]
+    except (OSError, json.JSONDecodeError, KeyError) as e:
+        logger.debug("Could not read local Claude Code credentials: %s", e)
+        return None
+
+
 def _parse_usage(payload: dict[str, Any]) -> dict[str, Any]:
     buckets = []
 
