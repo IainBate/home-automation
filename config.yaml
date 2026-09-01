@@ -305,29 +305,31 @@ resideo:
 # menu bar app and Claude Code itself show, via the same OAuth login token
 # (NOT an Anthropic API key - that measures a different, pay-per-token product).
 #
-# IMPORTANT trade-offs (see claude_usage_client.py's module docstring):
-#   - This copies your Claude Code login token onto this machine. Treat it
-#     like any other credential in secrets.yaml.
-#   - The token expires after ~8 hours and can only be refreshed by `claude`
-#     running on the machine that's actually logged in - copying it here does
-#     NOT keep it fresh. Re-run scripts/claude_usage_token_extract.py (on
-#     that machine) and update secrets.yaml whenever the dashboard shows
-#     "token expired".
-#   - The usage endpoint's rate limit is shared with your real Claude Code
-#     sessions - this is polled independently and slowly
-#     (scripts/claude_usage_poller.py via cron, NOT the dashboard's fast poll
-#     loop) specifically to avoid competing with your actual usage.
+# No manual token copying needed: scripts/claude_usage_poller.py reads
+# whichever machine it runs on's own Claude Code login directly (macOS
+# Keychain, or ~/.claude/.credentials.json on Linux) every time it polls -
+# see claude_usage_client.py's module docstring. This means `claude` needs
+# to be logged in and used at least occasionally on THAT machine (the one
+# running the cron job below) to stay fresh - typically the Pi itself, once
+# you've run `claude` there once to log in.
 #
-# Setup:
-#   1. On the machine where `claude` is logged in:
-#        python3 scripts/claude_usage_token_extract.py
-#   2. Paste the printed access_token into secrets.yaml's claude_usage section.
-#   3. Set enabled: true below.
-#   4. Add a cron entry (10+ minutes - do not go faster, see above):
-#        */10 * * * * cd /path/to/repo && python3 scripts/claude_usage_poller.py --quiet
+# access_token below is only a manual fallback for a machine that never runs
+# `claude` itself - see scripts/claude_usage_token_extract.py to populate it.
+#
+# IMPORTANT: the usage endpoint's rate limit is shared with your real Claude
+# Code sessions - this is polled independently and slowly
+# (scripts/claude_usage_poller.py via cron, NOT the dashboard's fast poll
+# loop) specifically to avoid competing with your actual usage. A prior
+# incident (documented in claude_usage_client.py) saw 45 minutes of
+# sustained failures for every client on the account from polling too fast -
+# do not go faster than the 10-minute cron cadence below.
+#
+# Setup: set enabled: true below, then add a cron entry on the machine that
+# runs `claude` (the Pi, typically):
+#   */10 * * * * cd /path/to/repo && python3 scripts/claude_usage_poller.py --quiet
 claude_usage:
   enabled: false
-  access_token: "your-claude-code-access-token"  # Placeholder - real value in secrets.yaml
+  access_token: "your-claude-code-access-token"  # Optional manual fallback - see comments above
 
 # =============================================================================
 # MG SAIC EV (src/api_clients/saic_client.py)
