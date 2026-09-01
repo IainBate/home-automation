@@ -14,10 +14,10 @@ Run via cron no more often than every 10 minutes:
 
     */10 * * * * cd /path/to/repo && python3 scripts/claude_usage_poller.py --quiet
 
-Requires claude_usage.access_token to be set (see config.yaml's claude_usage
-comments and scripts/claude_usage_token_extract.py) - that token expires
-after about 8 hours and needs periodically re-extracting on whichever
-machine actually runs `claude`.
+Requires `claude` to be logged in on THIS machine (the one this cron job
+runs on) - claude_usage_client.py reads that login directly, no separate
+token setup needed. See config.yaml's claude_usage comments for the
+config.yaml-based fallback if this machine never runs `claude` itself.
 
 Usage:
     python3 scripts/claude_usage_poller.py [--config config.yaml]
