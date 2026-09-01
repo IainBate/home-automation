@@ -165,7 +165,7 @@ def _compute_dashboard_checkpoints(
             historical_records=historical_records,
             trigger_hour=now_hour_float,
             horizon_hours=target_hour_float - now_hour_float,
-            month=now_local.month,
+            reference_day_of_year=now_local.timetuple().tm_yday,
             min_sample_days=min_sample_days,
         )
         checkpoints.append(
