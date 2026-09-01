@@ -161,6 +161,9 @@ def _collect_ev_charging(config: dict[str, Any], config_path: str) -> dict[str, 
     except (OhmeAuthenticationError, OhmeConnectionError) as e:
         logger.warning("Failed to fetch Ohme charger status: %s", e)
         return {"available": False, "error": str(e)}
+    except TimeoutError:
+        logger.warning("Ohme charger status fetch timed out after %ss", DASHBOARD_FETCH_TIMEOUT_SECONDS)
+        return {"available": False, "error": "Timed out reading Ohme charger"}
     except Exception:
         # Circuit Breaker: the field-extraction above must be covered too, not
         # just the network call - an unexpected field shape here must not
