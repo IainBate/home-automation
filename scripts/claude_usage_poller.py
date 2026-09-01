@@ -79,7 +79,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         return 1
 
     record = {"fetched_at": datetime.now(tz=UTC).isoformat(), **usage}
-    _write_usage(record)
+    write_json_atomic(get_claude_usage_path(), record)
 
     if not quiet:
         for bucket in usage["buckets"]:
