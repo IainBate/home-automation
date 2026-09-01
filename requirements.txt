@@ -17,8 +17,12 @@ jsonschema>=4.0.0          # Pi: 4.26.0
 
 # SolaX Modbus communication
 # pymodbus changes its API across minor releases; _modbus_mode_controller.py
-# already falls back device_id -> slave -> unit to cope.
-pymodbus>=3.0.0            # Pi: 3.11.4
+# already falls back device_id -> slave -> unit to cope, but that fallback
+# doesn't catch everything - a fresh install pulling 3.13.1 broke 11 tests
+# covering work-mode read/write (the hardware-safety-critical path) on
+# 2026-09-01. Pinned exactly rather than left as a floor so `pip install`
+# can't silently drift the live battery daemon onto an untested version.
+pymodbus==3.11.4           # Pi: 3.11.4, Pi-proven
 
 # Ohme EV charger API
 # ohme_ev_client.py monkey-patches the private OhmeApiClient._make_request to
