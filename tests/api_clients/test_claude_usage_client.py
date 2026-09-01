@@ -10,6 +10,7 @@ dashboard only ever reads a cached file, never calls this client directly.
 
 from __future__ import annotations
 
+import json
 from unittest import mock
 
 from src.api_clients import claude_usage_client
