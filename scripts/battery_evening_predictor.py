@@ -252,13 +252,13 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
     # plain local wall-clock strings (see solar_forecast_predictor.py's
     # now_local.strftime("%Y-%m-%d %H:00")), not timezone-aware - comparing
     # them against an aware datetime raises TypeError.
-    trigger_ts = now_local.replace(
-        hour=int(trigger_hour),
-        minute=round((trigger_hour % 1) * 60),
-        second=0,
-        microsecond=0,
-        tzinfo=None,
-    )
+    #
+    # Built via timedelta addition from midnight, not hour=int(trigger_hour),
+    # minute=round((trigger_hour % 1) * 60) - that rounds e.g. 20.995 to
+    # minute=60, which datetime.replace() rejects with ValueError (config.yaml's
+    # schema only bounds trigger_hour to [0, 24), not its fractional part).
+    midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+    trigger_ts = midnight + timedelta(hours=trigger_hour)
     horizon_ts = trigger_ts + timedelta(hours=horizon_hours)
     forecast_generation_kwh = _read_forecast_generation_kwh(config, trigger_ts, horizon_ts)
 
