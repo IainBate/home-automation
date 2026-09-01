@@ -15,27 +15,32 @@ polling stopped). This module's caller (scripts/claude_usage_poller.py) MUST
 run on a slow, cron-driven cadence (10+ minutes) - never call this from the
 dashboard's own fast per-subsystem poll loop.
 
-IMPORTANT - token lifetime: the access token expires after ~8 hours and is
-normally refreshed automatically by Claude Code itself running on the
-machine that owns the login. There is no refresh token available to a
-third-party reader of the keychain entry, so a token copied to a second
-machine (e.g. a Raspberry Pi that never runs `claude`) WILL go stale after
-about 8 hours and needs periodically re-extracting - see
-scripts/claude_usage_token_extract.py (macOS-only, run wherever `claude` is
-actually logged in).
+Token source, by design one machine only - no cross-machine sync: the access
+token expires after ~8 hours and is only refreshed by Claude Code itself
+running on the machine that owns the login. This reads that machine's own
+local credential store directly (macOS Keychain, or ~/.claude/.credentials.json
+on Linux) every poll, so it stays fresh automatically for as long as `claude`
+gets used at least occasionally on THAT machine - the same machine
+scripts/claude_usage_poller.py's cron job runs on (the Pi, typically).
+config.yaml's claude_usage.access_token is only a manual fallback for a
+machine that never runs `claude` itself.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import requests
 
-from src.utils.paths import get_claude_usage_token_state_path
-from src.utils.state_store import read_json_state
-
 logger = logging.getLogger(__name__)
+
+CLAUDE_CODE_KEYCHAIN_SERVICE = "Claude Code-credentials"
+CLAUDE_CODE_LINUX_CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
 
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 DEFAULT_TIMEOUT_SECONDS = 20
