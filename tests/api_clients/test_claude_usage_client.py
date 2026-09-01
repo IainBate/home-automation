@@ -27,8 +27,16 @@ def test_fetch_returns_none_when_disabled():
     assert claude_usage_client.fetch_claude_usage({"claude_usage": {"enabled": False}}) is None
 
 
-def test_fetch_returns_none_when_access_token_missing():
-    assert claude_usage_client.fetch_claude_usage({"claude_usage": {"enabled": True}}) is None
+def test_fetch_returns_none_when_access_token_missing(tmp_path):
+    """Regression test: must not depend on the ambient filesystem having no
+    config/claude_usage_token_state.json - scripts/claude_usage_token_sync.py
+    can leave a real one on disk (as it does on a deployed machine), which
+    would otherwise silently supply a token this test means to omit.
+    """
+    with mock.patch.object(
+        claude_usage_client, "get_claude_usage_token_state_path", lambda: str(tmp_path / "missing.json")
+    ):
+        assert claude_usage_client.fetch_claude_usage({"claude_usage": {"enabled": True}}) is None
 
 
 def test_fetch_parses_limits_list():
