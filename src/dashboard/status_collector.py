@@ -400,15 +400,20 @@ def _collect_service_health() -> dict[str, Any]:
                 "available": False,
                 "error": "systemctl not found - expected off the Pi (e.g. Mac development)",
             }
-        return {"available": True, "services": [_check_one_service(s) for s in SERVICE_HEALTH_CHECKS]}
+        units = [s["unit"] for s in SERVICE_HEALTH_CHECKS]
+        states = _systemctl_show_batch(units)
+        return {
+            "available": True,
+            "services": [_check_one_service(s, states[s["unit"]]) for s in SERVICE_HEALTH_CHECKS],
+        }
     except Exception:
         # Circuit Breaker: see the matching comment in _collect_ev_charging.
         logger.exception("Unexpected error checking service health")
         return {"available": False, "error": "Unexpected error checking service health"}
 
 
-def _check_one_service(service: dict[str, str]) -> dict[str, Any]:
-    load_state, active_state = _systemctl_show(service["unit"])
+def _check_one_service(service: dict[str, str], state: tuple[str | None, str | None]) -> dict[str, Any]:
+    load_state, active_state = state
     installed = load_state == "loaded"
     return {
         "key": service["key"],
@@ -420,29 +425,44 @@ def _check_one_service(service: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def _systemctl_show(unit: str) -> tuple[str | None, str | None]:
-    """Return (LoadState, ActiveState) for a systemd unit, or (None, None) on any failure.
+def _systemctl_show_batch(units: list[str]) -> dict[str, tuple[str | None, str | None]]:
+    """Return {unit: (LoadState, ActiveState)} for every unit, in a single systemctl call.
 
-    LoadState is "loaded" only when a unit file was actually found - a unit
-    that was never installed (the hot water daemon, currently) reports
-    "not-found" here rather than "inactive", which is what lets
-    _check_one_service() tell "not deployed" apart from "deployed but down".
+    One batched call rather than one per unit: on a slow/contended systemd
+    (heavy load, a dpkg lock), each separate call could hit
+    SYSTEMCTL_TIMEOUT_SECONDS independently, serially blocking the poller
+    thread for up to len(units) * SYSTEMCTL_TIMEOUT_SECONDS; batched, the
+    worst case is a single timeout.
+
+    Parses `Property=Value` lines (rather than `--value`'s bare values) so a
+    unit's properties are matched by name, not by trusting the properties
+    come back in the same order they were requested - LoadState is "loaded"
+    only when a unit file was actually found, which is what lets
+    _check_one_service() tell "not deployed" (the hot water daemon,
+    currently) apart from "deployed but down".
     """
     try:
         result = subprocess.run(
-            ["systemctl", "show", unit, "--no-page", "-p", "LoadState", "-p", "ActiveState", "--value"],
+            ["systemctl", "show", *units, "--no-page", "-p", "LoadState", "-p", "ActiveState"],
             capture_output=True,
             text=True,
             timeout=SYSTEMCTL_TIMEOUT_SECONDS,
             check=False,
         )
     except (subprocess.TimeoutExpired, OSError):
-        logger.warning("systemctl show %s failed or timed out", unit)
-        return None, None
-    lines = result.stdout.strip().splitlines()
-    if len(lines) < 2:
-        return None, None
-    return lines[0].strip(), lines[1].strip()
+        logger.warning("systemctl show failed or timed out for units: %s", units)
+        return dict.fromkeys(units, (None, None))
+
+    # systemctl separates each unit's property block with a blank line, in
+    # the same order the units were passed on the command line.
+    blocks = result.stdout.strip("\n").split("\n\n")
+    states: dict[str, tuple[str | None, str | None]] = {}
+    for unit, block in zip(units, blocks, strict=False):
+        props = dict(line.split("=", 1) for line in block.splitlines() if "=" in line)
+        states[unit] = (props.get("LoadState"), props.get("ActiveState"))
+    for unit in units:
+        states.setdefault(unit, (None, None))
+    return states
 
 
 def _log_file_age_seconds(log_filename: str) -> float | None:
