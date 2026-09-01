@@ -134,7 +134,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         "current_weather": current_weather,
         "hourly_kw": hourly,
     }
-    _write_forecast(record)
+    write_json_atomic(get_solar_forecast_path(), record)
 
     summary = f"Solar forecast: today {record['today_kwh']} kWh, tomorrow {record['tomorrow_kwh']} kWh"
     logger.info(summary)
