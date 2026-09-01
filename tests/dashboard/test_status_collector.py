@@ -332,16 +332,15 @@ def test_collect_service_health_distinguishes_running_stopped_and_not_installed(
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "battery_mode_daemon.log").write_text("x", encoding="utf-8")
 
-    def fake_show(unit):
-        if unit == "home_automation.service":
-            return "loaded", "active"
-        if unit == "home_automation_dashboard.service":
-            return "loaded", "failed"
-        return "not-found", "inactive"
+    fake_states = {
+        "home_automation.service": ("loaded", "active"),
+        "home_automation_dashboard.service": ("loaded", "failed"),
+        "home_automation_hotwater.service": ("not-found", "inactive"),
+    }
 
     with (
         mock.patch.object(status_collector.shutil, "which", return_value="/usr/bin/systemctl"),
-        mock.patch.object(status_collector, "_systemctl_show", side_effect=fake_show),
+        mock.patch.object(status_collector, "_systemctl_show_batch", return_value=fake_states),
         mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)),
     ):
         result = status_collector._collect_service_health()
