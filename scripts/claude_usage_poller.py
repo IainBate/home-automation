@@ -57,15 +57,6 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _write_usage(record: dict[str, Any]) -> None:
-    """Write the usage status file atomically (same pattern as other prediction files)."""
-    path = Path(get_claude_usage_path())
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
-    tmp_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
-    os.replace(tmp_path, path)
-
-
 def run(config: dict[str, Any], *, quiet: bool) -> int:
     """Fetch and cache Claude usage. Returns 0 on success, 1 if disabled/unavailable.
 
