@@ -414,12 +414,10 @@ api_settings:
 # =============================================================================
 location:
   default_timezone_str: "Europe/London"    # Timezone for display conversions
-  city_name: "London"                      # City name (informational)
+  city_name: "York"                        # City name (informational)
   country_name: "United Kingdom"           # Country name (informational)
-  latitude: 0.0                            # REQUIRED for solar_forecast below - set to your
-                                            # home's exact coordinates (e.g. Google Maps "What's
-                                            # here?"). Left at 0.0, solar forecasting stays disabled.
-  longitude: 0.0                           # See latitude above.
+  latitude: 53.8804244                     # Escrick, York (geocoded from the home address)
+  longitude: -1.0435382
 
 # =============================================================================
 # SYSTEM SETTINGS (Stub values - not used for basic Modbus operations)
