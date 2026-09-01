@@ -352,8 +352,8 @@ claude_usage:
 # set enabled: true, and add a cron entry:
 #   0 * * * * cd /path/to/repo && python3 scripts/mg_saic_poller.py --quiet
 mg_saic:
-  enabled: false
-  username: "your-mg-ismart-email@example.com"  # Placeholder - real value in secrets.yaml
+  enabled: true
+  username: "iain.bate@gmail.com"
   password: "your-mg-ismart-password"            # Placeholder - real value in secrets.yaml
   username_is_email: true
   region: "eu"                                   # "eu", "au", or "tr" - UK accounts use "eu"
