@@ -106,6 +106,25 @@ def test_collect_ev_charging_maps_fields():
     assert result["current_vehicle"] == "Test Car"
 
 
+def test_collect_ev_charging_survives_an_unexpected_field_shape():
+    """Regression test: field-extraction (status["status"].value etc.) must be
+    inside the same try/except as the network call - an AttributeError here
+    must mark only this subsystem unavailable, not propagate out of
+    collect_status() and blank every OTHER subsystem's cached data (see
+    poller.py's _poll_once(), whose only outer try/except discards the whole
+    snapshot on any uncaught exception).
+    """
+
+    class _FakeOhmeClientWithBadStatus(_FakeOhmeClient):
+        async def get_charger_status(self, *, use_cache=False):  # noqa: ARG002
+            return {"status": "charging", "mode": "smart_charge"}  # plain str, no .value
+
+    with mock.patch.object(status_collector, "OhmeEVClient", _FakeOhmeClientWithBadStatus):
+        result = status_collector._collect_ev_charging({"ohme_ev": {"enabled": True}}, "config.yaml")
+
+    assert result["available"] is False
+
+
 def test_collect_ev_charging_passes_explicit_config_path_to_client():
     """Regression test: must not rely on OhmeEVClient's cwd-relative default -
     see status_collector.collect_status()'s config_path docstring.
