@@ -136,7 +136,14 @@ def _fahrenheit_to_celsius(fahrenheit: float | None) -> float | None:
 
 def _parse_device(device: dict[str, Any]) -> dict[str, Any]:
     changeable = device.get("changeableValues") or {}
-    units = device.get("units", "Fahrenheit")
+    units = device.get("units")
+    if units is None:
+        # Fahrenheit is this API's documented convention, but the schema was
+        # never verified against a live account (see module docstring) - log
+        # so a wrong-looking temperature on the dashboard has a diagnostic
+        # trail rather than silently guessing with no trace of the guess.
+        logger.warning("Resideo device response has no 'units' field - assuming Fahrenheit")
+        units = "Fahrenheit"
 
     indoor_temperature = device.get("indoorTemperature")
     heat_setpoint = changeable.get("heatSetpoint")
