@@ -328,7 +328,7 @@ resideo:
 # runs `claude` (the Pi, typically):
 #   */10 * * * * cd /path/to/repo && python3 scripts/claude_usage_poller.py --quiet
 claude_usage:
-  enabled: false
+  enabled: true
   access_token: "your-claude-code-access-token"  # Optional manual fallback - see comments above
 
 # =============================================================================
