@@ -220,7 +220,7 @@ function progressRing(percent, color, size = 72) {
 }
 
 function solarCard(d) {
-  if (!d.available) return unavailableCard("Solar &amp; Battery", d.error);
+  if (!d.available) return unavailableCard("Solar &amp; Battery", d.error, d.disabled);
   const gridLabel = (d.grid_power_w ?? 0) >= 0 ? "Exporting" : "Importing";
   const socAvg = [d.soc_percent_master, d.soc_percent_slave].filter(v => v !== null && v !== undefined);
   const soc = socAvg.length ? socAvg.reduce((a, b) => a + b, 0) / socAvg.length : null;
@@ -241,7 +241,7 @@ function solarCard(d) {
 }
 
 function evCard(d) {
-  if (!d.available) return unavailableCard("EV Charging", d.error);
+  if (!d.available) return unavailableCard("EV Charging", d.error, d.disabled);
   const statusClass = d.status === "charging" ? "good" : d.status === "plugged_in" ? "warn" : "";
   const body = `
     <div class="row"><span class="label">Status</span><span class="value"><span class="badge ${statusClass}">${escapeHtml(titleCase(d.status))}</span></span></div>
@@ -255,7 +255,7 @@ function evCard(d) {
 }
 
 function hotWaterCard(d) {
-  if (!d.available) return unavailableCard("Hot Water", d.error);
+  if (!d.available) return unavailableCard("Hot Water", d.error, d.disabled);
   const body = `
     <div class="row"><span class="label">Tank temperature</span><span class="value">${fmtTemp(d.tank_temperature_c)}</span></div>
     <div class="row"><span class="label">Target</span><span class="value">${fmtTemp(d.target_tank_temperature_c)}</span></div>
@@ -273,13 +273,13 @@ function hotWaterCard(d) {
 }
 
 function airstageCard(d) {
-  if (!d.available) return unavailableCard("Air Conditioning", d.error);
+  if (!d.available) return unavailableCard("Air Conditioning", d.error, d.disabled);
   return d.zones.map(airstageZoneCard).join("");
 }
 
 function airstageZoneCard(zone) {
   const title = `Air Conditioning - ${escapeHtml(zone.name)}`;
-  if (!zone.available) return unavailableCard(title, zone.error);
+  if (!zone.available) return unavailableCard(title, zone.error, zone.disabled);
 
   const modeClass = zone.mode === "OFF" ? "" : "good";
   const body = `
@@ -294,7 +294,7 @@ function airstageZoneCard(zone) {
 }
 
 function resideoCard(d) {
-  if (!d.available) return unavailableCard("Thermostat", d.error);
+  if (!d.available) return unavailableCard("Thermostat", d.error, d.disabled);
   const body = `
     <div class="row"><span class="label">Mode</span><span class="value"><span class="badge">${escapeHtml(titleCase(d.mode))}</span></span></div>
     <div class="row"><span class="label">Current</span><span class="value">${fmtTemp(d.current_temperature_c)}</span></div>
@@ -306,7 +306,7 @@ function resideoCard(d) {
 }
 
 function solarForecastCard(d) {
-  if (!d.available) return unavailableCard("Solar Forecast", d.error);
+  if (!d.available) return unavailableCard("Solar Forecast", d.error, d.disabled);
   const w = d.current_weather;
   const body = `
     <div class="row"><span class="label">Today</span><span class="value">${d.today_kwh !== null && d.today_kwh !== undefined ? d.today_kwh.toFixed(1) + " kWh" : "&mdash;"}</span></div>
@@ -320,7 +320,7 @@ function solarForecastCard(d) {
 }
 
 function batteryForecastCard(d) {
-  if (!d.available) return unavailableCard("Battery Forecast", d.error);
+  if (!d.available) return unavailableCard("Battery Forecast", d.error, d.disabled);
   if (!d.checkpoints || !d.checkpoints.length) {
     return card("Battery Forecast", `<div class="row"><span class="label">No remaining checkpoints for today</span></div>`, "");
   }
@@ -331,7 +331,7 @@ function batteryForecastCard(d) {
 }
 
 function mgSaicCard(d) {
-  if (!d.available) return unavailableCard("Car (MG)", d.error);
+  if (!d.available) return unavailableCard("Car (MG)", d.error, d.disabled);
   const title = "Car" + (d.vehicle_name ? " - " + escapeHtml(d.vehicle_name) : "");
   const body = `
     <div class="row"><span class="label">Battery</span><span class="value">${fmtPct(d.battery_percent)}</span></div>
@@ -343,7 +343,7 @@ function mgSaicCard(d) {
 }
 
 function claudeUsageCard(d) {
-  if (!d.available) return unavailableCard("Claude Usage", d.error);
+  if (!d.available) return unavailableCard("Claude Usage", d.error, d.disabled);
   const session = d.buckets.find(b => b.kind === "session");
   const others = d.buckets.filter(b => b.kind !== "session");
 
