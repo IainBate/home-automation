@@ -183,16 +183,25 @@ def compute_historical_soc_drift_samples(
     historical_records: list[dict],
     trigger_hour: float,
     horizon_hours: float,
-    month: int,
+    reference_day_of_year: int,
     tolerance_minutes: float = DEFAULT_MATCH_TOLERANCE_MINUTES,
+    window_days: int = DEFAULT_WINDOW_DAYS,
 ) -> list[SocDriftSample]:
-    """Build one SoC drift sample per historical day in the given month.
+    """Build one SoC drift sample per historical day near the given day of year.
 
     Each sample compares the SoC reading closest to `trigger_hour` against
     the one closest to `trigger_hour + horizon_hours` on the same calendar
-    day. Restricting to days in `month` is a cheap stand-in for
-    season/day-length rather than proper weather-aware modelling, which isn't
-    worth the added complexity here.
+    day. Restricting to days within `window_days` of `reference_day_of_year`
+    is a cheap stand-in for season/day-length rather than proper
+    weather-aware modelling, which isn't worth the added complexity here.
+
+    A sliding day-of-year window rather than a hard calendar-month bucket
+    deliberately avoids a real problem the latter had: the first few days of
+    a month had zero same-month history to match against (even though the
+    tail end of the previous month is a nearly identical day-length/season),
+    only for it to work again on the 6th of the month. The window wraps
+    across the New Year's boundary too (e.g. late December matches early
+    January).
 
     Args:
         historical_records: Records shaped like solax_historical_data.json's
@@ -206,9 +215,12 @@ def compute_historical_soc_drift_samples(
             the hour (scripts/battery_evening_predictor.py's dashboard
             checkpoints do this).
         horizon_hours: Hours after trigger_hour for the "after" reading.
-        month: Calendar month (1-12) to restrict trigger days to.
+        reference_day_of_year: Day of year (1-366, e.g. from
+            `datetime.timetuple().tm_yday`) trigger days are matched against.
         tolerance_minutes: Max distance (minutes) a reading may be from its
             target time and still count as a match.
+        window_days: How many days either side of reference_day_of_year
+            count as a match.
 
     Returns:
         One SocDriftSample per historical day that had usable readings near
