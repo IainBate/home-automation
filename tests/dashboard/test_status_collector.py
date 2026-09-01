@@ -363,12 +363,30 @@ def test_collect_service_health_distinguishes_running_stopped_and_not_installed(
     assert by_key["hot_water_daemon"]["log_age_seconds"] is None
 
 
-def test_systemctl_show_returns_none_pair_on_subprocess_failure():
-    with mock.patch.object(status_collector.subprocess, "run", side_effect=OSError("systemctl not found")):
-        load_state, active_state = status_collector._systemctl_show("home_automation.service")
+def test_systemctl_show_batch_returns_none_pairs_on_subprocess_failure():
+    units = ["home_automation.service", "home_automation_dashboard.service"]
 
-    assert load_state is None
-    assert active_state is None
+    with mock.patch.object(status_collector.subprocess, "run", side_effect=OSError("systemctl not found")):
+        states = status_collector._systemctl_show_batch(units)
+
+    assert states == {unit: (None, None) for unit in units}
+
+
+def test_systemctl_show_batch_parses_multi_unit_output_by_property_name():
+    """Real `systemctl show unit1 unit2 ... -p LoadState -p ActiveState` output:
+    one Property=Value block per unit, separated by a blank line, in the
+    order units were requested - not `--value`'s bare, order-dependent values.
+    """
+    units = ["home_automation.service", "home_automation_hotwater.service"]
+    fake_result = mock.Mock(stdout="LoadState=loaded\nActiveState=active\n\nLoadState=not-found\nActiveState=inactive\n")
+
+    with mock.patch.object(status_collector.subprocess, "run", return_value=fake_result):
+        states = status_collector._systemctl_show_batch(units)
+
+    assert states == {
+        "home_automation.service": ("loaded", "active"),
+        "home_automation_hotwater.service": ("not-found", "inactive"),
+    }
 
 
 def test_collect_service_health_survives_an_unexpected_error():
