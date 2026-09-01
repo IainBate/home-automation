@@ -38,8 +38,17 @@ from datetime import datetime, timedelta
 
 DEFAULT_MATCH_TOLERANCE_MINUTES = 15.0
 DEFAULT_MIN_SAMPLE_DAYS = 5
+DEFAULT_WINDOW_DAYS = 15
 
 _TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+_DAYS_IN_YEAR = 365  # Fine as a circular-distance constant - a leap day's off-by-one doesn't
+# matter against a +-15 day window
+
+
+def _day_of_year_distance(a: int, b: int) -> int:
+    """Circular distance (days) between two day-of-year values, wrapping across New Year's."""
+    diff = abs(a - b)
+    return min(diff, _DAYS_IN_YEAR - diff)
 
 
 @dataclass
