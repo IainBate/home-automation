@@ -6,11 +6,16 @@ dashboard's own fast poll loop - see that script's and this module's
 docstrings. Nothing here tests cadence (that's cron config, not code), but
 test_collect_claude_usage_* in test_status_collector.py confirms the
 dashboard only ever reads a cached file, never calls this client directly.
+
+Isolation note: _read_local_claude_code_access_token() reads THIS machine's
+real Keychain/credentials file when not mocked - every test below that
+exercises fetch_claude_usage() mocks it explicitly (usually to None), so
+these tests give the same result whether or not the machine running them
+happens to have `claude` logged in.
 """
 
 from __future__ import annotations
 
-import json
 from unittest import mock
 
 from src.api_clients import claude_usage_client
@@ -23,19 +28,16 @@ def _fake_response(status_code=200, json_payload=None):
     return response
 
 
+def _no_local_token():
+    return mock.patch.object(claude_usage_client, "_read_local_claude_code_access_token", return_value=None)
+
+
 def test_fetch_returns_none_when_disabled():
     assert claude_usage_client.fetch_claude_usage({"claude_usage": {"enabled": False}}) is None
 
 
-def test_fetch_returns_none_when_access_token_missing(tmp_path):
-    """Regression test: must not depend on the ambient filesystem having no
-    config/claude_usage_token_state.json - scripts/claude_usage_token_sync.py
-    can leave a real one on disk (as it does on a deployed machine), which
-    would otherwise silently supply a token this test means to omit.
-    """
-    with mock.patch.object(
-        claude_usage_client, "get_claude_usage_token_state_path", lambda: str(tmp_path / "missing.json")
-    ):
+def test_fetch_returns_none_when_no_token_available_anywhere():
+    with _no_local_token():
         assert claude_usage_client.fetch_claude_usage({"claude_usage": {"enabled": True}}) is None
 
 
@@ -47,7 +49,9 @@ def test_fetch_parses_limits_list():
         ]
     }
     config = {"claude_usage": {"enabled": True, "access_token": "tok"}}
-    with mock.patch.object(claude_usage_client.requests, "get", return_value=_fake_response(json_payload=payload)):
+    with _no_local_token(), mock.patch.object(
+        claude_usage_client.requests, "get", return_value=_fake_response(json_payload=payload)
+    ):
         result = claude_usage_client.fetch_claude_usage(config)
 
     assert result["buckets"][0] == {
@@ -64,7 +68,9 @@ def test_fetch_parses_limits_list():
 def test_fetch_falls_back_to_named_blocks_when_limits_absent():
     payload = {"five_hour": {"utilization": 30, "resets_at": "2026-09-01T15:00:00Z"}}
     config = {"claude_usage": {"enabled": True, "access_token": "tok"}}
-    with mock.patch.object(claude_usage_client.requests, "get", return_value=_fake_response(json_payload=payload)):
+    with _no_local_token(), mock.patch.object(
+        claude_usage_client.requests, "get", return_value=_fake_response(json_payload=payload)
+    ):
         result = claude_usage_client.fetch_claude_usage(config)
 
     assert result["buckets"] == [
@@ -75,7 +81,9 @@ def test_fetch_falls_back_to_named_blocks_when_limits_absent():
 def test_fetch_includes_extra_usage_only_when_enabled():
     payload = {"limits": [], "extra_usage": {"is_enabled": True, "utilization": 12}}
     config = {"claude_usage": {"enabled": True, "access_token": "tok"}}
-    with mock.patch.object(claude_usage_client.requests, "get", return_value=_fake_response(json_payload=payload)):
+    with _no_local_token(), mock.patch.object(
+        claude_usage_client.requests, "get", return_value=_fake_response(json_payload=payload)
+    ):
         result = claude_usage_client.fetch_claude_usage(config)
 
     assert result["extra_usage_percent"] == 12
@@ -83,7 +91,9 @@ def test_fetch_includes_extra_usage_only_when_enabled():
 
 def test_fetch_returns_none_on_unauthorized():
     config = {"claude_usage": {"enabled": True, "access_token": "expired-tok"}}
-    with mock.patch.object(claude_usage_client.requests, "get", return_value=_fake_response(status_code=401)):
+    with _no_local_token(), mock.patch.object(
+        claude_usage_client.requests, "get", return_value=_fake_response(status_code=401)
+    ):
         result = claude_usage_client.fetch_claude_usage(config)
 
     assert result is None
@@ -91,7 +101,9 @@ def test_fetch_returns_none_on_unauthorized():
 
 def test_fetch_returns_none_on_rate_limit():
     config = {"claude_usage": {"enabled": True, "access_token": "tok"}}
-    with mock.patch.object(claude_usage_client.requests, "get", return_value=_fake_response(status_code=429)):
+    with _no_local_token(), mock.patch.object(
+        claude_usage_client.requests, "get", return_value=_fake_response(status_code=429)
+    ):
         result = claude_usage_client.fetch_claude_usage(config)
 
     assert result is None
@@ -99,43 +111,96 @@ def test_fetch_returns_none_on_rate_limit():
 
 def test_fetch_returns_none_on_network_error():
     config = {"claude_usage": {"enabled": True, "access_token": "tok"}}
-    with mock.patch.object(
-        claude_usage_client.requests, "get", side_effect=claude_usage_client.requests.ConnectionError("boom")
+    with (
+        _no_local_token(),
+        mock.patch.object(
+            claude_usage_client.requests, "get", side_effect=claude_usage_client.requests.ConnectionError("boom")
+        ),
     ):
         result = claude_usage_client.fetch_claude_usage(config)
 
     assert result is None
 
 
-def test_fetch_prefers_synced_token_state_over_bootstrap_config_value(tmp_path):
-    """scripts/claude_usage_token_sync.py keeps this file fresher than the
-    static secrets.yaml bootstrap value - same precedence as resideo_client.py.
-    """
-    state_path = tmp_path / "claude_usage_token_state.json"
-    state_path.write_text(json.dumps({"access_token": "synced-token"}), encoding="utf-8")
-
-    config = {"claude_usage": {"enabled": True, "access_token": "bootstrap-token"}}
+def test_fetch_prefers_local_machine_token_over_config_fallback():
+    config = {"claude_usage": {"enabled": True, "access_token": "config-fallback-token"}}
 
     with (
-        mock.patch.object(claude_usage_client, "get_claude_usage_token_state_path", lambda: str(state_path)),
+        mock.patch.object(claude_usage_client, "_read_local_claude_code_access_token", return_value="local-token"),
         mock.patch.object(claude_usage_client.requests, "get") as fake_get,
     ):
         fake_get.return_value = _fake_response(json_payload={"limits": []})
         claude_usage_client.fetch_claude_usage(config)
 
-    assert fake_get.call_args.kwargs["headers"]["Authorization"] == "Bearer synced-token"
+    assert fake_get.call_args.kwargs["headers"]["Authorization"] == "Bearer local-token"
 
 
-def test_fetch_falls_back_to_bootstrap_token_when_no_synced_state(tmp_path):
-    config = {"claude_usage": {"enabled": True, "access_token": "bootstrap-token"}}
+def test_fetch_falls_back_to_config_token_when_no_local_login():
+    config = {"claude_usage": {"enabled": True, "access_token": "config-fallback-token"}}
 
+    with _no_local_token(), mock.patch.object(claude_usage_client.requests, "get") as fake_get:
+        fake_get.return_value = _fake_response(json_payload={"limits": []})
+        claude_usage_client.fetch_claude_usage(config)
+
+    assert fake_get.call_args.kwargs["headers"]["Authorization"] == "Bearer config-fallback-token"
+
+
+# --- _read_local_claude_code_access_token -----------------------------------
+
+
+def _fake_security_result(*, returncode=0, stdout=""):
+    result = mock.Mock()
+    result.returncode = returncode
+    result.stdout = stdout
+    return result
+
+
+def test_read_local_token_macos_reads_keychain():
+    payload = '{"claudeAiOauth": {"accessToken": "keychain-token"}}'
     with (
+        mock.patch.object(claude_usage_client.sys, "platform", "darwin"),
         mock.patch.object(
-            claude_usage_client, "get_claude_usage_token_state_path", lambda: str(tmp_path / "missing.json")
+            claude_usage_client.subprocess, "run", return_value=_fake_security_result(stdout=payload)
         ),
-        mock.patch.object(claude_usage_client.requests, "get") as fake_get,
     ):
-        fake_get.return_value = _fake_response(json_payload={"limits": []})
-        claude_usage_client.fetch_claude_usage(config)
+        assert claude_usage_client._read_local_claude_code_access_token() == "keychain-token"
 
-    assert fake_get.call_args.kwargs["headers"]["Authorization"] == "Bearer bootstrap-token"
+
+def test_read_local_token_macos_returns_none_when_keychain_entry_missing():
+    with (
+        mock.patch.object(claude_usage_client.sys, "platform", "darwin"),
+        mock.patch.object(claude_usage_client.subprocess, "run", return_value=_fake_security_result(returncode=44)),
+    ):
+        assert claude_usage_client._read_local_claude_code_access_token() is None
+
+
+def test_read_local_token_linux_reads_credentials_file(tmp_path):
+    creds_path = tmp_path / ".credentials.json"
+    creds_path.write_text('{"claudeAiOauth": {"accessToken": "linux-token"}}', encoding="utf-8")
+
+    with (
+        mock.patch.object(claude_usage_client.sys, "platform", "linux"),
+        mock.patch.object(claude_usage_client, "CLAUDE_CODE_LINUX_CREDENTIALS_PATH", creds_path),
+    ):
+        assert claude_usage_client._read_local_claude_code_access_token() == "linux-token"
+
+
+def test_read_local_token_linux_returns_none_when_file_missing(tmp_path):
+    with (
+        mock.patch.object(claude_usage_client.sys, "platform", "linux"),
+        mock.patch.object(
+            claude_usage_client, "CLAUDE_CODE_LINUX_CREDENTIALS_PATH", tmp_path / "missing.json"
+        ),
+    ):
+        assert claude_usage_client._read_local_claude_code_access_token() is None
+
+
+def test_read_local_token_returns_none_on_malformed_json(tmp_path):
+    creds_path = tmp_path / ".credentials.json"
+    creds_path.write_text("not valid json", encoding="utf-8")
+
+    with (
+        mock.patch.object(claude_usage_client.sys, "platform", "linux"),
+        mock.patch.object(claude_usage_client, "CLAUDE_CODE_LINUX_CREDENTIALS_PATH", creds_path),
+    ):
+        assert claude_usage_client._read_local_claude_code_access_token() is None
