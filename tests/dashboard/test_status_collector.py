@@ -215,6 +215,7 @@ def test_collect_resideo_disabled():
     result = status_collector._collect_resideo({"resideo": {"enabled": False}})
 
     assert result["available"] is False
+    assert result["disabled"] is True
 
 
 def test_collect_resideo_maps_fields():
