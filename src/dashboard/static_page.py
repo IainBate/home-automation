@@ -158,6 +158,13 @@ function fmtPct(p) {
   if (p === null || p === undefined) return "&mdash;";
   return `${Math.round(p)}%`;
 }
+function fmtAge(seconds) {
+  if (seconds === null || seconds === undefined) return "&mdash;";
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+  return `${Math.round(seconds / 86400)}d ago`;
+}
 function titleCase(s) {
   if (!s) return "Unknown";
   return s.replace(/_/g, " ").replace(/\\w\\S*/g, t => t[0].toUpperCase() + t.slice(1).toLowerCase());
