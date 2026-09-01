@@ -121,16 +121,13 @@ def fetch_claude_usage(config: dict[str, Any]) -> dict[str, Any] | None:
     if not usage_config.get("enabled", False):
         return None
 
-    # The token state file holds whichever access token scripts/
-    # claude_usage_token_sync.py last pushed, since it's kept fresher than
-    # the bootstrap value in secrets.yaml - same pattern as resideo_client.py's
-    # token rotation handling.
-    token_state = read_json_state(get_claude_usage_token_state_path())
-    access_token = token_state.get("access_token") or usage_config.get("access_token")
+    # Prefer this machine's own Claude Code login over the static config
+    # fallback - see module docstring for why there's no cross-machine sync.
+    access_token = _read_local_claude_code_access_token() or usage_config.get("access_token")
     if not access_token:
         logger.error(
-            "claude_usage.access_token is not set - see config.yaml's claude_usage "
-            "comments and scripts/claude_usage_token_extract.py"
+            "claude_usage.access_token is not set and no local Claude Code login was found - "
+            "see config.yaml's claude_usage comments"
         )
         return None
 
