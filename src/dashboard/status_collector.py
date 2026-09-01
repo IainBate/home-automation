@@ -59,6 +59,25 @@ logger = logging.getLogger(__name__)
 # could delay refreshing every OTHER subsystem's cached data for minutes.
 DASHBOARD_FETCH_TIMEOUT_SECONDS = 20
 
+# Bounds how long a single `systemctl show` call may block the poller thread.
+SYSTEMCTL_TIMEOUT_SECONDS = 5
+
+# The daemons this dashboard reports on. Read-only: this only ever calls
+# `systemctl show` (never start/stop/restart), so it observes the battery and
+# hot water automation without altering either - see this module's docstring
+# and CLAUDE.md's "must not alter" constraint. `unit` names match the actual
+# unit files under scripts/ (home_automation.service,
+# home_automation_dashboard.service) and docs/PI4_DEPLOYMENT.md's planned
+# name for the not-yet-deployed hot water daemon
+# (home_automation_hotwater.service) - if that unit isn't installed yet,
+# _check_one_service() reports "installed": False rather than a false
+# "stopped".
+SERVICE_HEALTH_CHECKS = [
+    {"key": "battery_daemon", "label": "Battery Daemon", "unit": "home_automation.service", "log_filename": "battery_mode_daemon.log"},
+    {"key": "hot_water_daemon", "label": "Hot Water Daemon", "unit": "home_automation_hotwater.service", "log_filename": "hotwater_mode_daemon.log"},
+    {"key": "dashboard", "label": "Dashboard", "unit": "home_automation_dashboard.service", "log_filename": "dashboard_server.log"},
+]
+
 
 def collect_status(config: dict[str, Any], config_path: str | None = None) -> dict[str, Any]:
     """Gather a snapshot of current solar/battery, EV charging and hot water status.
