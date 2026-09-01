@@ -13,7 +13,6 @@ Standalone package for controlling SolaX inverters and Ohme EV chargers. Provide
 - **solax_cloud_data_logger.py** - Collect 5-minute granularity historical energy data from SolaX Cloud API
 - **dashboard_server.py** - Read-only status web page (solar/battery, EV charging, hot water, Airstage, Resideo) for viewing on your phone - see [Status Dashboard](#status-dashboard) below
 - **solar_forecast_trainer.py** / **solar_forecast_predictor.py** - Train and run a solar generation forecast model from this system's own historical PV data plus weather (feeds the dashboard)
-- **resideo_oauth_setup.py** - One-time interactive OAuth setup for the Resideo thermostat integration
 - **mg_saic_poller.py** - Cached MG SAIC (MG iSmart) EV battery/range fetch, run hourly via cron
 - **claude_usage_poller.py** / **claude_usage_token_extract.py** - Cached Claude Code usage fetch (cron) and its macOS Keychain token extraction helper
 
