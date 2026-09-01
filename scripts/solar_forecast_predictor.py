@@ -95,7 +95,14 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         if not quiet:
             print(msg)
         return 1
-    model = joblib.load(model_path)
+    try:
+        model = joblib.load(model_path)
+    except Exception as e:  # noqa: BLE001  # Corrupt/partial file, or a joblib/scikit-learn version mismatch after an upgrade
+        msg = f"Failed to load model at {model_path}: {e} - re-run scripts/solar_forecast_trainer.py"
+        logger.error(msg)
+        if not quiet:
+            print(msg)
+        return 1
 
     weather_records = fetch_forecast_weather_hourly(latitude, longitude, timezone_name)
     if weather_records is None:
