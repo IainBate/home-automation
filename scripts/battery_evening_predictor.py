@@ -267,7 +267,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         historical_records=historical_records,
         trigger_hour=trigger_hour,
         horizon_hours=horizon_hours,
-        month=now_local.month,
+        reference_day_of_year=now_local.timetuple().tm_yday,
         min_sample_days=min_sample_days,
         forecast_generation_kwh=forecast_generation_kwh,
     )
