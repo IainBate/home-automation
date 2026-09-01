@@ -146,14 +146,14 @@ def test_compute_historical_samples_include_pv_generation_kwh():
             ("2026-01-01 21:00:00", 60.0, 2.0),
         ]
     )
-    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, month=1)
+    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, reference_day_of_year=1)
     assert len(samples) == 1
     assert samples[0].pv_generation_kwh == 6.0
 
 
 def test_compute_historical_samples_pv_generation_is_none_without_pv_data():
     records = _records([("2026-01-01 18:00:00", 80.0), ("2026-01-01 21:00:00", 60.0)])
-    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, month=1)
+    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, reference_day_of_year=1)
     assert len(samples) == 1
     assert samples[0].pv_generation_kwh is None
 
