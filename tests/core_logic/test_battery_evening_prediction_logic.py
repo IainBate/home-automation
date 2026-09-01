@@ -120,7 +120,7 @@ def test_predict_evening_soc_end_to_end_with_midnight_crossing_horizon():
         historical_records=records,
         trigger_hour=22,
         horizon_hours=3.0,
-        month=1,
+        reference_day_of_year=1,
         min_sample_days=5,
     )
     assert result.predicted_soc_percent == 70.0
@@ -203,7 +203,7 @@ def test_predict_evening_soc_applies_forecast_correction_when_data_supports_it()
         historical_records=records,
         trigger_hour=18,
         horizon_hours=3.0,
-        month=1,
+        reference_day_of_year=1,
         min_sample_days=5,
     )
     # Forecast a well-above-average sunny window (9kWh, the sunniest historical day).
@@ -212,7 +212,7 @@ def test_predict_evening_soc_applies_forecast_correction_when_data_supports_it()
         historical_records=records,
         trigger_hour=18,
         horizon_hours=3.0,
-        month=1,
+        reference_day_of_year=1,
         min_sample_days=5,
         forecast_generation_kwh=9.0,
     )
