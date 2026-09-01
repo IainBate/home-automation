@@ -211,6 +211,9 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
     except (MelCloudAuthenticationError, MelCloudConnectionError) as e:
         logger.warning("Failed to fetch MELCloud tank status: %s", e)
         return {"available": False, "error": str(e)}
+    except TimeoutError:
+        logger.warning("MELCloud tank status fetch timed out after %ss", DASHBOARD_FETCH_TIMEOUT_SECONDS)
+        return {"available": False, "error": "Timed out reading MELCloud tank"}
     except Exception:
         # Circuit Breaker: see the matching comment in _collect_ev_charging -
         # the field-extraction/state-file-read above must be covered too, not
