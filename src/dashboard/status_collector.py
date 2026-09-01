@@ -51,6 +51,12 @@ from src.utils.state_store import read_json_state
 
 logger = logging.getLogger(__name__)
 
+# Bounds how long a single subsystem's async fetch may block the poller
+# thread - without this, a stalled cloud call (MelCloudClient's session has
+# no explicit timeout of its own, so it inherits aiohttp's 300s default)
+# could delay refreshing every OTHER subsystem's cached data for minutes.
+DASHBOARD_FETCH_TIMEOUT_SECONDS = 20
+
 
 def collect_status(config: dict[str, Any], config_path: str | None = None) -> dict[str, Any]:
     """Gather a snapshot of current solar/battery, EV charging and hot water status.
