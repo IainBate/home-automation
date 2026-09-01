@@ -186,7 +186,8 @@ function card(title, bodyHtml, detailsHtml) {
   </div>`;
 }
 
-function unavailableCard(title, error) {
+function unavailableCard(title, error, isDisabled) {
+  if (isDisabled) return "";  // Not configured yet - omit the card entirely rather than clutter the page
   return `<div class="card"><h2>${title}</h2><div class="error-text">Unavailable${error ? ": " + escapeHtml(error) : ""}</div></div>`;
 }
 
