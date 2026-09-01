@@ -1064,10 +1064,10 @@ directly in `config.yaml`'s comments for that section:
   this roof's specific shading/orientation.
 - **Fujitsu Airstage** (`config.yaml`'s `airstage` section) - zone mode and
   temperatures via local network control, no cloud account needed.
-- **Resideo thermostat** (`config.yaml`'s `resideo` section) - via the
-  official OAuth2 API; needs a one-time interactive setup
-  (`scripts/resideo_oauth_setup.py`) and occasionally needs re-running if a
-  refresh token goes stale after an extended outage.
+- **Resideo thermostat** (`config.yaml`'s `resideo` section) - via
+  evohome-async, an unofficial client for the same backend the Resideo/
+  Honeywell Home app uses; authenticates with your normal app username/
+  password, no developer portal registration needed.
 - **MG SAIC EV** (`config.yaml`'s `mg_saic` section) - battery % and range
   via the MG iSmart cloud API, polled hourly (`scripts/mg_saic_poller.py`)
   to minimize the (self-recovering) risk of momentarily bumping a phone's
