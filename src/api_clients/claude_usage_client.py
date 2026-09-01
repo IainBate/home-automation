@@ -32,6 +32,9 @@ from typing import Any
 
 import requests
 
+from src.utils.paths import get_claude_usage_token_state_path
+from src.utils.state_store import read_json_state
+
 logger = logging.getLogger(__name__)
 
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
