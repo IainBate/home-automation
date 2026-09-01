@@ -234,7 +234,7 @@ battery_evening_prediction:
 #        0 * * * * cd /path/to/repo && python3 scripts/solar_forecast_predictor.py --quiet
 #   4. Re-run step 2 periodically (e.g. weekly) as more historical data accumulates.
 solar_forecast:
-  enabled: false                           # Set to true once latitude/longitude are set and
+  enabled: true                            # Set to true once latitude/longitude are set and
                                             # scripts/solar_forecast_trainer.py has been run at
                                             # least once (see setup steps above)
 
