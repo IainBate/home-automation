@@ -378,3 +378,84 @@ def _collect_battery_forecast(config: dict[str, Any]) -> dict[str, Any]:
         "computed_at": record.get("computed_at"),
         "checkpoints": record.get("dashboard_checkpoints", []),
     }
+
+
+def _collect_service_health() -> dict[str, Any]:
+    """Report whether the battery/hot-water/dashboard daemons are actually running.
+
+    Distinct from every other _collect_* function here: those report whether
+    the *data* looks fresh, this reports whether the *process* is up at all -
+    a stalled daemon can leave yesterday's cached data looking perfectly
+    plausible. Read-only: only ever runs `systemctl show`, never
+    start/stop/restart, so this never alters the battery or hot water
+    automation it's reporting on (see module docstring / CLAUDE.md).
+
+    Not config-gated (unlike the other _collect_* functions) - there's no
+    "service_health.enabled" toggle, since this is always meaningful
+    wherever systemd is present.
+    """
+    try:
+        if shutil.which("systemctl") is None:
+            return {
+                "available": False,
+                "error": "systemctl not found - expected off the Pi (e.g. Mac development)",
+            }
+        return {"available": True, "services": [_check_one_service(s) for s in SERVICE_HEALTH_CHECKS]}
+    except Exception:
+        # Circuit Breaker: see the matching comment in _collect_ev_charging.
+        logger.exception("Unexpected error checking service health")
+        return {"available": False, "error": "Unexpected error checking service health"}
+
+
+def _check_one_service(service: dict[str, str]) -> dict[str, Any]:
+    load_state, active_state = _systemctl_show(service["unit"])
+    installed = load_state == "loaded"
+    return {
+        "key": service["key"],
+        "label": service["label"],
+        "installed": installed,
+        "active": active_state == "active" if installed else None,
+        "active_state": active_state if installed else None,
+        "log_age_seconds": _log_file_age_seconds(service["log_filename"]) if installed else None,
+    }
+
+
+def _systemctl_show(unit: str) -> tuple[str | None, str | None]:
+    """Return (LoadState, ActiveState) for a systemd unit, or (None, None) on any failure.
+
+    LoadState is "loaded" only when a unit file was actually found - a unit
+    that was never installed (the hot water daemon, currently) reports
+    "not-found" here rather than "inactive", which is what lets
+    _check_one_service() tell "not deployed" apart from "deployed but down".
+    """
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", unit, "--no-page", "-p", "LoadState", "-p", "ActiveState", "--value"],
+            capture_output=True,
+            text=True,
+            timeout=SYSTEMCTL_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        logger.warning("systemctl show %s failed or timed out", unit)
+        return None, None
+    lines = result.stdout.strip().splitlines()
+    if len(lines) < 2:
+        return None, None
+    return lines[0].strip(), lines[1].strip()
+
+
+def _log_file_age_seconds(log_filename: str) -> float | None:
+    """Seconds since a daemon's log file was last written, or None if it doesn't exist yet.
+
+    A secondary signal alongside ActiveState: a wedged-but-still-"active"
+    process (see battery_mode_daemon.py's own Circuit Breaker docs for how a
+    hardware cycle can fail without crashing the process) can otherwise look
+    healthy by ActiveState alone.
+    """
+    log_path = Path(get_project_root()) / "logs" / log_filename
+    try:
+        mtime = log_path.stat().st_mtime
+    except OSError:
+        return None
+    return datetime.now(tz=UTC).timestamp() - mtime
