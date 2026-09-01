@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""Claude Code Login Token Extractor (macOS only, run on whichever machine runs `claude`).
+"""Claude Code Login Token Extractor (macOS only).
 
-Reads the same OAuth access token Claude Code itself stores in this Mac's
-login Keychain (service "Claude Code-credentials") - the same one the
-"Claude Usage" menu bar app (~/bin/claude_usage_app) reads - and prints it
-so you can copy it into the Pi's secrets.yaml for the dashboard's Claude
-usage panel (see config.yaml's claude_usage comments).
+You normally don't need this: scripts/claude_usage_poller.py reads whichever
+machine it runs on's own Claude Code login directly (see
+claude_usage_client.py's module docstring) - so as long as `claude` is
+logged in and used at least occasionally on the machine actually running the
+poller (typically the Pi, via `~/.claude/.credentials.json` there), the
+dashboard's Claude usage panel stays fresh automatically with no copying
+needed at all.
+
+This script is only for the fallback case: a machine that runs the dashboard/
+poller but never runs `claude` itself. It reads the OAuth access token from
+THIS Mac's login Keychain (service "Claude Code-credentials") - the same one
+the "Claude Usage" menu bar app (~/bin/claude_usage_app) reads - and prints
+it for you to paste into that other machine's config.yaml/secrets.yaml as a
+one-off. Since the token expires in ~8 hours and this doesn't automate
+re-copying it, expect to redo this periodically if you rely on it.
 
 Strictly read-only against the Keychain: shells out to
 `/usr/bin/security find-generic-password`, never writes, so it cannot
 disturb your Claude Code login.
-
-The token expires in about 8 hours and is only refreshed by Claude Code
-itself running on THIS machine - copying it elsewhere does not extend that.
-For a one-off copy, re-run this manually. For it to stay fresh automatically
-on the Pi without manual copying, see scripts/claude_usage_token_sync.py
-(same Keychain read as this script, pushed over SSH on a schedule) instead.
 
 Usage:
     python3 scripts/claude_usage_token_extract.py
