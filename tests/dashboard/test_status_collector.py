@@ -318,3 +318,66 @@ def test_collect_battery_forecast_reads_checkpoints(tmp_path):
 
     assert result["available"] is True
     assert result["checkpoints"] == checkpoints
+
+
+def test_collect_service_health_unavailable_when_systemctl_missing():
+    with mock.patch.object(status_collector.shutil, "which", return_value=None):
+        result = status_collector._collect_service_health()
+
+    assert result["available"] is False
+    assert "systemctl" in result["error"]
+
+
+def test_collect_service_health_distinguishes_running_stopped_and_not_installed(tmp_path):
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text("x", encoding="utf-8")
+
+    def fake_show(unit):
+        if unit == "home_automation.service":
+            return "loaded", "active"
+        if unit == "home_automation_dashboard.service":
+            return "loaded", "failed"
+        return "not-found", "inactive"
+
+    with (
+        mock.patch.object(status_collector.shutil, "which", return_value="/usr/bin/systemctl"),
+        mock.patch.object(status_collector, "_systemctl_show", side_effect=fake_show),
+        mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)),
+    ):
+        result = status_collector._collect_service_health()
+
+    assert result["available"] is True
+    by_key = {s["key"]: s for s in result["services"]}
+
+    assert by_key["battery_daemon"]["installed"] is True
+    assert by_key["battery_daemon"]["active"] is True
+    assert by_key["battery_daemon"]["log_age_seconds"] < 5
+
+    assert by_key["dashboard"]["installed"] is True
+    assert by_key["dashboard"]["active"] is False
+    assert by_key["dashboard"]["active_state"] == "failed"
+
+    # Not yet deployed (see docs/PI4_DEPLOYMENT.md) - must read as "not
+    # installed", not a false "stopped".
+    assert by_key["hot_water_daemon"]["installed"] is False
+    assert by_key["hot_water_daemon"]["active"] is None
+    assert by_key["hot_water_daemon"]["log_age_seconds"] is None
+
+
+def test_systemctl_show_returns_none_pair_on_subprocess_failure():
+    with mock.patch.object(status_collector.subprocess, "run", side_effect=OSError("systemctl not found")):
+        load_state, active_state = status_collector._systemctl_show("home_automation.service")
+
+    assert load_state is None
+    assert active_state is None
+
+
+def test_collect_service_health_survives_an_unexpected_error():
+    """Circuit Breaker: an unexpected exception here must not blank the whole snapshot."""
+    with (
+        mock.patch.object(status_collector.shutil, "which", return_value="/usr/bin/systemctl"),
+        mock.patch.object(status_collector, "_check_one_service", side_effect=RuntimeError("boom")),
+    ):
+        result = status_collector._collect_service_health()
+
+    assert result["available"] is False
