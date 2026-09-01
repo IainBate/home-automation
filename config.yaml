@@ -268,33 +268,19 @@ airstage:
 # =============================================================================
 # RESIDEO THERMOSTAT (src/api_clients/resideo_client.py)
 # =============================================================================
-# Read-only thermostat status via Resideo's official OAuth2 API. Unlike
-# airstage above, this DOES need a cloud account and a one-time interactive
-# setup step - Resideo's refresh tokens are also known to occasionally go
-# stale after extended outages (see resideo_client.py's module docstring),
-# so this may need re-running scripts/resideo_oauth_setup.py every so often;
-# that's expected, not a sign something is broken.
-#
-# Setup:
-#   1. Register an app at developer.honeywellhome.com to get client_id/client_secret.
-#   2. Register redirect URI http://localhost:8756/callback (or override
-#      --port in step 3 and update this to match).
-#   3. Put client_secret in secrets.yaml (see secrets.yaml.example) - client_id
-#      itself isn't secret, so it stays here.
-#   4. Run once: python3 scripts/resideo_oauth_setup.py
-#      (opens your browser for a one-time consent step, then saves a
-#      refresh token to config/resideo_token_state.json - also paste the
-#      refresh token it prints into secrets.yaml as a recovery copy)
+# Read-only thermostat status (T6R and other Evohome-family devices) via
+# evohome-async, an unofficial but actively-maintained client for the same
+# TCC v2 backend ("tccna.resideo.com") the Resideo/Honeywell Home app itself
+# uses - authenticates with your normal app username/password, no developer
+# portal registration needed (Resideo's official OAuth2 API - developer.
+# honeywellhome.com - proved impractical to get approved for; see git
+# history for that earlier approach). Trade-off: unofficial/reverse-engineered,
+# so it could break on a backend change with no notice, same risk category
+# as this project's Ohme client.
 resideo:
-  enabled: false                           # Set to true once client_id/client_secret are set and
-                                            # scripts/resideo_oauth_setup.py has been run
-  client_id: "your-resideo-client-id"      # From developer.honeywellhome.com - not secret
-  client_secret: "your-resideo-client-secret"  # Placeholder - real value in secrets.yaml
-  refresh_token: "your-resideo-refresh-token"  # Placeholder bootstrap value - real value in
-                                                # secrets.yaml; day-to-day use actually reads
-                                                # config/resideo_token_state.json instead (see
-                                                # resideo_client.py) since Resideo commonly
-                                                # rotates this on every use
+  enabled: false                           # Set to true once username/password are set
+  username: "your-resideo-email@example.com"  # Placeholder - real value in secrets.yaml
+  password: "your-resideo-password"            # Placeholder - real value in secrets.yaml
 
 # =============================================================================
 # CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
