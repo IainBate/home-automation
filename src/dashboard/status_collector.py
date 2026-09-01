@@ -182,36 +182,39 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
 
     try:
         status = asyncio.run(_fetch_hot_water_status(config_path))
+
+        automation_state = read_json_state(get_hotwater_automation_state_path())
+        legionella_state = automation_state.get("legionella", {})
+
+        return {
+            "available": True,
+            "tank_temperature_c": status.get("tank_temperature"),
+            "target_tank_temperature_c": status.get("target_tank_temperature"),
+            "operation_mode": status["operation_mode"].value if status.get("operation_mode") else None,
+            "status": status["status"].value if status.get("status") else None,
+            "power_on": status.get("power"),
+            "holiday_mode": status.get("holiday_mode"),
+            "force_heat_active": bool(automation_state.get("force_heat_activated_at")),
+            "force_heat_activated_at": automation_state.get("force_heat_activated_at"),
+            "legionella_cycle_in_progress": bool(legionella_state.get("cycle_in_progress")),
+            "legionella_last_completed_at": legionella_state.get("last_completed_at"),
+        }
     except (MelCloudAuthenticationError, MelCloudConnectionError) as e:
         logger.warning("Failed to fetch MELCloud tank status: %s", e)
         return {"available": False, "error": str(e)}
     except Exception:
+        # Circuit Breaker: see the matching comment in _collect_ev_charging -
+        # the field-extraction/state-file-read above must be covered too, not
+        # just the network call.
         logger.exception("Unexpected error fetching MELCloud tank status")
         return {"available": False, "error": "Unexpected error reading MELCloud tank"}
-
-    automation_state = read_json_state(get_hotwater_automation_state_path())
-    legionella_state = automation_state.get("legionella", {})
-
-    return {
-        "available": True,
-        "tank_temperature_c": status.get("tank_temperature"),
-        "target_tank_temperature_c": status.get("target_tank_temperature"),
-        "operation_mode": status["operation_mode"].value if status.get("operation_mode") else None,
-        "status": status["status"].value if status.get("status") else None,
-        "power_on": status.get("power"),
-        "holiday_mode": status.get("holiday_mode"),
-        "force_heat_active": bool(automation_state.get("force_heat_activated_at")),
-        "force_heat_activated_at": automation_state.get("force_heat_activated_at"),
-        "legionella_cycle_in_progress": bool(legionella_state.get("cycle_in_progress")),
-        "legionella_last_completed_at": legionella_state.get("last_completed_at"),
-    }
 
 
 async def _fetch_hot_water_status(config_path: str) -> dict[str, Any]:
     client = MelCloudClient(config_path=config_path)
     await client.connect()
     try:
-        return await client.get_tank_status(use_cache=False)
+        return await asyncio.wait_for(client.get_tank_status(use_cache=False), timeout=DASHBOARD_FETCH_TIMEOUT_SECONDS)
     finally:
         await client.close()
 
