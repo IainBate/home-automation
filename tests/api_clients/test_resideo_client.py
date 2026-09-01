@@ -64,6 +64,26 @@ def test_fetch_thermostat_status_converts_fahrenheit_and_parses_first_device():
     assert round(result["heat_setpoint_c"], 1) == 21.1
 
 
+def test_fetch_thermostat_status_warns_when_units_field_missing(caplog):
+    payload = [
+        {
+            "devices": [
+                {
+                    "userDefinedDeviceName": "Hall",
+                    "indoorTemperature": 68.0,
+                    "changeableValues": {"mode": "Heat"},
+                    # No "units" key at all.
+                }
+            ]
+        }
+    ]
+    with mock.patch.object(resideo_client.requests, "get", return_value=_fake_response(payload)):
+        result = resideo_client.fetch_thermostat_status("access-token")
+
+    assert round(result["current_temperature_c"], 1) == 20.0  # still assumed Fahrenheit
+    assert "assuming Fahrenheit" in caplog.text
+
+
 def test_fetch_thermostat_status_returns_none_when_no_devices():
     with mock.patch.object(resideo_client.requests, "get", return_value=_fake_response([{"devices": []}])):
         result = resideo_client.fetch_thermostat_status("access-token")
