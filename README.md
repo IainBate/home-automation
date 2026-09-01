@@ -1075,11 +1075,13 @@ directly in `config.yaml`'s comments for that section:
   MG iSmart app session, since it shares the same account login.
 - **Claude Code usage** (`config.yaml`'s `claude_usage` section) - your
   5-hour/weekly subscription usage percentages, via the same endpoint the
-  "Claude Usage" macOS app uses. Needs a token extracted from Keychain
-  (`scripts/claude_usage_token_extract.py`, macOS only, run on whichever
-  machine has `claude` logged in) and polled slowly (10+ min via cron,
-  `scripts/claude_usage_poller.py`) since that endpoint's rate limit is
-  shared with your real Claude Code sessions.
+  "Claude Usage" macOS app uses. Reads whichever machine runs
+  `scripts/claude_usage_poller.py` (via cron, 10+ min - that endpoint's rate
+  limit is shared with your real Claude Code sessions) own `claude` login
+  directly - no manual token copying, as long as `claude` gets used at least
+  occasionally on that machine. `scripts/claude_usage_token_extract.py`
+  (macOS only) is a manual fallback for a machine that never runs `claude`
+  itself.
 
 ### Accessing it away from home
 
