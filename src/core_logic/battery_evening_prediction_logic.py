@@ -367,9 +367,10 @@ def predict_evening_soc(
     historical_records: list[dict],
     trigger_hour: float,
     horizon_hours: float,
-    month: int,
+    reference_day_of_year: int,
     min_sample_days: int = DEFAULT_MIN_SAMPLE_DAYS,
     forecast_generation_kwh: float | None = None,
+    window_days: int = DEFAULT_WINDOW_DAYS,
 ) -> EveningSocPrediction:
     """Predict SoC `horizon_hours` after `trigger_hour`, from today's reading.
 
@@ -380,7 +381,10 @@ def predict_evening_soc(
         trigger_hour: Local hour (0-23) the prediction is anchored to.
         horizon_hours: Hours ahead of trigger_hour to predict for (e.g.
             hotwater_automation.force_heat_max_duration_hours).
-        month: Calendar month (1-12) to restrict historical days to.
+        reference_day_of_year: Day of year (1-366, e.g. from
+            `datetime.timetuple().tm_yday`) historical days are matched
+            against - see compute_historical_soc_drift_samples for why this
+            is a sliding window, not a calendar-month bucket.
         min_sample_days: Minimum number of matched historical days required
             to produce a prediction; below this, predicted_soc_percent is
             None so the caller can fall back to a live-only decision instead
@@ -393,6 +397,8 @@ def predict_evening_soc(
             correction and use the plain historical average - the default,
             and always the fallback when there isn't enough PV-paired
             historical data to fit it.
+        window_days: How many days either side of reference_day_of_year
+            count as a match - see compute_historical_soc_drift_samples.
 
     Returns:
         EveningSocPrediction with predicted_soc_percent (or None) and a
@@ -413,7 +419,7 @@ def predict_evening_soc(
 
     """
     samples = compute_historical_soc_drift_samples(
-        historical_records, trigger_hour, horizon_hours, month
+        historical_records, trigger_hour, horizon_hours, reference_day_of_year, window_days=window_days
     )
 
     if len(samples) < min_sample_days:
@@ -423,8 +429,8 @@ def predict_evening_soc(
             average_drift_percent=None,
             applied_drift_percent=None,
             reason=(
-                f"Only {len(samples)} historical day(s) with usable data for month "
-                f"{month} (need >= {min_sample_days}) - not enough to predict"
+                f"Only {len(samples)} historical day(s) within {window_days} days of "
+                f"day-of-year {reference_day_of_year} (need >= {min_sample_days}) - not enough to predict"
             ),
         )
 
