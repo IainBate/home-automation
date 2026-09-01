@@ -118,20 +118,6 @@ def get_resideo_token_state_path() -> str:
     return get_config_path("resideo_token_state.json")
 
 
-def get_claude_usage_token_state_path() -> str:
-    """Get absolute path to the cached Claude Code access token state file.
-
-    Written by scripts/claude_usage_token_sync.py (run on whichever machine
-    has `claude` logged in, over SSH - see that script's docstring), so the
-    dashboard's claude_usage.access_token can be kept fresh automatically
-    rather than requiring a manual scripts/claude_usage_token_extract.py +
-    secrets.yaml paste every ~8 hours. secrets.yaml's claude_usage.access_token
-    is only the bootstrap/recovery value; this file takes precedence once it
-    exists - same pattern as get_resideo_token_state_path().
-    """
-    return get_config_path("claude_usage_token_state.json")
-
-
 def get_claude_usage_path() -> str:
     """Get absolute path to the cached Claude Code usage status file.
 
