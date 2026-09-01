@@ -234,9 +234,9 @@ battery_evening_prediction:
 #        0 * * * * cd /path/to/repo && python3 scripts/solar_forecast_predictor.py --quiet
 #   4. Re-run step 2 periodically (e.g. weekly) as more historical data accumulates.
 solar_forecast:
-  enabled: true                            # Set to true once latitude/longitude are set and
-                                            # scripts/solar_forecast_trainer.py has been run at
-                                            # least once (see setup steps above)
+  enabled: true                            # Model trained on data through 2026-07-09 - re-run
+                                            # scripts/solar_forecast_trainer.py periodically (e.g.
+                                            # weekly) as more historical data accumulates
 
 # =============================================================================
 # FUJITSU AIRSTAGE DUCTLESS HEAT PUMPS (src/api_clients/airstage_client.py)
