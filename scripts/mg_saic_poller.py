@@ -25,9 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import argparse
-import json
 import logging
-import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -36,6 +34,7 @@ from hotwater_automation_core import get_config_path
 from src.api_clients.saic_client import fetch_saic_status
 from src.config_manager.config_manager import load_static_config
 from src.utils.paths import get_mg_saic_status_path
+from src.utils.state_store import write_json_atomic
 
 logger = logging.getLogger(__name__)
 
