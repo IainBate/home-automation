@@ -190,6 +190,7 @@ def test_collect_airstage_disabled():
     result = status_collector._collect_airstage({"airstage": {"enabled": False}})
 
     assert result["available"] is False
+    assert result["disabled"] is True
 
 
 def test_collect_airstage_maps_zone_list():

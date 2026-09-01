@@ -144,7 +144,7 @@ def _collect_ev_charging(config: dict[str, Any], config_path: str) -> dict[str, 
     """Read-only Ohme charger snapshot, following battery_mode_daemon.py's own async pattern."""
     ohme_config = config.get("ohme_ev", {})
     if not ohme_config.get("enabled", False):
-        return {"available": False, "error": "Ohme EV charger disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "Ohme EV charger disabled in config.yaml"}
 
     try:
         status = asyncio.run(_fetch_ohme_status(config_path))
@@ -187,7 +187,7 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
     """Read-only MELCloud tank snapshot, plus this project's own force-heat/legionella state."""
     melcloud_config = config.get("melcloud", {})
     if not melcloud_config.get("enabled", False):
-        return {"available": False, "error": "MELCloud disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "MELCloud disabled in config.yaml"}
 
     try:
         status = asyncio.run(_fetch_hot_water_status(config_path))
@@ -234,7 +234,7 @@ async def _fetch_hot_water_status(config_path: str) -> dict[str, Any]:
 def _collect_airstage(config: dict[str, Any]) -> dict[str, Any]:
     """Read-only Airstage snapshot for every configured zone (local network, no cloud account)."""
     if not config.get("airstage", {}).get("enabled", False):
-        return {"available": False, "error": "Airstage disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "Airstage disabled in config.yaml"}
 
     zones = fetch_airstage_status(config)
     if zones is None:
@@ -246,7 +246,7 @@ def _collect_airstage(config: dict[str, Any]) -> dict[str, Any]:
 def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
     """Read-only Resideo thermostat snapshot via the official OAuth2 API."""
     if not config.get("resideo", {}).get("enabled", False):
-        return {"available": False, "error": "Resideo disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "Resideo disabled in config.yaml"}
 
     status = fetch_resideo_status(config)
     if status is None:
@@ -267,7 +267,7 @@ def _collect_solar_forecast(config: dict[str, Any]) -> dict[str, Any]:
     comments), keeping this dashboard poll cheap.
     """
     if not config.get("solar_forecast", {}).get("enabled", False):
-        return {"available": False, "error": "Solar forecast disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "Solar forecast disabled in config.yaml"}
 
     record = read_json_state(get_solar_forecast_path())
     if not record:
@@ -295,7 +295,7 @@ def _collect_mg_saic(config: dict[str, Any]) -> dict[str, Any]:
     household's phones).
     """
     if not config.get("mg_saic", {}).get("enabled", False):
-        return {"available": False, "error": "MG SAIC disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "MG SAIC disabled in config.yaml"}
 
     record = read_json_state(get_mg_saic_status_path())
     if not record:
@@ -323,7 +323,7 @@ def _collect_claude_usage(config: dict[str, Any]) -> dict[str, Any]:
     rate limit with real Claude Code sessions).
     """
     if not config.get("claude_usage", {}).get("enabled", False):
-        return {"available": False, "error": "Claude usage disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "Claude usage disabled in config.yaml"}
 
     record = read_json_state(get_claude_usage_path())
     if not record:
@@ -343,7 +343,7 @@ def _collect_claude_usage(config: dict[str, Any]) -> dict[str, Any]:
 def _collect_battery_forecast(config: dict[str, Any]) -> dict[str, Any]:
     """Read the dashboard SoC checkpoints written by scripts/battery_evening_predictor.py."""
     if not config.get("battery_evening_prediction", {}).get("enabled", False):
-        return {"available": False, "error": "Battery evening prediction disabled in config.yaml"}
+        return {"available": False, "disabled": True, "error": "Battery evening prediction disabled in config.yaml"}
 
     record = read_json_state(get_battery_evening_prediction_path())
     if not record:
