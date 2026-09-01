@@ -65,15 +65,6 @@ def _weather_description(cloud_cover_percent: float) -> str:
     return "Overcast"
 
 
-def _write_forecast(record: dict[str, Any]) -> None:
-    """Write the forecast status file atomically (same pattern as other prediction files)."""
-    path = Path(get_solar_forecast_path())
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
-    tmp_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
-    os.replace(tmp_path, path)
-
-
 def run(config: dict[str, Any], *, quiet: bool) -> int:
     """Predict today/tomorrow's solar generation and write it for the dashboard. 0/1 exit code."""
     location = config.get("location", {})
