@@ -10,7 +10,8 @@ pytest>=7.0
 pytest-asyncio>=0.23
 aioresponses>=0.7
 
-# aioresponses 0.7.9 (latest as of writing) reconstructs aiohttp's
+# aioresponses 0.7.9 (latest as of writing - re-checked 2026-09-01, still the
+# latest release, so no newer version fixes this) reconstructs aiohttp's
 # ClientResponse itself, and that construction is broken against aiohttp
 # 3.14.x's newer required __init__ kwargs (raises "missing 1 required
 # keyword-only argument: 'stream_writer'") - a real, current incompatibility
@@ -20,6 +21,12 @@ aioresponses>=0.7
 # Pi's already-validated version (matches requirements.txt's aiohttp comment)
 # to sidestep it - this constrains the *test* environment only. Installed
 # after requirements.txt (per the command above), so it downgrades whatever
-# aiohttp version that resolved to. Re-check whether a newer aioresponses
-# lifts this the next time either dependency moves.
+# aiohttp version that resolved to.
+#
+# evohome-async (requirements.txt) declares aiohttp>=3.14.3 in its own
+# metadata, conflicting with this pin (pip will warn but still installs both) -
+# verified 2026-09-01 that this is a metadata-only floor, not a real runtime
+# requirement: resideo_client.py's actual HTTP calls work identically under
+# aiohttp 3.13.3. Re-check both this and the aioresponses situation above the
+# next time either dependency moves.
 aiohttp==3.13.3
