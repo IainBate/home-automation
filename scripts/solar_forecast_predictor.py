@@ -24,9 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import argparse
-import json
 import logging
-import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -38,6 +36,7 @@ from src.api_clients.weather_client import fetch_forecast_weather_hourly
 from src.config_manager.config_manager import load_static_config
 from src.core_logic.solar_forecast_logic import build_forecast_rows, predict_hourly_kw
 from src.utils.paths import get_solar_forecast_model_path, get_solar_forecast_path
+from src.utils.state_store import write_json_atomic
 
 logger = logging.getLogger(__name__)
 
