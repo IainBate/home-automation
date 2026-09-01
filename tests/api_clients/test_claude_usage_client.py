@@ -96,3 +96,39 @@ def test_fetch_returns_none_on_network_error():
         result = claude_usage_client.fetch_claude_usage(config)
 
     assert result is None
+
+
+def test_fetch_prefers_synced_token_state_over_bootstrap_config_value(tmp_path):
+    """scripts/claude_usage_token_sync.py keeps this file fresher than the
+    static secrets.yaml bootstrap value - same precedence as resideo_client.py.
+    """
+    import json  # noqa: PLC0415
+
+    state_path = tmp_path / "claude_usage_token_state.json"
+    state_path.write_text(json.dumps({"access_token": "synced-token"}), encoding="utf-8")
+
+    config = {"claude_usage": {"enabled": True, "access_token": "bootstrap-token"}}
+
+    with (
+        mock.patch.object(claude_usage_client, "get_claude_usage_token_state_path", lambda: str(state_path)),
+        mock.patch.object(claude_usage_client.requests, "get") as fake_get,
+    ):
+        fake_get.return_value = _fake_response(json_payload={"limits": []})
+        claude_usage_client.fetch_claude_usage(config)
+
+    assert fake_get.call_args.kwargs["headers"]["Authorization"] == "Bearer synced-token"
+
+
+def test_fetch_falls_back_to_bootstrap_token_when_no_synced_state(tmp_path):
+    config = {"claude_usage": {"enabled": True, "access_token": "bootstrap-token"}}
+
+    with (
+        mock.patch.object(
+            claude_usage_client, "get_claude_usage_token_state_path", lambda: str(tmp_path / "missing.json")
+        ),
+        mock.patch.object(claude_usage_client.requests, "get") as fake_get,
+    ):
+        fake_get.return_value = _fake_response(json_payload={"limits": []})
+        claude_usage_client.fetch_claude_usage(config)
+
+    assert fake_get.call_args.kwargs["headers"]["Authorization"] == "Bearer bootstrap-token"
