@@ -104,20 +104,6 @@ def get_battery_evening_prediction_path() -> str:
     return get_config_path("battery_evening_prediction.json")
 
 
-def get_resideo_token_state_path() -> str:
-    """Get absolute path to the Resideo OAuth token state file.
-
-    Resideo commonly rotates the refresh token on every use - the previous
-    one stops working the moment a new one is issued. This file holds
-    whichever refresh token is currently valid, so
-    src/api_clients/resideo_client.py doesn't need to rewrite secrets.yaml
-    (a hand-maintained file) on every poll. secrets.yaml's resideo.refresh_token
-    is only the bootstrap value scripts/resideo_oauth_setup.py produces; this
-    file takes precedence once it exists.
-    """
-    return get_config_path("resideo_token_state.json")
-
-
 def get_claude_usage_path() -> str:
     """Get absolute path to the cached Claude Code usage status file.
 
