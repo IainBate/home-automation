@@ -227,12 +227,11 @@ def compute_historical_soc_drift_samples(
         both target times.
 
     """
-    # Grouped by day WITHOUT filtering by month yet: trigger_hour + horizon_hours
+    # Grouped by day WITHOUT filtering by window yet: trigger_hour + horizon_hours
     # can push the horizon reading past midnight (e.g. trigger_hour=22 with the
-    # default 3h horizon), landing on the next calendar day - and occasionally
-    # the next calendar month too (the last day of a month). That reading needs
-    # to be findable here regardless of which month it falls in; only the
-    # *trigger* day is restricted to `month` below, as the season/day-length proxy.
+    # default 3h horizon), landing on the next calendar day - possibly outside
+    # the window. That reading needs to be findable here regardless; only the
+    # *trigger* day is restricted to the window below, as the season/day-length proxy.
     readings_by_day: dict[str, list[tuple[datetime, float]]] = {}
     pv_readings_by_day: dict[str, list[tuple[datetime, float]]] = {}
     for record in historical_records:
