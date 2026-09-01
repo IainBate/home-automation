@@ -312,7 +312,7 @@ def solax_modbus_set_work_mode(  # pylint: disable=too-many-return-statements
 
         # Step 4: Perform mode change with file locking for safety
         try:
-            with _locked_mode_change_log() as (log_data, save_log):
+            with _locked_mode_change_log() as log_data:
                 # Check safety with current log data using file-locked context (unless forced)
                 if not force_unsafe:
                     safety_passed, safety_message = _check_mode_change_safety(
@@ -369,7 +369,6 @@ def solax_modbus_set_work_mode(  # pylint: disable=too-many-return-statements
                         "forced": force_unsafe,
                     }
                     log_data["last_mode_change"] = log_entry
-                    save_log(log_data)
 
                     return {
                         "success": True,

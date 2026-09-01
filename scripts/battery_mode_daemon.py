@@ -7,7 +7,9 @@ This daemon manages SolaX battery operating modes based on:
 3. Default mode fallback (priority 3)
 
 Architecture:
-- Two-tier polling: Fast config reload (30s) + Slow hardware checks (configurable)
+- Built on src/daemon_support/base_daemon.py's shared two-tier polling loop
+  (fast config reload (30s) + slow hardware checks, configurable), the same
+  base hotwater_mode_daemon.py uses.
 - Safety interval enforcement to prevent rapid mode changes
 - Comprehensive error handling with fallback to SELF_USE mode
 - Rotating log files with 7-day retention
@@ -19,11 +21,9 @@ import argparse
 import asyncio
 import json
 import logging
-import signal
 import sys
 import time as time_module
 from datetime import datetime, time
-from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +38,14 @@ from src.api_clients.solax_modbus_client import (
 )
 from src.config_manager import load_static_config
 from src.core_logic.battery_simulation import BatteryMode
+from src.core_logic.ohme_charging_logic import (
+    confirm_charging_over_consecutive_cycles,
+    is_charging_above_threshold,
+)
+from src.daemon_support.base_daemon import TwoTierPollingDaemon, setup_rotating_logger
+from src.utils.state_store import locked_json_state, read_json_state
+
+FAST_POLL_INTERVAL_SECONDS = 30  # config reload cadence
 
 # JSON Schema for daemon configuration validation
 DAEMON_CONFIG_SCHEMA = {
@@ -147,7 +155,7 @@ def validate_daemon_config(config: dict[str, Any]) -> tuple[bool, list[str]]:
         return False, [f"Unexpected validation error: {e}"]
 
 
-class BatteryModeDaemon:
+class BatteryModeDaemon(TwoTierPollingDaemon):
     """Autonomous battery mode manager with two-tier polling."""
 
     def __init__(self, config_path: str, system_config_path: str = "config.yaml") -> None:
@@ -158,6 +166,7 @@ class BatteryModeDaemon:
             system_config_path: Path to system configuration YAML file
 
         """
+        super().__init__()
         self.config_path = Path(config_path)
         self.system_config_path = system_config_path
         self.daemon_config = None
@@ -165,44 +174,20 @@ class BatteryModeDaemon:
         self.mode_change_log_path = Path("data/battery_mode_daemon_log.json")
         self.last_mode_change_time = None
         self.startup_complete = False
-        self.shutdown_requested = False
-        self.logger = None
 
         # Ohme charging detection state (requires 2 consecutive cycles)
         self.ohme_charging_count = 0
 
-        # Setup logging first
-        self._setup_logging()
-
-    def _setup_logging(self) -> None:
-        """Setup TimedRotatingFileHandler with midnight rotation, 7-day retention."""
-        # Create logger
-        self.logger = logging.getLogger("battery_mode_daemon")
-        self.logger.setLevel(logging.DEBUG)
-
-        # Create logs directory if needed
-        Path("logs").mkdir(exist_ok=True)
-
-        # TimedRotatingFileHandler - rotates at midnight, keeps 7 backups
-        handler = TimedRotatingFileHandler(
-            "logs/battery_mode_daemon.log",
-            when="midnight",
-            interval=1,
-            backupCount=7,
-            encoding="utf-8",
+        self.logger = setup_rotating_logger(
+            "battery_mode_daemon", "battery_mode_daemon.log", level=logging.DEBUG
         )
 
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+    def load_config(self) -> None:
+        """Load daemon configuration from JSON file, plus system config and the mode change log.
 
-        # Also add console handler for immediate feedback
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
-
-    def _load_config(self) -> None:
-        """Load daemon configuration from JSON file."""
+        Fatal (raises) if either config is missing/invalid - this is only
+        ever called once, at startup, via TwoTierPollingDaemon.run().
+        """
         try:
             if not self.config_path.exists():
                 msg = f"Daemon configuration file not found: {self.config_path}"
@@ -222,7 +207,8 @@ class BatteryModeDaemon:
 
             self.logger.info("Daemon configuration loaded and validated from %s", self.config_path)
 
-            # Load system configuration
+            # Load system configuration - not hot-reloaded (see reload_config()
+            # below); inverter IPs etc. aren't expected to change at runtime.
             self.system_config = load_static_config(self.system_config_path)
             if self.system_config is None:
                 msg = f"Failed to load system configuration from {self.system_config_path}"
@@ -235,8 +221,16 @@ class BatteryModeDaemon:
             self.logger.exception("Failed to load daemon configuration")
             raise
 
-    def _reload_config(self) -> None:
-        """Reload daemon configuration (fast poll operation)."""
+        self._load_mode_change_log()
+
+    def reload_config(self) -> None:
+        """Reload daemon configuration (fast poll operation).
+
+        Only the daemon_settings/ohme_charging/schedule JSON config is
+        hot-reloaded - system_config (config.yaml) is loaded once at startup
+        by load_config() and not touched here, matching the pre-refactor
+        behaviour.
+        """
         try:
             if not self.config_path.exists():
                 self.logger.warning("Configuration file disappeared: %s", self.config_path)
@@ -265,6 +259,16 @@ class BatteryModeDaemon:
         except Exception:
             self.logger.exception("Failed to reload config - keeping old config")
 
+    @staticmethod
+    def _default_mode_change_log() -> dict[str, Any]:
+        """A fresh, independent default log structure (a shared dict/list would leak mutations)."""
+        return {
+            "last_change_timestamp": None,
+            "last_change_mode": None,
+            "last_change_reason": None,
+            "change_history": [],
+        }
+
     def _load_mode_change_log(self) -> dict[str, Any]:
         """Load daemon's mode change history from JSON.
 
@@ -272,52 +276,26 @@ class BatteryModeDaemon:
             Dictionary with mode change history
 
         """
-        try:
-            if not self.mode_change_log_path.exists():
-                # Create default log structure
-                default_log = {
-                    "last_change_timestamp": None,
-                    "last_change_mode": None,
-                    "last_change_reason": None,
-                    "change_history": [],
-                }
-                # Ensure data directory exists
-                self.mode_change_log_path.parent.mkdir(parents=True, exist_ok=True)
-                # Write default log
-                with self.mode_change_log_path.open("w", encoding="utf-8") as f:
-                    json.dump(default_log, f, indent=2)
-                self.logger.info("Created mode change log file: %s", self.mode_change_log_path)
-                return default_log
+        log_data = read_json_state(self.mode_change_log_path)
+        if not log_data:
+            log_data = self._default_mode_change_log()
 
-            with self.mode_change_log_path.open("r", encoding="utf-8") as f:
-                log_data = json.load(f)
+        # Restore last change time from log
+        if log_data.get("last_change_timestamp"):
+            self.last_mode_change_time = log_data["last_change_timestamp"]
 
-            # Restore last change time from log
-            if log_data.get("last_change_timestamp"):
-                self.last_mode_change_time = log_data["last_change_timestamp"]
-
-            self.logger.debug("Loaded mode change log from %s", self.mode_change_log_path)
-            return log_data
-
-        except json.JSONDecodeError:
-            self.logger.exception("Invalid JSON in mode change log - starting fresh")
-            return {
-                "last_change_timestamp": None,
-                "last_change_mode": None,
-                "last_change_reason": None,
-                "change_history": [],
-            }
-        except Exception:
-            self.logger.exception("Failed to load mode change log - starting fresh")
-            return {
-                "last_change_timestamp": None,
-                "last_change_mode": None,
-                "last_change_reason": None,
-                "change_history": [],
-            }
+        self.logger.debug("Loaded mode change log from %s", self.mode_change_log_path)
+        return log_data
 
     def _save_mode_change_log(self, mode: BatteryMode, reason: str) -> None:
         """Persist mode change to log file.
+
+        Uses the same fcntl-based locked read-modify-write
+        (src.utils.state_store.locked_json_state) that
+        scripts/hotwater_automation_core.py and
+        src/api_clients/_modbus_mode_controller.py use for their own state
+        files - a plain load-then-later-write here was not atomic across a
+        concurrent load/save from another process touching this same file.
 
         Args:
             mode: The mode that was set
@@ -325,32 +303,25 @@ class BatteryModeDaemon:
 
         """
         try:
-            # Load existing log
-            log_data = self._load_mode_change_log()
-
-            # Update with new change
             timestamp = time_module.time()
-            log_data["last_change_timestamp"] = timestamp
-            log_data["last_change_mode"] = mode.value
-            log_data["last_change_reason"] = reason
+            log_entry = {
+                "timestamp": timestamp,
+                "datetime": datetime.now().isoformat(),
+                "mode": mode.value,
+                "reason": reason,
+            }
 
-            # Add to history (keep last 100 entries)
-            log_data["change_history"].append(
-                {
-                    "timestamp": timestamp,
-                    "datetime": datetime.now().isoformat(),
-                    "mode": mode.value,
-                    "reason": reason,
-                }
-            )
-            log_data["change_history"] = log_data["change_history"][-100:]
+            with locked_json_state(self.mode_change_log_path) as log_data:
+                if not log_data:
+                    log_data.update(self._default_mode_change_log())
+                log_data["last_change_timestamp"] = timestamp
+                log_data["last_change_mode"] = mode.value
+                log_data["last_change_reason"] = reason
 
-            # Ensure data directory exists
-            self.mode_change_log_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Write updated log
-            with self.mode_change_log_path.open("w", encoding="utf-8") as f:
-                json.dump(log_data, f, indent=2)
+                # Keep last 100 entries
+                log_data["change_history"] = [*log_data.get("change_history", []), log_entry][
+                    -100:
+                ]
 
             self.logger.debug("Saved mode change to log: %s (%s)", mode.value, reason)
 
@@ -362,6 +333,9 @@ class BatteryModeDaemon:
 
         Requires 2 consecutive cycles of charging detection before returning True.
         This prevents short transient charging on plug-in from triggering mode changes.
+        Shared decision logic with hotwater_automation_core.py's own charging check
+        (src/core_logic/ohme_charging_logic.py) - only the persisted cycle count
+        (self.ohme_charging_count, in-memory here vs. state-file-backed there) differs.
 
         Args:
             status: Ohme status dictionary or None if unavailable
@@ -377,32 +351,31 @@ class BatteryModeDaemon:
 
         threshold = self.daemon_config["daemon_settings"]["ohme_charging_threshold_watts"]
         power_watts = status.get("power_watts", 0)
+        above_threshold = is_charging_above_threshold(power_watts, threshold)
+        previous_count = self.ohme_charging_count
 
-        if power_watts > threshold:
-            # Ohme is currently charging
-            self.ohme_charging_count += 1
-            if self.ohme_charging_count >= 2:
+        self.ohme_charging_count, confirmed = confirm_charging_over_consecutive_cycles(
+            previous_count, above_threshold
+        )
+
+        if above_threshold:
+            if confirmed:
                 self.logger.debug(
                     "Ohme charging confirmed (cycle %d, power: %dW)",
                     self.ohme_charging_count,
                     power_watts,
                 )
-                return True
             else:
                 self.logger.info(
                     "Ohme charging detected but waiting for confirmation (cycle 1/2, power: %dW)",
                     power_watts,
                 )
-                return False
-        else:
-            # Ohme not charging, reset counter
-            if self.ohme_charging_count > 0:
-                self.logger.debug(
-                    "Ohme charging stopped, resetting counter (was at cycle %d)",
-                    self.ohme_charging_count,
-                )
-            self.ohme_charging_count = 0
-            return False
+        elif previous_count > 0:
+            self.logger.debug(
+                "Ohme charging stopped, resetting counter (was at cycle %d)", previous_count
+            )
+
+        return confirmed
 
     def _get_scheduled_mode(self) -> BatteryMode | None:
         """Evaluate time ranges for current time.
@@ -650,55 +623,29 @@ class BatteryModeDaemon:
             except Exception:
                 self.logger.exception("Failed to set safety fallback mode")
 
-    def _handle_shutdown(self, signum: int, frame: Any) -> None:
-        """Handle shutdown signals gracefully.
+    def _hardware_check(self) -> None:
+        """The daemon's one scheduled check - skips the very first tick after startup.
 
-        Args:
-            signum: Signal number
-            frame: Current stack frame
-
+        Preserves the pre-refactor behaviour: the daemon waits one full
+        hardware_poll_interval_seconds before making its first mode change,
+        rather than potentially acting within moments of starting up.
         """
-        self.logger.info("Received shutdown signal (%d), shutting down gracefully...", signum)
-        self.shutdown_requested = True
+        if self.startup_complete:
+            self._perform_hardware_cycle()
+        else:
+            self.logger.info("⏳ First startup - waiting one cycle before mode changes")
+            self.startup_complete = True
 
     def run(self) -> None:
-        """Main daemon loop with two-tier polling."""
+        """Register the hardware check, then run the shared two-tier polling loop."""
         self.logger.info("🚀 Battery Mode Daemon starting...")
 
-        # Initial load
-        self._load_config()
-        self._load_mode_change_log()
-
-        # Setup signal handlers
-        signal.signal(signal.SIGTERM, self._handle_shutdown)
-        signal.signal(signal.SIGINT, self._handle_shutdown)
-
-        last_hardware_check = 0
-        fast_poll_interval = 30  # seconds
-
-        while not self.shutdown_requested:
-            loop_start = time_module.time()
-
-            # Fast loop: Always reload config
-            self._reload_config()
-
-            # Slow loop: Hardware operations at configured interval
-            hardware_interval = self.daemon_config["daemon_settings"][
-                "hardware_poll_interval_seconds"
-            ]
-            if time_module.time() - last_hardware_check >= hardware_interval:
-                if self.startup_complete:
-                    self._perform_hardware_cycle()
-                else:
-                    self.logger.info("⏳ First startup - waiting one cycle before mode changes")
-                    self.startup_complete = True
-
-                last_hardware_check = time_module.time()
-
-            # Sleep until next fast poll
-            elapsed = time_module.time() - loop_start
-            sleep_time = max(0, fast_poll_interval - elapsed)
-            time_module.sleep(sleep_time)
+        self.register_check(
+            "hardware",
+            self._hardware_check,
+            lambda: self.daemon_config["daemon_settings"]["hardware_poll_interval_seconds"],
+        )
+        super().run(fast_poll_interval_seconds=FAST_POLL_INTERVAL_SECONDS)
 
         self.logger.info("👋 Daemon shutdown complete")
 
@@ -716,8 +663,8 @@ Examples:
   # Start daemon with custom system config
   %(prog)s battery_mode_daemon_config.json /path/to/config.yaml
 
-  # Validate configuration (add --dry-run when implemented)
-  %(prog)s my_config.json
+  # Validate configuration and exit, without starting the loop or touching hardware
+  %(prog)s my_config.json --dry-run
 
 Features:
   - EV charging integration (Ohme charger detection)
@@ -745,6 +692,13 @@ For more information, see:
     )
 
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Load and validate both configuration files, then exit - "
+        "never starts the polling loop or touches hardware",
+    )
+
+    parser.add_argument(
         "--version",
         action="version",
         version="Battery Mode Daemon v1.0.0",
@@ -753,6 +707,16 @@ For more information, see:
     args = parser.parse_args()
 
     daemon = BatteryModeDaemon(args.config_file, args.system_config)
+
+    if args.dry_run:
+        try:
+            daemon.load_config()
+        except Exception as e:
+            print(f"Configuration invalid: {e}")
+            sys.exit(1)
+        print(f"Configuration OK: {args.config_file} + {args.system_config}")
+        return
+
     daemon.run()
 
 

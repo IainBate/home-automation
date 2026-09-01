@@ -1,0 +1,25 @@
+# Test-only dependencies. Install alongside requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+# Run the suite from the project root with: pytest
+pytest>=7.0
+
+# Async test support (OhmeEVClient/MelCloudClient are async) and HTTP-layer
+# mocking (intercepts aiohttp requests by URL so the real client/library
+# request-building and parsing code runs against scripted fake responses,
+# rather than faking the client's own methods).
+pytest-asyncio>=0.23
+aioresponses>=0.7
+
+# aioresponses 0.7.9 (latest as of writing) reconstructs aiohttp's
+# ClientResponse itself, and that construction is broken against aiohttp
+# 3.14.x's newer required __init__ kwargs (raises "missing 1 required
+# keyword-only argument: 'stream_writer'") - a real, current incompatibility
+# between the two libraries, not a local misconfiguration. requirements.txt's
+# own aiohttp>=3.8.0 floor resolves fresh installs straight to 3.14.x, which
+# breaks every aioresponses-based test in tests/api_clients/. Pin here to the
+# Pi's already-validated version (matches requirements.txt's aiohttp comment)
+# to sidestep it - this constrains the *test* environment only. Installed
+# after requirements.txt (per the command above), so it downgrades whatever
+# aiohttp version that resolved to. Re-check whether a newer aioresponses
+# lifts this the next time either dependency moves.
+aiohttp==3.13.3

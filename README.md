@@ -11,6 +11,11 @@ Standalone package for controlling SolaX inverters and Ohme EV chargers. Provide
 - **solax_modbus_read_and_set_workmode.py** - Read/set inverter work mode (Self-Use, Charge, Discharge, Hold)
 - **ohme_ev_control.py** - Control Ohme Home Pro EV charger (status, mode, settings)
 - **solax_cloud_data_logger.py** - Collect 5-minute granularity historical energy data from SolaX Cloud API
+- **dashboard_server.py** - Read-only status web page (solar/battery, EV charging, hot water, Airstage, Resideo) for viewing on your phone - see [Status Dashboard](#status-dashboard) below
+- **solar_forecast_trainer.py** / **solar_forecast_predictor.py** - Train and run a solar generation forecast model from this system's own historical PV data plus weather (feeds the dashboard)
+- **resideo_oauth_setup.py** - One-time interactive OAuth setup for the Resideo thermostat integration
+- **mg_saic_poller.py** - Cached MG SAIC (MG iSmart) EV battery/range fetch, run hourly via cron
+- **claude_usage_poller.py** / **claude_usage_token_extract.py** - Cached Claude Code usage fetch (cron) and its macOS Keychain token extraction helper
 
 ### API Clients
 - **SolaX Modbus Client** - Direct Modbus TCP access to SolaX X3 Hybrid G4 inverters
@@ -118,6 +123,16 @@ vi config.yaml
 ```
 
 See [Configuration Guide](#configuration-guide) below for details.
+
+#### Running Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Runs the `tests/` suite plus the doctest examples embedded in `src/core_logic/`'s
+decision-logic modules (via `--doctest-modules`, configured in `pyproject.toml`).
 
 ---
 
@@ -1014,6 +1029,78 @@ Add to crontab for regular updates:
 # Update data every day at 08:00
 0 8 * * * cd /path/to/package && python3 scripts/solax_cloud_data_logger.py --summary >> /var/log/solax_data.log 2>&1
 ```
+
+---
+
+## Status Dashboard
+
+A read-only web page showing solar/battery, EV charging, hot water, and
+(optionally) Airstage/Resideo climate control and a solar generation
+forecast - designed to be opened on your phone over your home WiFi. Runs as
+its own process, independent of `battery_mode_daemon.py` and
+`hotwater_mode_daemon.py`: it never calls a mode-change/force-heat/charger-
+control function and never touches either daemon's state, so it's always
+safe to run alongside them.
+
+```bash
+python3 scripts/dashboard_server.py
+# then browse to http://<this machine's IP>:8000/ from any device on the same network
+```
+
+Controlled by `config.yaml`'s `web_interface` section (host/port/poll
+interval). A background thread refreshes the cached status every
+`poll_interval_seconds`; page loads just read that cache, so they never block
+on a slow inverter/cloud call.
+
+### Optional extras
+
+Each of these is off by default and has its own setup steps documented
+directly in `config.yaml`'s comments for that section:
+
+- **Solar generation forecast** (`config.yaml`'s `solar_forecast` section) -
+  trains a model (`scripts/solar_forecast_trainer.py`) on this system's own
+  historical PV output joined with historical weather, then predicts
+  today/tomorrow's generation (`scripts/solar_forecast_predictor.py`).
+  Deliberately not Solcast's generic forecast, which doesn't account for
+  this roof's specific shading/orientation.
+- **Fujitsu Airstage** (`config.yaml`'s `airstage` section) - zone mode and
+  temperatures via local network control, no cloud account needed.
+- **Resideo thermostat** (`config.yaml`'s `resideo` section) - via the
+  official OAuth2 API; needs a one-time interactive setup
+  (`scripts/resideo_oauth_setup.py`) and occasionally needs re-running if a
+  refresh token goes stale after an extended outage.
+- **MG SAIC EV** (`config.yaml`'s `mg_saic` section) - battery % and range
+  via the MG iSmart cloud API, polled hourly (`scripts/mg_saic_poller.py`)
+  to minimize the (self-recovering) risk of momentarily bumping a phone's
+  MG iSmart app session, since it shares the same account login.
+- **Claude Code usage** (`config.yaml`'s `claude_usage` section) - your
+  5-hour/weekly subscription usage percentages, via the same endpoint the
+  "Claude Usage" macOS app uses. Needs a token extracted from Keychain
+  (`scripts/claude_usage_token_extract.py`, macOS only, run on whichever
+  machine has `claude` logged in) and polled slowly (10+ min via cron,
+  `scripts/claude_usage_poller.py`) since that endpoint's rate limit is
+  shared with your real Claude Code sessions.
+
+### Accessing it away from home
+
+The dashboard only binds to your home network - it isn't reachable from the
+internet unless you separately set up port-forwarding (not recommended) or a
+VPN back into your home network, such as [Tailscale](https://tailscale.com)
+(free for personal use, up to 100 devices):
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+Then browse to the dashboard using this machine's Tailscale address instead
+of its LAN IP, from any other device on your Tailscale network.
+
+### Running as a service (Raspberry Pi)
+
+See `scripts/home_automation_dashboard.service` and `setup_pi.sh`, which
+installs it alongside `home_automation.service` (the battery daemon) as a
+separate systemd unit.
 
 ---
 

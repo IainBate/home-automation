@@ -649,6 +649,15 @@ def _validate_power_physical_limits(power_values: list[tuple[str, float]]) -> No
 def _interpret_work_mode(work_mode_raw: int, manual_mode_raw: int) -> BatteryMode:
     """Interpret work mode from register values.
 
+    Manual mode (register value 3) needs the second register, so it's handled
+    here directly; every other value delegates to solax_modbus_client's
+    re-export of _modbus_data_maps._interpret_work_mode, which maps each
+    non-manual value to its real BatteryMode (FEED_IN_PRIORITY, BACKUP,
+    PEAK_SHAVING, TOU_MODE, SMART_SCHEDULE, or SELF_USE for 0/unknown) -
+    this used to hardcode SELF_USE for every non-manual value regardless of
+    what it actually was, silently misreporting any of those other read-only
+    hardware states.
+
     Args:
         work_mode_raw: Work mode register value (0x008B)
         manual_mode_raw: Manual mode register value (0x008C)
@@ -662,9 +671,9 @@ def _interpret_work_mode(work_mode_raw: int, manual_mode_raw: int) -> BatteryMod
         solax_modbus_client,  # pylint: disable=import-outside-toplevel
     )
 
-    if work_mode_raw != WORK_MODE_MANUAL:
-        return BatteryMode.SELF_USE
-    return solax_modbus_client._interpret_manual_mode(manual_mode_raw)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+    if work_mode_raw == WORK_MODE_MANUAL:
+        return solax_modbus_client._interpret_manual_mode(manual_mode_raw)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+    return solax_modbus_client._interpret_work_mode(work_mode_raw)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
 
 
 def _read_single_battery_power(

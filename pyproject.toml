@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+testpaths = ["tests", "src/core_logic", "src/api_clients"]
+addopts = "--doctest-modules"
+asyncio_mode = "auto"

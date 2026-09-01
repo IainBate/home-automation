@@ -1980,11 +1980,13 @@ def get_ohme_charging_context_sync(config: dict[str, Any]) -> OhmeChargingContex
         - Connection errors (logged as warning)
         - Any other errors (logged as warning, graceful degradation)
 
-    Example:
-        >>> config = load_config()
-        >>> context = get_ohme_charging_context_sync(config)
-        >>> if context and context.smart_sync_enabled:
-        ...     print(f"Smart Sync active, price cap: {context.price_cap_gbp}")
+    Example (illustrative only - needs a real config and network access, so
+    this is not a runnable doctest)::
+
+        config = load_static_config("config.yaml")
+        context = get_ohme_charging_context_sync(config)
+        if context and context.smart_sync_enabled:
+            print(f"Smart Sync active, price cap: {context.price_cap_gbp}")
 
     Note:
         Uses asyncio.run() to execute async Ohme API calls in sync context.

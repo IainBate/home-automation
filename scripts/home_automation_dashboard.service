@@ -1,0 +1,17 @@
+[Unit]
+Description=Home Automation Status Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/home_automation
+ExecStart=/home/pi/home_automation/venv/bin/python /home/pi/home_automation/scripts/dashboard_server.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

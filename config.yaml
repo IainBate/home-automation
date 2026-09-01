@@ -64,13 +64,301 @@ battery_system:
 #
 # How to get credentials:
 #   Use your Ohme app login credentials (same as app.ohme.io)
+#
+# username/password below are placeholders - real values live in secrets.yaml
+# (gitignored, merged in at load time - see secrets.yaml.example).
 ohme_ev:
   enabled: true                            # Set to false to disable Ohme features
-  username: "iain.bate@gmail.com"          # Ohme account email/username
-  password: "U88PXFLMQkD@!XB"              # Ohme account password
+  username: "your-ohme-email@example.com"  # Ohme account email/username - see secrets.yaml
+  password: "your-ohme-password"           # Ohme account password - see secrets.yaml
   refresh_interval_minutes: 15             # How often to poll charger data
   connection_timeout: 30                   # Connection timeout in seconds
   retry_attempts: 3                        # Retry attempts for failed API calls
+
+# =============================================================================
+# MELCLOUD HOT WATER TANK CONFIGURATION
+# =============================================================================
+# Access to a Mitsubishi Ecodan hot water tank via the MELCloud cloud API -
+# the same account used by the official MELCloud iPhone app.
+#
+# email/password below are placeholders - real values live in secrets.yaml
+# (gitignored, merged in at load time - see secrets.yaml.example).
+melcloud:
+  enabled: true                            # Read-only testing (status/--dry-run); does NOT by
+                                            # itself let anything force-heat - that's gated
+                                            # separately by hotwater_automation.enabled below
+  email: "your-melcloud-email@example.com" # MELCloud account email - see secrets.yaml
+  password: "your-melcloud-password"       # MELCloud account password - see secrets.yaml
+  device_name: ""                          # Optional: name of the tank device to control.
+                                            # Leave blank to auto-select if there's only one.
+
+  # Forced hot water mode change verification (src/api_clients/melcloud_client.py
+  # set_force_hot_water). The MELCloud app often needs a mode change requested more
+  # than once before the physical unit applies it - these settings control the
+  # request -> wait -> check -> retry loop that works around that. Each attempt
+  # does one check (not continuous polling), since MELCloud's API documents that
+  # device status should not be fetched more than once a minute. There's no
+  # urgency for a force-heat/legionella mode change to land quickly, so these
+  # favour giving each attempt's cloud round-trip more room over a fast worst
+  # case - 4 x 15s is a deliberate, easy-to-reason-about one minute total.
+  mode_change_retry:
+    max_attempts: 4                        # How many times to (re-)request the mode change
+    check_delay_seconds: 15                # Wait this long after each request before checking
+                                            # whether MELCloud reports the new mode
+
+# =============================================================================
+# HOT WATER AUTOMATION (scripts/hotwater_mode_daemon.py, hotwater_auto_check.py)
+# =============================================================================
+# Automatic force-heat decision. Force-heats the tank if it needs it
+# (tank_temp_threshold_c) and either:
+#   - the Ohme EV charger is confirmed charging (same power-threshold +
+#     2-consecutive-cycle confirmation as battery_system's own Ohme charging
+#     check - see ohme_charging_threshold_watts below) AND it's still before
+#     trigger_hour - Ohme has already chosen an economical time to draw
+#     power, so hot water piggybacks on it while still watching for it, or
+#   - it's at/after trigger_hour AND the battery has surplus stored solar
+#     (battery_soc_min_percent) or the grid is in its off-peak window.
+# Car charging is only monitored *before* trigger_hour, not indefinitely: if
+# the car hasn't started charging by trigger_hour, the decision switches
+# over entirely to the battery/off-peak check - heating immediately from
+# stored solar if there's enough of it, or otherwise waiting for the
+# off-peak window.
+# Tariff: Octopus Intelligent Go, whose whole-home off-peak window is fixed
+# (offpeak_start/offpeak_end below) rather than the half-hourly Agile pricing -
+# this does NOT use api_settings.octopus_product_code/octopus_tariff_region_code
+# (those are Agile-specific and unused here).
+# Requires melcloud (above) to be enabled and configured; uses solaX_cloud_api
+# for battery SoC and ohme_ev for the charging check.
+#
+# Because the car-charging condition can occur at any time before
+# trigger_hour, run this continuously via hotwater_mode_daemon.py (mirrors
+# battery_mode_daemon.py's architecture) rather than a once-daily cron job.
+hotwater_automation:
+  enabled: false                           # Set to true once melcloud is configured and tested
+  trigger_hour: 21.5                       # Local hour (24h, fractional - 21.5 = 9:30pm) at which
+                                            # car-charging monitoring stops and the battery/off-peak
+                                            # conditions take over (see above).
+  ohme_charging_threshold_watts: 500       # Same threshold/meaning as battery_mode_daemon_config.json's
+                                            # ohme_charging_threshold_watts - kept as a separate value
+                                            # here since this lives in config.yaml, not that JSON file.
+  tank_temp_threshold_c: 45                # Force-heat only if the tank is below this
+  battery_soc_min_percent: 50              # Battery counts as having surplus if SoC >= this
+  offpeak_start: "23:30"                   # Octopus Intelligent Go whole-home off-peak window
+  offpeak_end: "05:30"                     # (fixed daily window, crosses midnight)
+  force_heat_max_duration_hours: 3         # Safety net only - the revert check normally reverts
+                                            # as soon as the tank reaches its own target
+                                            # temperature; this is a backstop in case MELCloud
+                                            # never reports that (e.g. a stuck sensor reading)
+  poll_interval_seconds: 600               # hotwater_mode_daemon.py: how often to run the
+                                            # force-heat check (10 min - frequent enough to catch
+                                            # EV charging starting)
+  revert_check_interval_seconds: 3600      # hotwater_mode_daemon.py: how often to run the
+                                            # revert-if-due check (which also reverts on reaching
+                                            # target temperature), and the legionella progress
+                                            # check (1 hour)
+
+  # Legionella high-temperature cycle (DIY - MELCloud has no dedicated trigger for
+  # this). Rides on the exact same trigger as a normal force-heat above (car
+  # charging, or evening window + battery/off-peak) - there is no separate
+  # schedule. The only difference is a minimum-interval gate: the first time
+  # that trigger fires at least legionella_interval_days after the last
+  # completed cycle, it raises the tank's target temperature and force-heats
+  # to that instead of the normal target, then restores the original target
+  # once reached. This means a cycle never runs sooner than
+  # legionella_interval_days, but can run later if the normal trigger
+  # conditions don't occur for a while. Confirm your hot water outlets have a
+  # thermostatic mixing valve (standard on UK systems) before relying on
+  # this, since it's a real temperature spike at the tank.
+  legionella_interval_days: 90             # Minimum days between cycles (~3 months)
+  legionella_target_temp_c: 60             # Target temperature for the cycle
+  legionella_max_cycle_duration_hours: 6   # Safety timeout: revert even if target not reached
+
+  max_prediction_age_hours: 3              # How old battery_evening_prediction.json (below) may
+                                            # be before the force-heat check ignores it and falls
+                                            # back to a live SoC reading instead
+
+# =============================================================================
+# BATTERY EVENING SOC PREDICTION (scripts/battery_evening_predictor.py)
+# =============================================================================
+# Predicts battery SoC a few hours after hotwater_automation.trigger_hour, so the
+# force-heat decision knows whether stored solar will still be there by the time a
+# multi-hour heating run finishes, rather than trusting a single live reading at
+# trigger_hour to still hold true hours later.
+#
+# Not a trained ML model - a simple "analog day" statistic: how SoC has historically
+# moved between two times of day in the same calendar month, read from
+# data/solax_historical_data.json (collected by scripts/solax_cloud_data_logger.py).
+# Entirely decoupled from battery_mode_daemon.py: only reads that historical log and
+# a live SoC value, never touches the battery daemon's own process or state.
+#
+# When solar_forecast (below) is enabled and has produced a forecast, this
+# additionally corrects the historical average using today's actual forecast
+# generation for the trigger-to-horizon window (a small linear fit, not a
+# separate model of its own - see
+# src/core_logic/battery_evening_prediction_logic.py's
+# fit_generation_drift_correction) - nudging the prediction toward what
+# today's specific weather implies rather than only ever looking backward at
+# a typical day for the month. Falls back to the plain historical average
+# whenever solar_forecast is disabled/unavailable or there isn't enough
+# paired historical PV data to fit it - this correction is optional, on top
+# of a method that already works without it.
+#
+# Run once daily via cron shortly before trigger_hour, e.g.:
+#   55 20 * * * cd /path/to/repo && python3 scripts/battery_evening_predictor.py --quiet
+battery_evening_prediction:
+  enabled: false                           # Set to true once solax_historical_data.json has a
+                                            # few months of data and the cron entry above is set up
+  trigger_hour: 21.5                       # Defaults to hotwater_automation.trigger_hour if unset
+  horizon_hours: 3                         # Defaults to hotwater_automation.force_heat_max_duration_hours
+                                            # if unset - how far ahead of trigger_hour to predict
+  min_sample_days: 5                       # Minimum matching historical days (same calendar month)
+                                            # required to produce a prediction; below this, the
+                                            # predictor writes "unavailable" and callers fall back
+                                            # to a live SoC reading
+
+# =============================================================================
+# SOLAR GENERATION FORECAST (scripts/solar_forecast_trainer.py,
+# scripts/solar_forecast_predictor.py)
+# =============================================================================
+# Predicts today's and tomorrow's solar generation from a random forest model
+# trained on this system's own historical PV output (data/solax_historical_data.json)
+# joined with historical weather (Open-Meteo, free, no API key) for your exact
+# location - deliberately NOT Solcast's generic forecast, which doesn't account
+# for this roof's specific shading/orientation quirks. Display-only: nothing
+# reads this to make automation decisions (unlike battery_evening_prediction
+# above, which hotwater_automation does use).
+#
+# Setup:
+#   1. Set location.latitude/longitude above to your home's real coordinates.
+#   2. Run once to train:      python3 scripts/solar_forecast_trainer.py
+#   3. Run periodically (e.g. hourly via cron) to refresh the forecast:
+#        0 * * * * cd /path/to/repo && python3 scripts/solar_forecast_predictor.py --quiet
+#   4. Re-run step 2 periodically (e.g. weekly) as more historical data accumulates.
+solar_forecast:
+  enabled: false                           # Set to true once latitude/longitude are set and
+                                            # scripts/solar_forecast_trainer.py has been run at
+                                            # least once (see setup steps above)
+
+# =============================================================================
+# FUJITSU AIRSTAGE DUCTLESS HEAT PUMPS (src/api_clients/airstage_client.py)
+# =============================================================================
+# Read-only zone status (mode, current/target temperature) via local network
+# control - no Fujitsu cloud account needed, unlike ohme_ev/melcloud above.
+# Uses the unofficial `pyairstage` library talking directly to each unit over
+# your home network. One dashboard card per zone listed below.
+#
+# How to find each zone's ip_address/device_id:
+#   1. Find the unit's MAC address (router's DHCP client list, or the
+#      "AP-WH3X-XXXXXXXXXXXX" WiFi network it broadcasts during setup - the
+#      last 12 characters after "AP-WH3X-" are the same as the MAC).
+#   2. ip_address: that device's IP (same DHCP client list; a static
+#      reservation is recommended, as with the SolaX inverters above).
+#   3. device_id: the MAC address with the ':'/'-' separators removed
+#      (e.g. "AA:BB:CC:11:22:33" -> "AABBCC112233").
+airstage:
+  enabled: true                            # Both zones' ip_address/device_id are set
+  timeout_seconds: 10
+  zones:
+    - name: "Landing"
+      ip_address: "192.168.68.106"
+      device_id: "CC4740B21091"            # From MAC CC-47-40-B2-10-91
+    - name: "Playroom"
+      ip_address: "192.168.68.107"
+      device_id: "106838C4462B"            # From MAC 10-68-38-C4-46-2B
+
+# =============================================================================
+# RESIDEO THERMOSTAT (src/api_clients/resideo_client.py)
+# =============================================================================
+# Read-only thermostat status via Resideo's official OAuth2 API. Unlike
+# airstage above, this DOES need a cloud account and a one-time interactive
+# setup step - Resideo's refresh tokens are also known to occasionally go
+# stale after extended outages (see resideo_client.py's module docstring),
+# so this may need re-running scripts/resideo_oauth_setup.py every so often;
+# that's expected, not a sign something is broken.
+#
+# Setup:
+#   1. Register an app at developer.honeywellhome.com to get client_id/client_secret.
+#   2. Register redirect URI http://localhost:8756/callback (or override
+#      --port in step 3 and update this to match).
+#   3. Put client_secret in secrets.yaml (see secrets.yaml.example) - client_id
+#      itself isn't secret, so it stays here.
+#   4. Run once: python3 scripts/resideo_oauth_setup.py
+#      (opens your browser for a one-time consent step, then saves a
+#      refresh token to config/resideo_token_state.json - also paste the
+#      refresh token it prints into secrets.yaml as a recovery copy)
+resideo:
+  enabled: false                           # Set to true once client_id/client_secret are set and
+                                            # scripts/resideo_oauth_setup.py has been run
+  client_id: "your-resideo-client-id"      # From developer.honeywellhome.com - not secret
+  client_secret: "your-resideo-client-secret"  # Placeholder - real value in secrets.yaml
+  refresh_token: "your-resideo-refresh-token"  # Placeholder bootstrap value - real value in
+                                                # secrets.yaml; day-to-day use actually reads
+                                                # config/resideo_token_state.json instead (see
+                                                # resideo_client.py) since Resideo commonly
+                                                # rotates this on every use
+
+# =============================================================================
+# CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
+# =============================================================================
+# Shows your Claude Code subscription's 5-hour session and weekly usage
+# percentages on the dashboard - the same numbers the "Claude Usage" macOS
+# menu bar app and Claude Code itself show, via the same OAuth login token
+# (NOT an Anthropic API key - that measures a different, pay-per-token product).
+#
+# IMPORTANT trade-offs (see claude_usage_client.py's module docstring):
+#   - This copies your Claude Code login token onto this machine. Treat it
+#     like any other credential in secrets.yaml.
+#   - The token expires after ~8 hours and can only be refreshed by `claude`
+#     running on the machine that's actually logged in - copying it here does
+#     NOT keep it fresh. Re-run scripts/claude_usage_token_extract.py (on
+#     that machine) and update secrets.yaml whenever the dashboard shows
+#     "token expired".
+#   - The usage endpoint's rate limit is shared with your real Claude Code
+#     sessions - this is polled independently and slowly
+#     (scripts/claude_usage_poller.py via cron, NOT the dashboard's fast poll
+#     loop) specifically to avoid competing with your actual usage.
+#
+# Setup:
+#   1. On the machine where `claude` is logged in:
+#        python3 scripts/claude_usage_token_extract.py
+#   2. Paste the printed access_token into secrets.yaml's claude_usage section.
+#   3. Set enabled: true below.
+#   4. Add a cron entry (10+ minutes - do not go faster, see above):
+#        */10 * * * * cd /path/to/repo && python3 scripts/claude_usage_poller.py --quiet
+claude_usage:
+  enabled: false
+  access_token: "your-claude-code-access-token"  # Placeholder - real value in secrets.yaml
+
+# =============================================================================
+# MG SAIC EV (src/api_clients/saic_client.py)
+# =============================================================================
+# Shows the car's battery % and range on the dashboard, via the MG iSmart
+# cloud API (saic-ismart-client-ng package - NOT the saic-python-client-ng-master/
+# directory this project's docs mention, which doesn't actually exist here).
+#
+# IMPORTANT trade-offs (see saic_client.py's module docstring):
+#   - This logs into the SAME MG account already used by household phones,
+#     by your own choice - MG's backend can only have so many concurrent
+#     sessions, so this *could* occasionally log a phone out (it
+#     self-recovers). If that becomes a nuisance, switch to a second,
+#     dedicated MG account here instead (no code change needed) - MG
+#     supports registering one vehicle to multiple accounts.
+#   - Deliberately polled infrequently (hourly, via cron - see
+#     scripts/mg_saic_poller.py - NOT the dashboard's fast poll loop) to
+#     minimize that risk. The underlying library also can't reuse a login
+#     session across runs, so every poll does a fresh login regardless.
+#
+# Setup: put username/password in secrets.yaml (see secrets.yaml.example),
+# set enabled: true, and add a cron entry:
+#   0 * * * * cd /path/to/repo && python3 scripts/mg_saic_poller.py --quiet
+mg_saic:
+  enabled: false
+  username: "your-mg-ismart-email@example.com"  # Placeholder - real value in secrets.yaml
+  password: "your-mg-ismart-password"            # Placeholder - real value in secrets.yaml
+  username_is_email: true
+  region: "eu"                                   # "eu", "au", or "tr" - UK accounts use "eu"
+  vin: ""                                        # Optional - leave blank to auto-select the
+                                                  # account's current vehicle (fine for one car)
 
 # =============================================================================
 # FINANCIAL COSTS (Stub values - not used for basic Modbus operations)
@@ -126,6 +414,10 @@ location:
   default_timezone_str: "Europe/London"    # Timezone for display conversions
   city_name: "London"                      # City name (informational)
   country_name: "United Kingdom"           # Country name (informational)
+  latitude: 0.0                            # REQUIRED for solar_forecast below - set to your
+                                            # home's exact coordinates (e.g. Google Maps "What's
+                                            # here?"). Left at 0.0, solar forecasting stays disabled.
+  longitude: 0.0                           # See latitude above.
 
 # =============================================================================
 # SYSTEM SETTINGS (Stub values - not used for basic Modbus operations)
@@ -141,13 +433,22 @@ system_settings:
   daily_input_file_path: ""
 
 # =============================================================================
-# WEB INTERFACE (Disabled - not included in this package)
+# DASHBOARD WEB INTERFACE (scripts/dashboard_server.py)
 # =============================================================================
+# Read-only status dashboard - solar/battery, EV charging, hot water - for
+# viewing on your phone over the home network. Never changes battery mode,
+# charger mode, or hot water settings; runs as its own independent process
+# alongside (not instead of) battery_mode_daemon.py and hotwater_mode_daemon.py.
 web_interface:
-  enabled: false
-  host: "127.0.0.1"
+  enabled: true
+  host: "0.0.0.0"                          # Bind all interfaces so phones on the LAN can reach it
+                                            # (not internet-facing unless you separately port-forward)
   port: 8000
-  debug_mode: false
+  debug_mode: false                        # Never enable in production - Flask debug mode allows
+                                            # remote code execution via its interactive debugger
+  poll_interval_seconds: 45                # How often to refresh cached status from the inverters/
+                                            # Ohme/MELCloud in the background (phones just read the
+                                            # cache - this doesn't scale with how many phones look)
 
 # =============================================================================
 # LOGGING CONFIGURATION

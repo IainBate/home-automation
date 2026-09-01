@@ -24,21 +24,16 @@ SolaX inverters. All safety validations must be performed before calling these f
 # is resolved at runtime and doesn't cause actual circular dependency issues.
 from __future__ import annotations
 
-import fcntl
 import json
 import logging
 import os
 import sys
 import time
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from src.utils.paths import get_mode_change_log_path
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+from src.utils.state_store import locked_json_state
 
 # Import BatteryMode for type-safe mode handling
 from src.core_logic.battery_simulation import (  # pylint: disable=wrong-import-position
@@ -352,70 +347,25 @@ def _execute_mode_change_hardware(
     return result  # pragma: no cover
 
 
-@contextmanager
-def _locked_mode_change_log(
-    timeout: float = 10.0,
-) -> Generator[tuple[dict[str, object], Callable[[dict[str, object]], None]]]:
-    """Context manager for safe file locking of mode change log.
+def _locked_mode_change_log(timeout: float = 10.0):
+    """Context manager for safe file locking of the mode change log.
 
-    Provides exclusive access to the mode change log file to prevent
-    race conditions between daemon and web interface operations.
+    Thin wrapper around src.utils.state_store.locked_json_state - the same
+    fcntl-based locked-read-modify-write primitive
+    scripts/hotwater_automation_core.py uses for its own state file, so there
+    is one race-safety story rather than a separately-maintained one here.
+    Mutate the yielded dict in place to persist changes - it's written back
+    automatically on a clean exit (an early `return` included), so callers no
+    longer call a separate save function.
 
     Args:
         timeout: Maximum time to wait for lock acquisition (seconds)
 
     Yields:
-        Tuple of (log_data: dict, save_function: callable)
+        The current log data dict - mutate in place to persist changes.
 
     """
-    log_path = _get_mode_change_log_path()
-    log_path_obj = Path(log_path)
-
-    # Ensure directory exists
-    log_path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-    # Create file if it doesn't exist
-    if not log_path_obj.exists():
-        with log_path_obj.open("w", encoding="utf-8") as f:
-            json.dump({}, f)
-
-    start_time = time.time()
-    # Open file for read/write
-    with log_path_obj.open("r+", encoding="utf-8") as fd:
-        # Try to acquire exclusive lock with timeout
-        while time.time() - start_time < timeout:
-            try:
-                fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except OSError:
-                time.sleep(0.1)
-        else:
-            msg = f"Could not acquire lock on {log_path} within {timeout} seconds"
-            raise TimeoutError(msg)  # noqa: TRY301 - Inline raise is clearer than inner function for timeout logic
-
-        # Read current log data
-        fd.seek(0)
-        try:
-            log_data = json.load(fd)
-        except json.JSONDecodeError:
-            log_data = {}
-
-        def save_log(data: dict[str, object]) -> None:
-            """Save log data atomically."""
-            fd.seek(0)
-            fd.truncate()
-            json.dump(data, fd, indent=2)
-            fd.flush()
-            os.fsync(fd.fileno())
-
-        try:
-            yield log_data, save_log
-        finally:
-            # Unlock file before context manager closes it
-            try:
-                fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-            except OSError:  # pragma: no cover - Defensive: OS-level lock release failure
-                logger.exception("Error releasing file lock")
+    return locked_json_state(_get_mode_change_log_path(), timeout)
 
 
 def _is_actively_testing() -> bool:

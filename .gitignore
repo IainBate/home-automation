@@ -19,6 +19,14 @@ logs/
 # Runtime data (generated at runtime)
 config/solax_mode_change_log.json
 data/battery_mode_daemon_log.json
+config/solar_forecast.json
+config/resideo_token_state.json
+data/solar_forecast_model.joblib
 
 # Historical zip archives (not tracked in git)
 *.zip
+
+# Real credentials (ohme_ev, melcloud, ...) - merged onto config.yaml at load time
+# by src/config_manager/config_manager.py. See secrets.yaml.example for the format.
+# Copy this file to another machine (e.g. the Pi) manually - it never travels via git.
+secrets.yaml

@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+# pylint: disable=wrong-import-position  # Imports after sys.path modification for src access
+"""Solar Forecast Predictor (one-shot CLI).
+
+Loads the model trained by scripts/solar_forecast_trainer.py, fetches
+today/tomorrow's weather forecast, and writes a cached prediction for the
+dashboard (src/dashboard/status_collector.py) to display. Display-only -
+nothing reads this to make automation decisions.
+
+Meant to run periodically via cron (e.g. hourly - weather forecasts don't
+change fast enough to justify more often than that):
+
+    0 * * * * cd /path/to/repo && python3 scripts/solar_forecast_predictor.py --quiet
+
+Usage:
+    python3 scripts/solar_forecast_predictor.py [--config config.yaml]
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import argparse
+import json
+import logging
+import os
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import joblib
+import pytz
+from hotwater_automation_core import get_config_path
+
+from src.api_clients.weather_client import fetch_forecast_weather_hourly
+from src.config_manager.config_manager import load_static_config
+from src.core_logic.solar_forecast_logic import build_forecast_rows, predict_hourly_kw
+from src.utils.paths import get_solar_forecast_model_path, get_solar_forecast_path
+
+logger = logging.getLogger(__name__)
+
+_CLOUD_COVER_CLEAR_MAX = 20
+_CLOUD_COVER_PARTLY_CLOUDY_MAX = 60
+
+
+def _create_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--config", default=None, help="Path to config.yaml")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Minimal output")
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    )
+    return parser
+
+
+def _weather_description(cloud_cover_percent: float) -> str:
+    """A simple, human-readable label from cloud cover - not meteorologically rigorous."""
+    if cloud_cover_percent <= _CLOUD_COVER_CLEAR_MAX:
+        return "Clear"
+    if cloud_cover_percent <= _CLOUD_COVER_PARTLY_CLOUDY_MAX:
+        return "Partly cloudy"
+    return "Overcast"
+
+
+def _write_forecast(record: dict[str, Any]) -> None:
+    """Write the forecast status file atomically (same pattern as other prediction files)."""
+    path = Path(get_solar_forecast_path())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    tmp_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+def run(config: dict[str, Any], *, quiet: bool) -> int:
+    """Predict today/tomorrow's solar generation and write it for the dashboard. 0/1 exit code."""
+    location = config.get("location", {})
+    latitude = location.get("latitude", 0.0)
+    longitude = location.get("longitude", 0.0)
+    timezone_name = location.get("default_timezone_str", "Europe/London")
+    if latitude == 0.0 and longitude == 0.0:
+        msg = "location.latitude/longitude are not set in config.yaml - see solar_forecast comments"
+        logger.error(msg)
+        if not quiet:
+            print(msg)
+        return 1
+
+    model_path = Path(get_solar_forecast_model_path())
+    if not model_path.exists():
+        msg = f"No trained model at {model_path} - run scripts/solar_forecast_trainer.py first"
+        logger.error(msg)
+        if not quiet:
+            print(msg)
+        return 1
+    model = joblib.load(model_path)
+
+    weather_records = fetch_forecast_weather_hourly(latitude, longitude, timezone_name)
+    if weather_records is None:
+        msg = "Failed to fetch weather forecast (see logs above)"
+        logger.error(msg)
+        if not quiet:
+            print(msg)
+        return 1
+
+    forecast_rows = build_forecast_rows(weather_records)
+    predicted_kw = predict_hourly_kw(model, forecast_rows)
+
+    now_local = datetime.now(tz=UTC).astimezone(pytz.timezone(timezone_name))
+    today_str = now_local.strftime("%Y-%m-%d")
+    tomorrow_str = (now_local + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    hourly = [
+        {"timestamp": row["timestamp"], "predicted_kw": round(kw, 3)}
+        for row, kw in zip(forecast_rows, predicted_kw)
+    ]
+    today_kwh = sum(h["predicted_kw"] for h in hourly if h["timestamp"].startswith(today_str))
+    tomorrow_kwh = sum(h["predicted_kw"] for h in hourly if h["timestamp"].startswith(tomorrow_str))
+
+    current_hour_key = now_local.strftime("%Y-%m-%d %H:00")
+    current_weather_row = next((r for r in forecast_rows if r["timestamp"] == current_hour_key), None)
+    current_weather = None
+    if current_weather_row is not None:
+        current_weather = {
+            "cloud_cover_percent": current_weather_row["cloud_cover"],
+            "temperature_c": current_weather_row["temperature_2m"],
+            "description": _weather_description(current_weather_row["cloud_cover"]),
+        }
+
+    record = {
+        "generated_at": datetime.now(tz=UTC).isoformat(),
+        "model_trained_at": datetime.fromtimestamp(model_path.stat().st_mtime, tz=UTC).isoformat(),
+        "today_kwh": round(today_kwh, 2),
+        "tomorrow_kwh": round(tomorrow_kwh, 2),
+        "current_weather": current_weather,
+        "hourly_kw": hourly,
+    }
+    _write_forecast(record)
+
+    summary = f"Solar forecast: today {record['today_kwh']} kWh, tomorrow {record['tomorrow_kwh']} kWh"
+    logger.info(summary)
+    if not quiet:
+        print(summary)
+
+    return 0
+
+
+def main() -> None:
+    """Execute main entry point."""
+    args = _create_argument_parser().parse_args()
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    )
+
+    config_path = args.config or get_config_path()
+    config = load_static_config(config_path)
+    if config is None:
+        print("Failed to load config.yaml (see logs above)")
+        sys.exit(1)
+
+    if not config.get("solar_forecast", {}).get("enabled", False):
+        logger.info("Solar forecast disabled (solar_forecast.enabled: false in config.yaml)")
+        if not args.quiet:
+            print("Solar forecast is disabled (solar_forecast.enabled: false)")
+        sys.exit(0)
+
+    sys.exit(run(config, quiet=args.quiet))
+
+
+if __name__ == "__main__":
+    main()

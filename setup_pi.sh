@@ -9,6 +9,7 @@ set -e
 PROJECT_DIR="/home/pi/home_automation"
 BACKUP_DIR="/tmp/home_automation_backup_$(date +%Y%m%d_%H%M%S)"
 SERVICE_NAME="home_automation.service"
+DASHBOARD_SERVICE_NAME="home_automation_dashboard.service"
 LOG_DIR="/var/log/home_automation"
 
 echo "=== Home Automation Pi Setup ==="
@@ -75,6 +76,9 @@ fi
 echo "  Installing dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
+echo "  (scikit-learn/numpy can take a very long time to compile from source on a Pi -"
+echo "   Raspberry Pi OS's pip is usually already configured for piwheels' prebuilt ARM"
+echo "   wheels; if this step is unexpectedly slow, check 'pip config list' for piwheels.org)"
 pip install -r requirements.txt
 echo "  Dependencies installed."
 echo ""
@@ -163,13 +167,42 @@ sudo systemctl start "$SERVICE_NAME"
 echo "  Service installed, enabled, and started."
 echo ""
 
+# Step 9: Install and enable the status dashboard service - independent of the
+# battery daemon above; read-only, never touches battery_mode_daemon.py or
+# hotwater_mode_daemon.py's state, so it's always safe to run alongside them.
+echo "Step 9: Installing dashboard service..."
+sudo cp scripts/home_automation_dashboard.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable "$DASHBOARD_SERVICE_NAME"
+sudo systemctl start "$DASHBOARD_SERVICE_NAME"
+echo "  Dashboard service installed, enabled, and started."
+echo ""
+
 # Done
 echo "=== Setup complete ==="
 echo ""
 echo "Verify:"
 echo "  systemctl status $SERVICE_NAME"
 echo "  journalctl -u $SERVICE_NAME -f"
+echo "  systemctl status $DASHBOARD_SERVICE_NAME"
+echo "  journalctl -u $DASHBOARD_SERVICE_NAME -f"
+echo "  Dashboard: http://<this Pi's IP>:8000/ from any device on your home WiFi"
 echo ""
 if [ -d "$BACKUP_DIR" ]; then
     echo "Backup available at: $BACKUP_DIR (will be cleaned on reboot)"
 fi
+echo ""
+echo "Optional next steps (none of these run automatically):"
+echo "  - Solar forecast: set location.latitude/longitude in config.yaml, then"
+echo "      python3 scripts/solar_forecast_trainer.py && python3 scripts/solar_forecast_predictor.py"
+echo "    then add cron entries per config.yaml's solar_forecast comments."
+echo "  - Airstage: set airstage.ip_address/device_id in config.yaml (see its comments)."
+echo "  - Resideo: set resideo.client_id/client_secret, then"
+echo "      python3 scripts/resideo_oauth_setup.py"
+echo "  - MG SAIC (EV battery/range): set mg_saic.username/password in secrets.yaml,"
+echo "      then add an hourly cron entry per config.yaml's mg_saic comments"
+echo "  - Claude usage: run scripts/claude_usage_token_extract.py on the machine"
+echo "      where \`claude\` is logged in, then add a cron entry (10+ min)"
+echo "  - Remote access without port-forwarding: consider Tailscale"
+echo "      (curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up)"
+echo "    then browse to the dashboard using this Pi's Tailscale address instead of its LAN IP."

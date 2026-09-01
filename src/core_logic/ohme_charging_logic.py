@@ -73,6 +73,65 @@ class SlotChargingDecision:
     reason: str  # Human-readable explanation
 
 
+def is_charging_above_threshold(power_watts: float, threshold_watts: float) -> bool:
+    """Whether a single power reading counts as "the car is charging".
+
+    A raw, single-reading signal - see confirm_charging_over_consecutive_cycles
+    for the debounce that turns this into a stable "confirmed charging" state.
+
+    Examples:
+        >>> is_charging_above_threshold(600, 500)
+        True
+        >>> is_charging_above_threshold(400, 500)
+        False
+        >>> is_charging_above_threshold(500, 500)
+        False
+
+    """
+    return power_watts > threshold_watts
+
+
+def confirm_charging_over_consecutive_cycles(
+    previous_confirmed_cycles: int, above_threshold_now: bool, *, required_cycles: int = 2
+) -> tuple[int, bool]:
+    """Debounce a per-cycle above-threshold reading into a confirmed charging state.
+
+    Shared by battery_mode_daemon.py and hotwater_automation_core.py so both
+    treat "the car is charging" identically: requiring required_cycles
+    consecutive above-threshold readings before acting, so a brief transient
+    (e.g. the moment of plugging in) doesn't trigger a mode change or force-
+    heat on its own. Callers persist previous_confirmed_cycles between calls
+    themselves - in memory for a long-lived daemon instance, or in a state
+    file for anything that might run as separate one-shot invocations.
+
+    Args:
+        previous_confirmed_cycles: The consecutive above-threshold count
+            going into this cycle (0 if not currently accumulating).
+        above_threshold_now: Whether this cycle's reading is above threshold.
+        required_cycles: How many consecutive above-threshold cycles are
+            needed before charging counts as confirmed.
+
+    Returns:
+        (new_confirmed_cycles, confirmed) - new_confirmed_cycles is what the
+        caller should persist for the next call; confirmed is True once it
+        reaches required_cycles. A below-threshold reading resets the count
+        to 0, so a break in charging requires starting the count over.
+
+    Examples:
+        >>> confirm_charging_over_consecutive_cycles(0, True)
+        (1, False)
+        >>> confirm_charging_over_consecutive_cycles(1, True)
+        (2, True)
+        >>> confirm_charging_over_consecutive_cycles(2, True)
+        (3, True)
+        >>> confirm_charging_over_consecutive_cycles(1, False)
+        (0, False)
+
+    """
+    new_count = previous_confirmed_cycles + 1 if above_threshold_now else 0
+    return new_count, new_count >= required_cycles
+
+
 def determine_slot_charging_decision(
     context: OhmeChargingContext,
     battery_mode: BatteryMode,
@@ -112,7 +171,7 @@ def determine_slot_charging_decision(
         ... )
         >>> decision.should_charge
         True
-        >>> decision.mode_override
+        >>> print(decision.mode_override)
         None
 
         >>> # Price cap set, SELF_USE slot, price below cap
@@ -128,7 +187,7 @@ def determine_slot_charging_decision(
         >>> decision.should_charge
         True
         >>> decision.mode_override
-        BatteryMode.MANUAL_STOP
+        <BatteryMode.MANUAL_STOP: 'MANUAL_STOP'>
 
     """
     # Guard clauses: Don't charge if car not plugged in or smart sync not enabled
