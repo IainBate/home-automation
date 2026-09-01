@@ -206,8 +206,7 @@ hotwater_automation:
 # Run once daily via cron shortly before trigger_hour, e.g.:
 #   55 20 * * * cd /path/to/repo && python3 scripts/battery_evening_predictor.py --quiet
 battery_evening_prediction:
-  enabled: false                           # Set to true once solax_historical_data.json has a
-                                            # few months of data and the cron entry above is set up
+  enabled: true
   trigger_hour: 21.5                       # Defaults to hotwater_automation.trigger_hour if unset
   horizon_hours: 3                         # Defaults to hotwater_automation.force_heat_max_duration_hours
                                             # if unset - how far ahead of trigger_hour to predict
