@@ -342,7 +342,7 @@ function mgSaicCard(d) {
   const body = `
     <div class="row"><span class="label">Battery</span><span class="value">${fmtPct(d.battery_percent)}</span></div>
     ${socBar(d.battery_percent)}
-    <div class="row"><span class="label">Range</span><span class="value">${d.range_km !== null && d.range_km !== undefined ? Math.round(d.range_km) + " km" : "&mdash;"}</span></div>
+    <div class="row"><span class="label">Range</span><span class="value">${d.range_km !== null && d.range_km !== undefined ? Math.round(d.range_km * 0.621371) + " mi" : "&mdash;"}</span></div>
     <div class="row"><span class="label">Status</span><span class="value">${d.is_charging ? '<span class="badge good">Charging</span>' : d.is_parked ? "Parked" : "Driving"}</span></div>
   `;
   return card(title, body, "");
