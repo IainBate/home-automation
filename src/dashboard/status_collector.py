@@ -244,7 +244,7 @@ def _collect_airstage(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
-    """Read-only Resideo thermostat snapshot via the official OAuth2 API."""
+    """Read-only Resideo thermostat snapshot via evohome-async (see resideo_client.py)."""
     if not config.get("resideo", {}).get("enabled", False):
         return {"available": False, "disabled": True, "error": "Resideo disabled in config.yaml"}
 
@@ -252,8 +252,7 @@ def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
     if status is None:
         return {
             "available": False,
-            "error": "Could not read from Resideo - token may need refreshing "
-            "(scripts/resideo_oauth_setup.py)",
+            "error": "Could not read from Resideo - check resideo.username/password in secrets.yaml",
         }
 
     return {"available": True, **status}
