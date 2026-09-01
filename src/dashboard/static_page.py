@@ -401,6 +401,7 @@ async function refresh() {
       return;
     }
     document.getElementById("cards").innerHTML =
+      serviceHealthCard(data.service_health) +
       solarCard(data.solar_battery) + evCard(data.ev_charging) + hotWaterCard(data.hot_water) +
       airstageCard(data.airstage) + resideoCard(data.resideo) +
       mgSaicCard(data.mg_saic) +
