@@ -7,6 +7,13 @@ realistic config, e.g. trigger_hour=22 with the default 3h horizon), that
 reading lived under a different day's entry and was never found - silently
 producing zero samples (and therefore no prediction, permanently falling
 back to a live SoC reading) for every such configuration.
+
+Historical days are matched against a reference_day_of_year within a sliding
+window (see DEFAULT_WINDOW_DAYS) rather than a hard calendar-month bucket -
+day 1 (day-of-year 1) is used throughout below since "day 1" is unambiguous
+and, with the default 15-day window, cleanly includes/excludes the boundary
+cases these tests care about (e.g. day-of-year 32 - February 1 - is 31 days
+from day 1, well outside the window).
 """
 
 from __future__ import annotations
