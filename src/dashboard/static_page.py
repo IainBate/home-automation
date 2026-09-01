@@ -298,8 +298,7 @@ function resideoCard(d) {
   const body = `
     <div class="row"><span class="label">Mode</span><span class="value"><span class="badge">${escapeHtml(titleCase(d.mode))}</span></span></div>
     <div class="row"><span class="label">Current</span><span class="value">${fmtTemp(d.current_temperature_c)}</span></div>
-    ${d.heat_setpoint_c !== null && d.heat_setpoint_c !== undefined ? `<div class="row"><span class="label">Heat to</span><span class="value">${fmtTemp(d.heat_setpoint_c)}</span></div>` : ""}
-    ${d.cool_setpoint_c !== null && d.cool_setpoint_c !== undefined ? `<div class="row"><span class="label">Cool to</span><span class="value">${fmtTemp(d.cool_setpoint_c)}</span></div>` : ""}
+    ${d.target_temperature_c !== null && d.target_temperature_c !== undefined ? `<div class="row"><span class="label">Target</span><span class="value">${fmtTemp(d.target_temperature_c)}</span></div>` : ""}
   `;
   const title = "Thermostat" + (d.device_name ? " - " + escapeHtml(d.device_name) : "");
   return card(title, body, "");
