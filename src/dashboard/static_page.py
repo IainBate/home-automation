@@ -363,6 +363,22 @@ function claudeUsageCard(d) {
   return card("Claude Usage", ring + otherRows, details);
 }
 
+function serviceHealthCard(d) {
+  if (!d.available) return unavailableCard("Service Health", d.error, d.disabled);
+  const rows = d.services.map(s => {
+    if (!s.installed) {
+      return `<div class="row"><span class="label">${escapeHtml(s.label)}</span><span class="value"><span class="badge">Not deployed</span></span></div>`;
+    }
+    const badgeClass = s.active ? "good" : "bad";
+    const badgeLabel = s.active ? "Running" : titleCase(s.active_state);
+    const logNote = s.log_age_seconds !== null && s.log_age_seconds !== undefined
+      ? `<div class="row"><span class="label">Last log activity</span><span class="value">${fmtAge(s.log_age_seconds)}</span></div>`
+      : "";
+    return `<div class="row"><span class="label">${escapeHtml(s.label)}</span><span class="value"><span class="badge ${badgeClass}">${escapeHtml(badgeLabel)}</span></span></div>${logNote}`;
+  }).join("");
+  return card("Service Health", rows, "");
+}
+
 document.getElementById("cards").addEventListener("click", (e) => {
   const clickedCard = e.target.closest(".card.has-details");
   if (clickedCard) clickedCard.classList.toggle("expanded");
