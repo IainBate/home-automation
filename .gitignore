@@ -22,7 +22,6 @@ data/battery_mode_daemon_log.json
 config/solar_forecast.json
 config/resideo_token_state.json
 config/claude_usage.json
-config/claude_usage_token_state.json
 config/mg_saic_status.json
 data/solar_forecast_model.joblib
 
