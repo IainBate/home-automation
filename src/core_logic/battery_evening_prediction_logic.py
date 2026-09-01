@@ -457,7 +457,8 @@ def predict_evening_soc(
         average_drift_percent=average_drift_percent,
         applied_drift_percent=applied_drift_percent,
         reason=(
-            f"Predicted from {len(samples)} historical day(s) in month {month}: "
+            f"Predicted from {len(samples)} historical day(s) within {window_days} days of "
+            f"day-of-year {reference_day_of_year}: "
             f"average SoC drift {average_drift_percent:+.1f}pp from {trigger_hour}:00 "
             f"to +{horizon_hours:.1f}h, applied to current {current_soc_percent:.0f}%"
             f"{reason_suffix}"
