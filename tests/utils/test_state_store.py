@@ -190,3 +190,28 @@ def test_locked_json_state_still_writes_when_state_actually_changes(tmp_path):
         fake_fsync.assert_called_once()
 
     assert read_json_state(path) == {"count": 2}
+
+
+def test_write_json_atomic_creates_parent_directories(tmp_path):
+    path = tmp_path / "nested" / "dir" / "cache.json"
+
+    write_json_atomic(path, {"value": 1})
+
+    assert read_json_state(path) == {"value": 1}
+
+
+def test_write_json_atomic_leaves_no_tmp_file_behind(tmp_path):
+    path = tmp_path / "cache.json"
+
+    write_json_atomic(path, {"value": 1})
+
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["cache.json"]
+
+
+def test_write_json_atomic_overwrites_existing_file(tmp_path):
+    path = tmp_path / "cache.json"
+    write_json_atomic(path, {"value": 1})
+
+    write_json_atomic(path, {"value": 2})
+
+    assert read_json_state(path) == {"value": 2}
