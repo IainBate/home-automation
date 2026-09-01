@@ -103,8 +103,6 @@ def test_fetch_prefers_synced_token_state_over_bootstrap_config_value(tmp_path):
     """scripts/claude_usage_token_sync.py keeps this file fresher than the
     static secrets.yaml bootstrap value - same precedence as resideo_client.py.
     """
-    import json  # noqa: PLC0415
-
     state_path = tmp_path / "claude_usage_token_state.json"
     state_path.write_text(json.dumps({"access_token": "synced-token"}), encoding="utf-8")
 
