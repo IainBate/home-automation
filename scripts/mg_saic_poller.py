@@ -72,7 +72,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         return 1
 
     record = {"fetched_at": datetime.now(tz=UTC).isoformat(), **status}
-    _write_status(record)
+    write_json_atomic(get_mg_saic_status_path(), record)
 
     if not quiet:
         print(f"Battery: {status.get('battery_percent')}%, range: {status.get('range_km')} km")
