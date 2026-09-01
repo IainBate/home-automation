@@ -160,9 +160,11 @@ function fmtPct(p) {
 }
 function fmtAge(seconds) {
   if (seconds === null || seconds === undefined) return "&mdash;";
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(seconds / 3600);
+  if (hours < 24) return `${hours}h ago`;
   return `${Math.round(seconds / 86400)}d ago`;
 }
 function titleCase(s) {
