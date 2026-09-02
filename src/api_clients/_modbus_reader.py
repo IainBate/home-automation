@@ -63,6 +63,146 @@ WORK_MODE_MANUAL = 3  # Manual mode requires manual_mode register
 # so we use dynamic imports within the functions that need them
 
 
+# Retry policy shared by every single-value read below. 4 total attempts
+# (1 + 3 retries); the delay list is indexed by the attempt that just failed,
+# so nothing is slept after the final one.
+READ_RETRY_DELAYS_SECONDS = (1.0, 1.5, 2.0, 3.0)
+MAX_READ_ATTEMPTS = len(READ_RETRY_DELAYS_SECONDS)
+
+
+def _read_register_with_retry(  # pylint: disable=too-many-positional-arguments  # Hardware interface pattern
+    ip: str,
+    port: int,
+    timeout: int,
+    slave_address: int,
+    min_interval: float,
+    *,
+    label: str,
+    register: int,
+    count: int,
+    interpret: Callable[[list[int]], Any],
+    holding: bool = False,
+) -> Any:
+    """Read one value from a single inverter, with connect/retry/close handling.
+
+    Every _read_single_* function below is the same connect -> wait -> read ->
+    interpret -> close sequence with the same 4-attempt retry ladder; only the
+    register, its length, and how the raw words become a value differ. That
+    sequence was previously written out once per reading (eleven near-identical
+    ~90-line copies), which meant a fix to the retry or reconnect behaviour had
+    to be made eleven times by hand - and had already drifted: the battery
+    capacity copy validated its length against PV_POWER_REGISTER_COUNT, a
+    copy-paste from a different reading that happened to share the same count.
+
+    Args:
+        ip: IP address of the inverter WiFi dongle.
+        port: TCP port for Modbus communication.
+        timeout: Connection timeout in seconds.
+        slave_address: Modbus slave address of the inverter.
+        min_interval: Minimum wait between connecting and reading.
+        label: Human-readable name of the reading, used in every log line
+            (e.g. "AC power") so failures stay identifiable per-reading.
+        register: First register address to read.
+        count: How many consecutive registers to read.
+        interpret: Turns the raw register words into the returned value.
+            Returning None means "this response was not usable" and triggers
+            a retry, which is how the SoC range check and the serial/RTC
+            formatters report a bad-but-well-formed reading. No reading uses
+            None as a legitimate result.
+        holding: Read holding registers (function code 0x03) instead of the
+            default input registers (0x04).
+
+    Returns:
+        Whatever `interpret` returned, or None if every attempt failed.
+
+    """
+    # Imported here, and called through the module rather than bound up
+    # front, so tests that patch solax_modbus_client._connect_modbus_client /
+    # _read_input_registers still intercept these calls.
+    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+        solax_modbus_client,
+    )
+
+    for attempt in range(MAX_READ_ATTEMPTS):
+        client = None
+
+        try:
+            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+            if not client:
+                logger.warning(
+                    "%s connection failed on attempt %s/%s to %s",
+                    label,
+                    attempt + 1,
+                    MAX_READ_ATTEMPTS,
+                    ip,
+                )
+            else:
+                time.sleep(min_interval)
+
+                read_registers = (
+                    solax_modbus_client._read_holding_registers  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+                    if holding
+                    else solax_modbus_client._read_input_registers  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+                )
+                registers = read_registers(client, register, count, slave_address)
+
+                if not registers or len(registers) != count:
+                    logger.warning(
+                        "%s read failed on attempt %s/%s for %s",
+                        label,
+                        attempt + 1,
+                        MAX_READ_ATTEMPTS,
+                        ip,
+                    )
+                else:
+                    value = interpret(list(registers))
+                    if value is None:
+                        # Well-formed response, unusable content (out-of-range
+                        # SoC, a formatter reporting ERROR) - worth retrying,
+                        # unlike a transport failure.
+                        logger.warning(
+                            "%s returned an unusable value on attempt %s/%s for %s",
+                            label,
+                            attempt + 1,
+                            MAX_READ_ATTEMPTS,
+                            ip,
+                        )
+                    else:
+                        logger.debug(
+                            "%s from %s: %s on attempt %s", label, ip, value, attempt + 1
+                        )
+                        return value
+
+        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "%s error on attempt %s/%s for %s: %s",
+                label,
+                attempt + 1,
+                MAX_READ_ATTEMPTS,
+                ip,
+                e,
+            )
+
+        finally:
+            # Always close (connect -> read -> close -> retry pattern): a
+            # dropped-but-unclosed socket is what made repeated reads fail on
+            # this hardware in the first place.
+            if client:
+                try:
+                    client.close()
+                    logger.debug("Connection to %s closed after %s attempt %s", ip, label, attempt + 1)
+                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
+                    logger.warning("Error closing connection to %s: %s", ip, e)
+
+        if attempt < MAX_READ_ATTEMPTS - 1:
+            retry_delay = READ_RETRY_DELAYS_SECONDS[attempt]
+            logger.debug("Retrying %s read from %s in %ss...", label, ip, retry_delay)
+            time.sleep(retry_delay)
+
+    logger.error("All %s %s read attempts failed for %s", MAX_READ_ATTEMPTS, label, ip)
+    return None
+
+
 # Individual parameter reading functions
 
 
