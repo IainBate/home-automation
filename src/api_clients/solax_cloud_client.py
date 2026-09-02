@@ -408,6 +408,11 @@ def solax_cloud_get_realtime_snapshot(config: dict[str, Any]) -> dict[str, Any] 
 
         return {
             "timestamp": timestamp_str,
+            # The API's own unambiguous instant, alongside the local-clock
+            # uploadTime above. Only used to tell two readings apart across a
+            # DST fall-back, where the local strings collide - see
+            # _is_same_reading(). None if this account's response omits it.
+            "timestamp_utc": result.get("utcDateTime") or None,
             "pv_power_kw": pv_power_w / 1000,
             "battery_power_kw": _safe_float(result.get("batPower"), 0) / 1000,
             "grid_power_kw": _safe_float(result.get("feedinpower"), 0) / 1000,
