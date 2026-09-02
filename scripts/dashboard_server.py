@@ -56,6 +56,14 @@ def main() -> None:
 
     logger = setup_rotating_logger("dashboard_server", "dashboard_server.log", level=logging.INFO)
 
+    # Flask's dev server logs one access-log line per HTTP request via its own
+    # "werkzeug" logger (unrelated to the "dashboard_server" logger above) -
+    # with a phone's browser tab open, that's ~5,700 lines/day (POLL_MS=15000
+    # in static_page.py) landing in the Pi's persistent systemd journal on the
+    # SD card for no operational value. Raised to WARNING so genuine request
+    # errors still surface there.
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
     config: dict[str, Any] | None = load_static_config(config_path)
     if config is None:
         logger.error("Failed to load config from %s - see logs above for details", config_path)
