@@ -39,3 +39,34 @@ def test_run_returns_1_when_no_model_file_exists(tmp_path):
         exit_code = predictor.run(config, quiet=True)
 
     assert exit_code == 1
+
+
+def test_carry_forward_yesterday_forecast_captures_completed_days_today_kwh():
+    """First run after midnight: the previous record's "today_kwh" was for what is now yesterday."""
+    previous_record = {"for_date": "2026-01-01", "today_kwh": 12.3}
+
+    result = predictor._carry_forward_yesterday_forecast(previous_record, today_str="2026-01-02", yesterday_str="2026-01-01")
+
+    assert result == 12.3
+
+
+def test_carry_forward_yesterday_forecast_reuses_already_captured_value():
+    """Later runs the same day: "today_kwh" has already moved on, so reuse what was captured earlier."""
+    previous_record = {"for_date": "2026-01-02", "today_kwh": 9.9, "yesterday_forecast_kwh": 12.3}
+
+    result = predictor._carry_forward_yesterday_forecast(previous_record, today_str="2026-01-02", yesterday_str="2026-01-01")
+
+    assert result == 12.3
+
+
+def test_carry_forward_yesterday_forecast_returns_none_across_a_gap():
+    """The predictor didn't run at all yesterday - no meaningful forecast to compare against."""
+    previous_record = {"for_date": "2025-12-30", "today_kwh": 5.0}
+
+    result = predictor._carry_forward_yesterday_forecast(previous_record, today_str="2026-01-02", yesterday_str="2026-01-01")
+
+    assert result is None
+
+
+def test_carry_forward_yesterday_forecast_returns_none_when_no_previous_record():
+    assert predictor._carry_forward_yesterday_forecast({}, today_str="2026-01-02", yesterday_str="2026-01-01") is None
