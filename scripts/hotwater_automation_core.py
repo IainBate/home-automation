@@ -200,21 +200,31 @@ def get_holiday_until(state: dict[str, Any]) -> datetime | None:
     Written by scripts/holiday_mode.py's --start-days, cleared by --cancel,
     and left in place (but naturally ignored once it's in the past - see
     is_holiday_active) when a holiday simply runs its course. None covers
-    both "no holiday recorded" and "malformed/unparseable timestamp" - both
-    mean holiday mode has no effect, the safe default for a household that
-    isn't currently on holiday.
+    "no holiday recorded", a malformed/non-string/unparseable timestamp, and
+    a timestamp with no timezone offset (is_holiday_active compares against
+    an aware datetime.now(tz=UTC), which raises TypeError against a naive
+    one - rejecting it here instead keeps that comparison safe) - all of
+    these mean holiday mode has no effect, the safe default for a household
+    that isn't currently on holiday.
     """
     until_str = state.get("holiday", {}).get("until")
     if not until_str:
         return None
     try:
-        return datetime.fromisoformat(until_str)
-    except ValueError:
+        until = datetime.fromisoformat(until_str)
+    except (TypeError, ValueError):
         logger.error(
             "holiday.until (%r) is not a valid timestamp, ignoring - holiday mode has no effect",
             until_str,
         )
         return None
+    if until.tzinfo is None:
+        logger.error(
+            "holiday.until (%r) has no timezone offset, ignoring - holiday mode has no effect",
+            until_str,
+        )
+        return None
+    return until
 
 
 def is_holiday_active(state: dict[str, Any]) -> bool:
