@@ -46,6 +46,26 @@ def test_compute_actual_daily_kwh_returns_none_when_no_data_for_date():
     assert compute_actual_daily_kwh(records, "2026-01-02") is None
 
 
+def test_compute_actual_daily_kwh_prefers_yield_today_from_last_record():
+    """A day with only a late/partial sample must use the ground-truth cumulative
+    total, not silently undercount from summing just that one sample."""
+    records = [
+        {"timestamp": "2026-01-01 21:00:00", "pv_power_kw": 0.0, "yield_today_kwh": 15.6},
+    ]
+
+    assert compute_actual_daily_kwh(records, "2026-01-01") == 15.6
+
+
+def test_compute_actual_daily_kwh_falls_back_when_yield_today_missing():
+    """Older records (predating yield_today_kwh) still sum via hourly averages."""
+    records = [
+        {"timestamp": "2026-01-01 12:00:00", "pv_power_kw": 2.0},
+        {"timestamp": "2026-01-01 13:00:00", "pv_power_kw": 1.0},
+    ]
+
+    assert compute_actual_daily_kwh(records, "2026-01-01") == pytest.approx(3.0)
+
+
 def test_build_training_rows_joins_pv_and_weather_by_hour():
     pv_records = [{"timestamp": "2026-06-15 12:03:00", "pv_power_kw": 3.5}]
     weather_records = [
