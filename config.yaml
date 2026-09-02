@@ -521,3 +521,4 @@ daily_digest_check:
     - "claude_usage_poller.log"
     - "mg_saic_poller.log"
     - "solar_forecast_predictor.log"
+    - "solar_forecast_trainer.log"
