@@ -209,6 +209,7 @@ class BatteryModeDaemon(TwoTierPollingDaemon):
                 raise ValueError(msg)
 
             self.logger.info("Daemon configuration loaded and validated from %s", self.config_path)
+            self._apply_logging_level()
 
             # Load system configuration - not hot-reloaded (see reload_config()
             # below); inverter IPs etc. aren't expected to change at runtime.
