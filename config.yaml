@@ -278,7 +278,12 @@ airstage:
 # so it could break on a backend change with no notice, same risk category
 # as this project's Ohme client.
 resideo:
-  enabled: true
+  # Disabled: this account's T6R thermostat is a Resideo "Lyric" device, on a
+  # different backend than evohome-async targets (confirmed 2026-09-02 - the
+  # account's real credentials correctly fail on the legacy TCC portal
+  # evohome-async uses). Re-enable only after switching to the official Lyric
+  # developer OAuth2 API (api.honeywellhome.com) - see resideo_client.py.
+  enabled: false
   username: "your-resideo-email@example.com"  # Placeholder - real value in secrets.yaml
   password: "your-resideo-password"            # Placeholder - real value in secrets.yaml
 
