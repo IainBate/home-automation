@@ -372,6 +372,18 @@ class MelCloudClient:
         MELCloud now reports the new mode, and if not, request it again - up to
         melcloud.mode_change_retry.max_attempts times.
 
+        Also manages the unit's separate power/standby toggle around the mode
+        change, mirroring the manual routine of switching the unit on before
+        forcing heat and back off afterwards rather than leaving it powered on
+        continuously: enabling powers the unit on first (if it isn't already)
+        before requesting the mode change; disabling powers it back off, but
+        only once the revert to auto is itself confirmed. A power-on failure
+        aborts before the mode change is attempted (there's no point forcing a
+        mode change on a unit that isn't on). A power-off failure after a
+        successful revert is logged but doesn't flip this call's result - the
+        mode change is this method's primary contract, and every caller's
+        force-heat/revert state tracking keys off that, not the power state.
+
         Args:
             enabled: True to force hot water heating on, False to return to auto.
             verify: If True (default), confirm the change took effect - retrying
@@ -390,6 +402,12 @@ class MelCloudClient:
             msg = "Not connected to MELCloud - call connect() first"
             raise MelCloudConnectionError(msg)
 
+        if enabled:
+            status = await self.get_tank_status(use_cache=False)
+            if not status["power"] and not await self.set_power(enabled=True, verify=verify):
+                logger.error("Could not power the unit on before forcing hot water")
+                return False
+
         target_mode = (
             HotWaterOperationMode.FORCE_HOT_WATER if enabled else HotWaterOperationMode.AUTO
         )
@@ -399,6 +417,28 @@ class MelCloudClient:
         max_attempts = retry_config.get("max_attempts", DEFAULT_MAX_ATTEMPTS)
         check_delay = retry_config.get("check_delay_seconds", DEFAULT_CHECK_DELAY_SECONDS)
 
+        mode_changed = await self._request_mode_change(
+            target_mode, target_value, max_attempts=max_attempts, check_delay=check_delay,
+            verify=verify,
+        )
+
+        if mode_changed and not enabled:
+            # Best-effort: log but don't fail the call over this - see docstring.
+            if not await self.set_power(enabled=False, verify=verify):
+                logger.error("Reverted to auto but could not power the unit back off")
+
+        return mode_changed
+
+    async def _request_mode_change(
+        self,
+        target_mode: HotWaterOperationMode,
+        target_value: str,
+        *,
+        max_attempts: int,
+        check_delay: float,
+        verify: bool,
+    ) -> bool:
+        """Request+verify loop for the operation_mode change - see set_force_hot_water."""
         for attempt in range(1, max_attempts + 1):
             logger.info(
                 "Requesting MELCloud hot water mode change to %s (attempt %s/%s)",
@@ -437,6 +477,94 @@ class MelCloudClient:
         logger.error(
             "MELCloud hot water mode change to %s failed after %s attempts",
             target_mode.value,
+            max_attempts,
+        )
+        return False
+
+    async def _check_power(self, target: bool, *, check_delay_seconds: float) -> bool:
+        """Wait, then check (once) whether power now matches target.
+
+        Mirrors _check_mode - see its docstring for the rationale.
+        """
+        await asyncio.sleep(check_delay_seconds)
+
+        try:
+            status = await self.get_tank_status(use_cache=False)
+        # Best-effort verification must not abort the retry loop.
+        except Exception:
+            logger.exception("Failed to check MELCloud power state after change request")
+            return False
+
+        current_power = status["power"]
+        if current_power == target:
+            return True
+
+        logger.warning(
+            "MELCloud power not yet applied: expected %s, got %s", target, current_power
+        )
+        return False
+
+    async def set_power(self, *, enabled: bool, verify: bool = True) -> bool:
+        """Turn the unit's overall power/standby toggle on or off, retrying until confirmed.
+
+        This is MELCloud's main power switch - distinct from ForcedHotWaterMode
+        (see set_force_hot_water, which calls this automatically around a
+        force-heat cycle). Exposed separately too, for manual/CLI use.
+
+        Args:
+            enabled: True to power the unit on, False to put it into standby.
+            verify: If True (default), confirm the change took effect - retrying
+                the request per melcloud.mode_change_retry in config.yaml
+                (max_attempts, check_delay_seconds) - before returning. If False,
+                send the request once and return immediately.
+
+        Returns:
+            True if the power change was applied (and verified, if requested).
+
+        Raises:
+            MelCloudConnectionError: If not connected
+
+        """
+        if self.device is None:
+            msg = "Not connected to MELCloud - call connect() first"
+            raise MelCloudConnectionError(msg)
+
+        retry_config = self.melcloud_config.get("mode_change_retry", {})
+        max_attempts = retry_config.get("max_attempts", DEFAULT_MAX_ATTEMPTS)
+        check_delay = retry_config.get("check_delay_seconds", DEFAULT_CHECK_DELAY_SECONDS)
+
+        for attempt in range(1, max_attempts + 1):
+            logger.info(
+                "Requesting MELCloud power change to %s (attempt %s/%s)",
+                "on" if enabled else "off",
+                attempt,
+                max_attempts,
+            )
+            try:
+                await self.device.set({PROPERTY_POWER: enabled})
+            except Exception:
+                logger.exception(
+                    "MELCloud power change request failed (attempt %s/%s)", attempt, max_attempts
+                )
+                if not verify:
+                    return False
+                if attempt < max_attempts:
+                    await asyncio.sleep(check_delay)
+                continue
+
+            if not verify:
+                self._invalidate_cache()
+                return True
+
+            if await self._check_power(enabled, check_delay_seconds=check_delay):
+                logger.info(
+                    "MELCloud power change verified: %s", "on" if enabled else "off"
+                )
+                return True
+
+        logger.error(
+            "MELCloud power change to %s failed after %s attempts",
+            "on" if enabled else "off",
             max_attempts,
         )
         return False
