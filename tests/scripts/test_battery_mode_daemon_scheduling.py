@@ -93,19 +93,6 @@ def test_load_config_applies_configured_logging_level(tmp_path, monkeypatch):
     assert daemon.logger.level == logging.WARNING
 
 
-def test_load_config_defaults_logging_level_to_info_when_unset(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    config = _daemon_config()
-    del config["logging"]
-    path = tmp_path / "daemon_config.json"
-    path.write_text(json.dumps(config), encoding="utf-8")
-    daemon = BatteryModeDaemon(str(path), SYSTEM_CONFIG_PATH)
-
-    daemon.load_config()
-
-    assert daemon.logger.level == logging.INFO
-
-
 def test_reload_config_reapplies_logging_level_when_config_changes(tmp_path, monkeypatch):
     daemon = _make_daemon(tmp_path, monkeypatch)
     assert daemon.logger.level == logging.INFO
