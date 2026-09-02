@@ -45,7 +45,10 @@ Confirm with the user which of these before proceeding past step 0.
 | Battery mode management | `scripts/battery_mode_daemon.py` | systemd (continuous) | Existing unit: `scripts/home_automation.service`. Already Pi-proven. |
 | Hot water force-heat + legionella | `scripts/hotwater_mode_daemon.py` | systemd (continuous) | Needs a *continuous* process — the "EV started charging" trigger can happen any time. Do **not** also cron `scripts/hotwater_auto_check.py` — it's the same core logic, one-shot; pick one, not both. |
 | Dashboard (read-only status page) | `scripts/dashboard_server.py` | systemd (continuous) | Flask dev server, LAN-only by design (`web_interface.host: 0.0.0.0`, port 8000). Read-only: never calls a mode-change function. |
-| SolaX Cloud historical data logger | `scripts/solax_cloud_data_logger.py` | cron | No cadence documented in-file (older script); recommend once nightly — it's incremental, and only feeds the evening predictor + solar-forecast trainer, neither of which need finer granularity. Needs **real** SolaX Cloud API credentials (`token_id`/`wifisn`) — currently `config.yaml` has these as `"NOT_USED_FOR_MODBUS"` placeholders, which is correct for Modbus but means this logger won't authenticate until real cloud credentials are filled in. |
+| Ohme status poller | `scripts/ohme_status_daemon.py` | systemd (continuous) | Unit: `scripts/home_automation_ohme.service`. Holds ONE Ohme session and caches status for the battery daemon, hot water automation and dashboard (`src/api_clients/ohme_status_cache.py`). Optional in the sense that all three fall back to their own direct calls — but without it each of them logs in afresh on every poll. |
+| SolaX PV data logger | `scripts/solax_realtime_logger.py` | cron, `*/5 * * * *` | The only thing keeping `data/solax_historical_data.json` growing. Uses the account's own "Residential API (OLD)" tokenID against `global.solaxcloud.com`, which is real-time only. |
+| SolaX Cloud *historical* logger | `scripts/solax_cloud_data_logger.py` | **not scheduled** | Kept but unusable: its endpoints need a mobile-app session token nobody has captured, and fail `no auth!` with the account's own tokenID. See `src/api_clients/solax_cloud_client.py`'s module docstring. |
+| Encrypted secrets backup | `scripts/encrypt_secrets.sh --quiet` | cron, `0 3 * * *` | Commits/pushes `secrets.yaml.enc` only when the plaintext actually changed. Needs `secrets_backup.passphrase_hash` set (step 0). |
 | Battery evening SoC predictor | `scripts/battery_evening_predictor.py` | cron, `55 20 * * *` | Docstring-documented cadence. Feeds `hotwater_automation_core.py`'s force-heat decision — needs to land before `hotwater_automation.trigger_hour`. When `solar_forecast.enabled` is true it also reads that subsystem's forecast file to correct its prediction — order after the solar forecast predictor's hourly cron entry below so a same-run-cycle forecast is available, though it degrades gracefully to the plain historical average if one isn't. |
 | Solar forecast trainer | `scripts/solar_forecast_trainer.py` | cron, `0 3 * * 0` (weekly) | Docstring-documented. Writes `data/solar_forecast_model.joblib`. Must run at least once before the predictor has a model to load. |
 | Solar forecast predictor | `scripts/solar_forecast_predictor.py` | cron, `0 * * * *` (hourly) | Docstring-documented. Display-only — dashboard reads its output, nothing automation-critical depends on it. |
@@ -104,9 +107,14 @@ using it. Recommended passphrase: the Pi's own login password, since the
 backup cron job runs there and it's already a password you know.
 
 - One-time setup on the Pi: `bash scripts/encrypt_secrets.sh` (enter the
-  Pi's login password when prompted), then paste the hash it prints into
-  `secrets_backup.passphrase_hash` in `secrets.yaml` and add a daily cron
-  entry so it keeps itself up to date and pushed, without a prompt:
+  Pi's login password when prompted - it asks twice and refuses a mismatch,
+  since a typo here would produce backups nobody can ever decrypt). With no
+  terminal to prompt on - an agent running this runbook over SSH, as the top
+  of this document describes - pass it instead:
+  `SECRETS_BACKUP_PASSPHRASE='...' bash scripts/encrypt_secrets.sh`.
+  Then paste the hash it prints into `secrets_backup.passphrase_hash` in
+  `secrets.yaml` and add a daily cron entry so it keeps itself up to date
+  and pushed, without a prompt:
   ```
   0 3 * * * cd /home/pi/home_automation && bash scripts/encrypt_secrets.sh --quiet
   ```
@@ -191,11 +199,19 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-Create two more, same pattern, different `ExecStart`:
+Create three more, same pattern, different `ExecStart` (all four unit files
+are version-controlled under `scripts/`, so copy them rather than retyping):
 - `home_automation_hotwater.service` → `ExecStart=.../venv/bin/python .../scripts/hotwater_mode_daemon.py` (no JSON config arg — it reads `config.yaml` directly).
 - `home_automation_dashboard.service` → `ExecStart=.../venv/bin/python .../scripts/dashboard_server.py`.
+- `home_automation_ohme.service` → `ExecStart=.../venv/bin/python .../scripts/ohme_status_daemon.py`. Polls Ohme from one long-lived session and caches the result for the battery daemon, hot water automation and dashboard to read (`src/api_clients/ohme_status_cache.py`). Not load-bearing: every consumer falls back to its own direct Ohme call if this is down or the cache goes stale — but without it, those three each perform a full Firebase login on every poll, ~3,000 logins/day between them.
 
-Enable all three: `sudo systemctl enable --now home_automation.service home_automation_hotwater.service home_automation_dashboard.service`.
+Enable all four:
+```bash
+sudo cp scripts/home_automation*.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now home_automation.service home_automation_hotwater.service \
+    home_automation_dashboard.service home_automation_ohme.service
+```
 
 ## 5. cron entries
 
@@ -203,8 +219,17 @@ Add via `crontab -e` (as the `pi` user, so relative-to-cwd behavior like
 `logs/` creation matches systemd's `WorkingDirectory`):
 
 ```cron
-# Solar PV historical data (feeds evening predictor + solar forecast trainer)
-15 2 * * * cd /home/pi/home_automation && venv/bin/python3 scripts/solax_cloud_data_logger.py
+# SolaX PV data (feeds evening predictor + solar forecast trainer). This is
+# the ONLY thing that keeps data/solax_historical_data.json growing: the
+# historical Cloud API endpoints scripts/solax_cloud_data_logger.py uses need
+# a mobile-app session token nobody has, so that older nightly job is not
+# scheduled — see src/api_clients/solax_cloud_client.py's module docstring.
+*/5 * * * * cd /home/pi/home_automation && venv/bin/python3 scripts/solax_realtime_logger.py --quiet
+
+# Encrypted off-site backup of secrets.yaml. A no-op on days when nothing
+# changed (it compares decrypted plaintext, not the salted ciphertext).
+# Needs secrets_backup.passphrase_hash set in secrets.yaml - see step 0.
+0 3 * * * cd /home/pi/home_automation && bash scripts/encrypt_secrets.sh --quiet
 
 # Evening battery SoC prediction — must land before hotwater_automation.trigger_hour
 55 20 * * * cd /home/pi/home_automation && venv/bin/python3 scripts/battery_evening_predictor.py --quiet
@@ -218,6 +243,19 @@ Add via `crontab -e` (as the `pi` user, so relative-to-cwd behavior like
 
 Sanity-check the crontab's `PATH`/`HOME` aren't needed here since every
 command already `cd`s into the project and uses an absolute venv path.
+
+## 5b. Git hooks (test gate)
+
+```bash
+cd /home/pi/home_automation && bash scripts/install_git_hooks.sh
+```
+
+Installs a `pre-push` hook that runs the test suite before anything reaches
+the remote. Deliberately pre-push rather than pre-commit: this setup
+auto-commits after every file edit with `git commit --no-verify`, which
+bypasses pre-commit hooks entirely, and push is the step that actually
+matters here anyway - the Pi pulls from that remote. Bypass in an emergency
+with `SKIP_TESTS=1 git push`.
 
 ## 6. Pre-go-live validation (do this before enabling any systemd unit or cron entry)
 
@@ -271,7 +309,7 @@ succeeds against the real hardware from the Pi's network position.
 
 ## 8. Cutover and rollback
 
-- Enable the three systemd units and the four cron entries (steps 4–5).
+- Enable the four systemd units and the cron entries (steps 4–5).
 - Watch `journalctl -u home_automation.service -f` (and the two other unit
   names) plus `logs/*.log` for the first real cycle of each daemon.
 - If anything misbehaves: `sudo systemctl stop <unit>` immediately stops
