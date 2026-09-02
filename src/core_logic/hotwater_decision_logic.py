@@ -50,9 +50,17 @@ class HotWaterDecisionContext:
             holiday period recorded (see hotwater_automation_core.py's
             is_holiday_active). Dominates every other condition, including
             car_is_charging - a holiday means "don't force-heat via the ASHP
-            for N days", full stop. Solar-heated hot water (if the household
-            has a separate diverter) is entirely outside this codebase and
-            unaffected either way.
+            for N days", full stop. This also silently defers a legionella
+            high-temperature cycle if one falls due during the holiday - it
+            rides on this exact same force-heat trigger (see
+            hotwater_automation_core.py's module docstring), so there is no
+            separate schedule for it to run on instead. Solar-heated hot
+            water (if the household has a separate diverter) is entirely
+            outside this codebase and unaffected either way. Not the same as
+            MELCloud's own native "Holiday Mode" device setting (see
+            melcloud_client.py's holiday_mode field) - that's a setting on
+            the physical unit, read-only from this project; this is a
+            separate, software-side pause of this project's own automation.
 
     """
 
