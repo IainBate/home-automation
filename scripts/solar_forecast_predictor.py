@@ -148,9 +148,10 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
 def main() -> None:
     """Execute main entry point."""
     args = _create_argument_parser().parse_args()
-    logging.basicConfig(
+    configure_cron_safe_logging(
         level=getattr(logging, args.log_level),
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        quiet=args.quiet,
+        log_filename="solar_forecast_predictor.log",
     )
 
     config_path = args.config or get_config_path()
