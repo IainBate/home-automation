@@ -493,3 +493,27 @@ weekly_health_check:
   systemd_services:
     - "home_automation.service"            # battery_mode_daemon.py
     - "home_automation_dashboard.service"  # dashboard_server.py
+
+# =============================================================================
+# DAILY DIGEST CHECK (scripts/daily_digest_check.py)
+# =============================================================================
+# Scans the listed cron-driven pollers' log files (WARNING/ERROR/CRITICAL -
+# these scripts now log to their own rotating file instead of stderr when run
+# with --quiet, see src/utils/logging_setup.py, so cron's own MAILTO no
+# longer mails an email per poll cycle) for the last log_lookback_days.
+# A message that occurred fewer than min_occurrences times is dropped
+# entirely - a single blip (a rate-limit, one out-of-range sensor reading) is
+# assumed transient and not worth reporting; only something that recurred is
+# included, most-important level first. Only sends an email (via the email:
+# section above) when something recurred - a clean day is silent. This is
+# separate from weekly_health_check above, which covers the priority
+# battery/hot-water daemons; this one is for lower-priority "web service" API
+# pollers only. Intended to run daily via cron, e.g.:
+#   0 7 * * * cd /home/pi/home_automation && venv/bin/python3 scripts/daily_digest_check.py --quiet
+daily_digest_check:
+  enabled: true
+  log_lookback_days: 1
+  min_occurrences: 2
+  log_files:
+    - "claude_usage_poller.log"
+    - "mg_saic_poller.log"
