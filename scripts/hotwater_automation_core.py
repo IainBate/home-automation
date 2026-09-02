@@ -468,6 +468,8 @@ async def _run_force_heat_check_locked(
 
         in_evening_window = is_in_evening_window(now_local.time(), trigger_time, offpeak_end)
 
+        holiday_mode_active = is_holiday_active(state)
+
         context = HotWaterDecisionContext(
             tank_temperature_c=tank_temperature,
             tank_temp_threshold_c=hw_config.get(
@@ -480,6 +482,7 @@ async def _run_force_heat_check_locked(
             ),
             grid_is_cheap=grid_is_cheap,
             in_evening_window=in_evening_window,
+            holiday_mode_active=holiday_mode_active,
         )
         decision = determine_hotwater_decision(context)
 
