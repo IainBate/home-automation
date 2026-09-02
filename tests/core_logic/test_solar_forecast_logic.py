@@ -11,6 +11,7 @@ from src.core_logic.solar_forecast_logic import (
     aggregate_pv_to_hourly,
     build_forecast_rows,
     build_training_rows,
+    compute_actual_daily_kwh,
     predict_hourly_kw,
     train_model,
 )
