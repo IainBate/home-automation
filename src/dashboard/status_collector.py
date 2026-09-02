@@ -355,6 +355,8 @@ def _collect_solar_forecast(config: dict[str, Any]) -> dict[str, Any]:
         "available": True,
         "today_kwh": record.get("today_kwh"),
         "tomorrow_kwh": record.get("tomorrow_kwh"),
+        "yesterday_actual_kwh": record.get("yesterday_actual_kwh"),
+        "yesterday_error_kwh": record.get("yesterday_error_kwh"),
         "current_weather": record.get("current_weather"),
         "generated_at": record.get("generated_at"),
         "model_trained_at": record.get("model_trained_at"),
