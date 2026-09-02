@@ -1,0 +1,17 @@
+[Unit]
+Description=Home Automation Ohme Status Poller
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/home_automation
+ExecStart=/home/pi/home_automation/venv/bin/python /home/pi/home_automation/scripts/ohme_status_daemon.py
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

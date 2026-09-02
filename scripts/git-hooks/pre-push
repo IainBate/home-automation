@@ -1,0 +1,48 @@
+#!/bin/bash
+# pre-push - run the test suite before anything reaches the remote.
+#
+# Why pre-PUSH rather than pre-commit: this machine runs a global Claude Code
+# hook that auto-commits after every file edit with `git commit --no-verify`,
+# which bypasses pre-commit hooks entirely - a pre-commit gate here would
+# never run. Push is the first step that is always deliberate, and it's also
+# the step that matters: the Home Pi4 pulls from the remote, so "reached the
+# remote" is the moment a change can reach live hardware.
+#
+# Installed by scripts/install_git_hooks.sh (which fresh_install.sh and
+# setup_pi.sh both call). Bypass for a genuine emergency with either:
+#   SKIP_TESTS=1 git push
+#   git push --no-verify
+
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 0
+
+if [ -n "${SKIP_TESTS:-}" ]; then
+    echo "pre-push: SKIP_TESTS set - skipping the test suite."
+    exit 0
+fi
+
+PYTHON="python3"
+[ -x "venv/bin/python3" ] && PYTHON="venv/bin/python3"
+
+if ! "$PYTHON" -c "import pytest" >/dev/null 2>&1; then
+    # Best-effort gate, not a security control: an environment that simply
+    # can't run the suite (no venv yet, a fresh clone) shouldn't be unable to
+    # push. Say so loudly rather than failing silently or blocking.
+    echo "pre-push: WARNING - pytest not available under $PYTHON, tests NOT run." >&2
+    echo "pre-push: run 'pip install -r requirements-dev.txt' to enable this gate." >&2
+    exit 0
+fi
+
+echo "pre-push: running the test suite (SKIP_TESTS=1 to bypass)..."
+if "$PYTHON" -m pytest -q; then
+    echo "pre-push: tests passed."
+    exit 0
+fi
+
+echo "" >&2
+echo "pre-push: TESTS FAILED - push aborted." >&2
+echo "pre-push: the Pi pulls from this remote, so this would have shipped to live" >&2
+echo "pre-push: hardware. Fix the failures, or bypass with SKIP_TESTS=1 git push." >&2
+exit 1
