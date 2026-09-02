@@ -62,6 +62,12 @@ INVERTER_LIST_ENDPOINT = "/app/inverter/list"
 HISTORICAL_YIELD_ENDPOINT = "/app/powerPlant/getYieldInfo"
 HISTORICAL_POWER_ENDPOINT = "/app/powerPlant/getPowerData"
 
+# The OLD Residential API's own base - deliberately separate from
+# SOLAX_CLOUD_BASE_URL above (different domain, different endpoint, and a
+# different kind of token - see this module's docstring).
+SOLAX_CLOUD_REALTIME_BASE_URL = "https://global.solaxcloud.com/proxyApp/proxy/api"
+REALTIME_INFO_ENDPOINT = "/getRealtimeInfo.do"
+
 
 # =============================================================================
 # SolaXCloudAPIError Exception
