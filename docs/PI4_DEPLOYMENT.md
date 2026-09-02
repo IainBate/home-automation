@@ -90,11 +90,17 @@ Notes:
 `rsync` the working tree excluding `venv/`, `__pycache__/`, `logs/` (see
 `.gitignore` for the full exclusion list already in place).
 
-**Secrets — copy manually, never via git** (`secrets.yaml` is gitignored by
-design; see `secrets.yaml.example`):
+**Secrets — copy manually, never via git in plaintext** (`secrets.yaml` is
+gitignored by design; see `secrets.yaml.example`):
 ```bash
 scp secrets.yaml pi@<pi-ip>:/home/pi/home_automation/secrets.yaml
 ```
+There's also an encrypted backup checked into git (`secrets.yaml.enc`), for
+the case where neither this Mac nor the Pi survives to be the `scp` source.
+Run `bash scripts/encrypt_secrets.sh` after any edit to `secrets.yaml` and
+commit the result; `setup_pi.sh` offers to decrypt it automatically on a
+fresh install (or run `bash scripts/decrypt_secrets.sh` manually) using the
+same passphrase you set when encrypting.
 
 **`config.yaml` — copy, then review these fields for the new machine**:
 - `solaX_cloud_api.master_ip` / `slave_ip` — same LAN, should be unchanged,
