@@ -159,6 +159,11 @@ function fmtPct(p) {
   if (p === null || p === undefined) return "&mdash;";
   return `${Math.round(p)}%`;
 }
+function fmtSignedKwh(kwh) {
+  if (kwh === null || kwh === undefined) return "";
+  const sign = kwh > 0 ? "+" : "";
+  return `${sign}${kwh.toFixed(1)} kWh`;
+}
 function fmtAge(seconds) {
   if (seconds === null || seconds === undefined) return "&mdash;";
   const minutes = Math.round(seconds / 60);
