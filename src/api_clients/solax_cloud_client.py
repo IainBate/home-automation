@@ -382,22 +382,28 @@ def solax_cloud_get_realtime_snapshot(config: dict[str, Any]) -> dict[str, Any] 
             logger.error("Realtime API returned error: %s", error_msg)
             return None
 
-        timestamp_str = data.get("uploadTime", "")
+        # Unlike the app API's failure shape (top-level, no "result" key -
+        # see solax_cloud_get_daily_yield()), THIS API nests every actual
+        # field under "result" even on success - only success/exception/code
+        # are top-level. Confirmed against the real API 2026-09-02.
+        result = data.get("result", {})
+
+        timestamp_str = result.get("uploadTime", "")
         if not timestamp_str:
             logger.warning("Realtime snapshot has no uploadTime, discarding")
             return None
 
         pv_power_w = sum(
-            _safe_float(data.get(field), 0)
+            _safe_float(result.get(field), 0)
             for field in ("powerdc1", "powerdc2", "powerdc3", "powerdc4")
         )
 
         return {
             "timestamp": timestamp_str,
             "pv_power_kw": pv_power_w / 1000,
-            "battery_power_kw": _safe_float(data.get("batPower"), 0) / 1000,
-            "grid_power_kw": _safe_float(data.get("feedinpower"), 0) / 1000,
-            "soc_percent": _safe_int(data.get("soc", 0)),
+            "battery_power_kw": _safe_float(result.get("batPower"), 0) / 1000,
+            "grid_power_kw": _safe_float(result.get("feedinpower"), 0) / 1000,
+            "soc_percent": _safe_int(result.get("soc", 0)),
         }
 
     except requests.exceptions.RequestException as e:
