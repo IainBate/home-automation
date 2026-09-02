@@ -16,7 +16,12 @@ import time
 from unittest import mock
 
 from src.utils import state_store
-from src.utils.state_store import locked_json_state, read_json_state, write_json_atomic
+from src.utils.state_store import (
+    locked_json_state,
+    locked_json_update,
+    read_json_state,
+    write_json_atomic,
+)
 
 
 def test_read_json_state_missing_file_returns_empty_dict(tmp_path):
