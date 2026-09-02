@@ -320,6 +320,97 @@ def solax_cloud_get_daily_yield(
         return None
 
 
+# =============================================================================
+# Realtime Snapshot (the only currently-working data source - see module
+# docstring for why the historical endpoints above can't be used instead)
+# =============================================================================
+
+
+def solax_cloud_get_realtime_snapshot(config: dict[str, Any]) -> dict[str, Any] | None:
+    """Get a single live snapshot from the OLD Residential API's getRealtimeInfo.do.
+
+    Shaped to match one entry of data/solax_historical_data.json's "data"
+    list (see solax_cloud_get_daily_yield()'s docstring), minus
+    "load_power_kw" - this endpoint has no instantaneous consumption figure,
+    only cumulative to-date energy totals a single snapshot can't turn into
+    a power reading. Every consumer that reads that field already treats it
+    as optional (e.g. power_usage_analysis.py's `.get("load_power_kw", ...)`
+    falls back to a default), so omitting it here is the same "missing means
+    unknown" contract those callers already handle, not a new special case.
+
+    Args:
+        config: Configuration dictionary with solax_cloud_api section
+                (token_id from the account's "Residential API (OLD)" page,
+                NOT the OAuth2 developer-app "API" page - see module
+                docstring - plus master_wifisn).
+
+    Returns:
+        {"timestamp": "2026-09-02 21:37:53", "pv_power_kw": float,
+        "battery_power_kw": float, "grid_power_kw": float, "soc_percent":
+        int}, or None if not configured, the API call fails, or the
+        response can't be parsed.
+
+    """
+    try:
+        token_id = config.get("solaX_cloud_api", {}).get("token_id")
+        wifisn = config.get("solaX_cloud_api", {}).get("master_wifisn")
+
+        if not token_id or not wifisn:
+            logger.error(
+                "Cloud API credentials missing: token_id=%s, wifisn=%s",
+                bool(token_id),
+                bool(wifisn),
+            )
+            return None
+
+        url = f"{SOLAX_CLOUD_REALTIME_BASE_URL}{REALTIME_INFO_ENDPOINT}"
+        response = requests.get(
+            url,
+            params={"tokenId": token_id, "sn": wifisn},
+            timeout=30,
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        logger.debug("Raw realtime API response: %s", data)
+
+        # This API returns a real JSON boolean (true/false), not the app
+        # API's integer 1/0 - `!= 1` would silently treat every success as
+        # a failure here, so this checks truthiness directly instead.
+        if not data.get("success"):
+            error_msg = data.get("exception", "Unknown error")
+            logger.error("Realtime API returned error: %s", error_msg)
+            return None
+
+        timestamp_str = data.get("uploadTime", "")
+        if not timestamp_str:
+            logger.warning("Realtime snapshot has no uploadTime, discarding")
+            return None
+
+        pv_power_w = sum(
+            _safe_float(data.get(field), 0)
+            for field in ("powerdc1", "powerdc2", "powerdc3", "powerdc4")
+        )
+
+        return {
+            "timestamp": timestamp_str,
+            "pv_power_kw": pv_power_w / 1000,
+            "battery_power_kw": _safe_float(data.get("batPower"), 0) / 1000,
+            "grid_power_kw": _safe_float(data.get("feedinpower"), 0) / 1000,
+            "soc_percent": _safe_int(data.get("soc", 0)),
+        }
+
+    except requests.exceptions.RequestException as e:
+        logger.error("HTTP error fetching realtime snapshot: %s", e)
+        return None
+    except Exception:
+        # Circuit Breaker: matches this codebase's convention (see CLAUDE.md)
+        # of never letting an unexpected response shape crash the cron job
+        # that calls this.
+        logger.exception("Unexpected error in solax_cloud_get_realtime_snapshot")
+        return None
+
+
 def _safe_float(value: Any, default: float = 0.0) -> float:
     """Safely convert value to float."""
     try:
