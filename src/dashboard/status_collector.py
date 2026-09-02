@@ -216,6 +216,7 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
 
         automation_state = read_json_state(get_hotwater_automation_state_path())
         legionella_state = automation_state.get("legionella", {})
+        automation_holiday_until = _parse_holiday_until(automation_state)
 
         return {
             "available": True,
@@ -224,11 +225,22 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
             "operation_mode": status["operation_mode"].value if status.get("operation_mode") else None,
             "status": status["status"].value if status.get("status") else None,
             "power_on": status.get("power"),
+            # MELCloud's own native device-level setting - NOT the same as
+            # automation_holiday_active below (this project's own force-heat
+            # pause, via scripts/holiday_mode.py). See that script's module
+            # docstring for why the two are kept clearly distinct.
             "holiday_mode": status.get("holiday_mode"),
             "force_heat_active": bool(automation_state.get("force_heat_activated_at")),
             "force_heat_activated_at": automation_state.get("force_heat_activated_at"),
             "legionella_cycle_in_progress": bool(legionella_state.get("cycle_in_progress")),
             "legionella_last_completed_at": legionella_state.get("last_completed_at"),
+            "automation_holiday_active": (
+                automation_holiday_until is not None
+                and datetime.now(tz=UTC) < automation_holiday_until
+            ),
+            "automation_holiday_until": (
+                automation_holiday_until.isoformat() if automation_holiday_until else None
+            ),
         }
     except (MelCloudAuthenticationError, MelCloudConnectionError) as e:
         logger.warning("Failed to fetch MELCloud tank status: %s", e)
