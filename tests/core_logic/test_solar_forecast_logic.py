@@ -56,6 +56,29 @@ def test_compute_actual_daily_kwh_prefers_yield_today_from_last_record():
     assert compute_actual_daily_kwh(records, "2026-01-01") == 15.6
 
 
+def test_compute_actual_daily_kwh_tolerates_a_null_timestamp():
+    """A record with an explicit {"timestamp": None} must be skipped, not crash.
+
+    .get("timestamp", "") returns None (not the default) when the key exists
+    with a null value, so this used to raise AttributeError and take the
+    whole cron run down with it.
+    """
+    records = [
+        {"timestamp": None, "pv_power_kw": 2.0},
+        {"timestamp": "2026-01-01 12:00:00", "pv_power_kw": 3.0},
+    ]
+
+    assert compute_actual_daily_kwh(records, "2026-01-01") == pytest.approx(3.0)
+
+
+def test_compute_actual_daily_kwh_returns_none_when_no_record_has_usable_power():
+    """Records exist for the date but none carry usable data - that is "unknown",
+    not a real zero, since the caller scores this against a forecast."""
+    records = [{"timestamp": "2026-01-01 12:00:00", "pv_power_kw": None}]
+
+    assert compute_actual_daily_kwh(records, "2026-01-01") is None
+
+
 def test_compute_actual_daily_kwh_falls_back_when_yield_today_missing():
     """Older records (predating yield_today_kwh) still sum via hourly averages."""
     records = [
