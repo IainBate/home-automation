@@ -522,3 +522,17 @@ daily_digest_check:
     - "mg_saic_poller.log"
     - "solar_forecast_predictor.log"
     - "solar_forecast_trainer.log"
+
+# =============================================================================
+# ENCRYPTED SECRETS BACKUP (scripts/encrypt_secrets.sh / decrypt_secrets.sh)
+# =============================================================================
+# secrets.yaml is gitignored (real credentials) and normally only lives on
+# this machine and the Home Pi4 - secrets.yaml.enc is a passphrase-encrypted
+# copy that IS committed to git, so a fresh install can recover it even if
+# both machines were lost. passphrase_hash below is a SHA-256 hash (not the
+# raw passphrase) - real value lives in secrets.yaml (see
+# secrets.yaml.example). Leave unset to be prompted interactively each run;
+# set it to let encrypt_secrets.sh run unattended, e.g. daily on the Pi:
+#   0 3 * * * cd /home/pi/home_automation && bash scripts/encrypt_secrets.sh --quiet
+secrets_backup:
+  passphrase_hash: "your-passphrase-sha256-hash"  # Placeholder - real value in secrets.yaml
