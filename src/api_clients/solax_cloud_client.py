@@ -232,7 +232,13 @@ def solax_cloud_get_daily_yield(
         logger.debug("Raw API response: %s", data)
 
         if data.get("success") != 1:
-            error_msg = data.get("result", {}).get("msg", "Unknown error")
+            # A failure response has no "result" key at all - it's a
+            # top-level {"exception": "...", "code": ...} shape (confirmed
+            # against the real API, e.g. {"exception": "token invalid!",
+            # "code": 103}), not {"result": {"msg": ...}}. The old
+            # result.msg lookup always missed this and logged a useless
+            # "Unknown error", masking the real reason for every failure.
+            error_msg = data.get("exception") or data.get("result", {}).get("msg", "Unknown error")
             logger.error("API returned error for %s: %s", date_str, error_msg)
             return None
 
