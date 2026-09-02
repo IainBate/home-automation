@@ -215,19 +215,36 @@ class MelCloudClient:
 
         self._session = ClientSession()
 
-        try:
-            logger.info("Authenticating with MELCloud...")
-            self._token = await pymelcloud.login(email, password, self._session)
-        except Exception as e:
-            msg = f"Failed to authenticate with MELCloud: {e}"
-            raise MelCloudAuthenticationError(msg) from e
+        # A cached token skips the login round-trip entirely. Each hot water
+        # check builds its own client under its own asyncio.run(), so the
+        # session can't be shared between them (it's bound to its event
+        # loop) - but the token can. See melcloud_token_cache.py.
+        cached_token = read_cached_token(email)
+        self._token = cached_token
+
+        if self._token is None:
+            self._token = await self._login(email, password)
 
         try:
             logger.info("Retrieving MELCloud device list...")
             devices = await pymelcloud.get_devices(self._token, self._session)
         except Exception as e:
-            msg = f"Failed to retrieve MELCloud devices: {e}"
-            raise MelCloudConnectionError(msg) from e
+            if cached_token is None:
+                msg = f"Failed to retrieve MELCloud devices: {e}"
+                raise MelCloudConnectionError(msg) from e
+            # The only request made so far used a cached token, so the most
+            # likely explanation is that MELCloud has since expired it.
+            # Discard it and retry once with a real login before treating
+            # this as a genuine failure - otherwise a stale cache would
+            # break hot water automation until someone deleted the file.
+            logger.info("Cached MELCloud token rejected - retrying with a fresh login")
+            clear_cached_token()
+            self._token = await self._login(email, password)
+            try:
+                devices = await pymelcloud.get_devices(self._token, self._session)
+            except Exception as retry_error:
+                msg = f"Failed to retrieve MELCloud devices: {retry_error}"
+                raise MelCloudConnectionError(msg) from retry_error
 
         atw_devices: list[AtwDevice] = devices.get(DEVICE_TYPE_ATW, [])
         if not atw_devices:
