@@ -447,3 +447,38 @@ web_interface:
 logging:
   console_level: "WARNING"                 # Console log level
   file_level: "DEBUG"                      # File log level
+
+# =============================================================================
+# EMAIL (src/utils/emailer.py)
+# =============================================================================
+# Used by scripts/weekly_health_check.py to send you a summary when it finds
+# a significant issue. Sends via Gmail SMTP using an App Password (NOT your
+# normal Gmail password - generate one at https://myaccount.google.com/apppasswords,
+# requires 2-Step Verification to be on) - real password value goes in
+# secrets.yaml, never here.
+email:
+  enabled: false                           # Set to true once username/password are set below
+  smtp_host: "smtp.gmail.com"
+  smtp_port: 587                           # STARTTLS
+  username: "your-gmail-address@gmail.com" # The Gmail account the app password belongs to -
+                                            # also sends the mail. Placeholder - real value in secrets.yaml
+  password: "your-gmail-app-password"      # Placeholder - real value in secrets.yaml
+  to_address: "iain.bate@gmail.com"        # Where weekly health check alerts are sent
+  timeout_seconds: 30
+
+# =============================================================================
+# WEEKLY HEALTH CHECK (scripts/weekly_health_check.py)
+# =============================================================================
+# Scans logs/*.log* (rotated files included) for ERROR/CRITICAL entries in the
+# last log_lookback_days, and checks that the listed systemd services are
+# active (skipped gracefully if systemctl isn't available, e.g. when run on a
+# dev machine rather than the Pi). Only sends an email (via the email: section
+# above) when it finds something - a clean week is silent, not a routine
+# all-clear message. Intended to run weekly via cron, e.g.:
+#   0 8 * * 1 cd /home/pi/home_automation && venv/bin/python3 scripts/weekly_health_check.py
+weekly_health_check:
+  enabled: true
+  log_lookback_days: 7
+  systemd_services:
+    - "home_automation.service"            # battery_mode_daemon.py
+    - "home_automation_dashboard.service"  # dashboard_server.py
