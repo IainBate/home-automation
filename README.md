@@ -43,7 +43,8 @@ Standalone package for controlling SolaX inverters and Ohme EV chargers. Provide
 ## System Requirements
 
 ### Hardware
-- SolaX X3 Hybrid G4 inverters (master and/or slave) with WiFi dongles
+- SolaX X3 Hybrid G4 inverters - a master **and** a slave, both required (see
+  note below) - with WiFi dongles
   - Modbus TCP must be enabled (via SolaX cloud or local web UI)
   - WiFi dongles must be on local network with fixed IP addresses
 - Ohme Home Pro EV charger (for EV control features)
