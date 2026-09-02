@@ -99,6 +99,30 @@ def aggregate_pv_to_hourly(pv_records: list[dict[str, Any]]) -> dict[str, float]
     return {hour_key: sum(values) / len(values) for hour_key, values in buckets.items()}
 
 
+def compute_actual_daily_kwh(pv_records: list[dict[str, Any]], date_str: str) -> float | None:
+    """Sum a completed day's actual generation from historical 5-minute PV readings.
+
+    Used to score a past forecast against what really happened (see
+    scripts/solar_forecast_predictor.py's yesterday_actual_kwh/
+    yesterday_error_kwh) - reuses aggregate_pv_to_hourly() since an hour's
+    mean kW is numerically that hour's kWh, same as in build_training_rows().
+
+    Args:
+        pv_records: solax_historical_data.json's "data" list.
+        date_str: "YYYY-MM-DD" to sum.
+
+    Returns:
+        kWh generated that day, or None if there's no historical data for it
+        at all (vs. a misleading 0.0 - e.g. the logger hasn't caught up yet).
+
+    """
+    hourly = aggregate_pv_to_hourly(pv_records)
+    day_hours = [kw for hour_key, kw in hourly.items() if hour_key.startswith(date_str)]
+    if not day_hours:
+        return None
+    return sum(day_hours)
+
+
 def build_training_rows(
     pv_records: list[dict[str, Any]], weather_records: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
