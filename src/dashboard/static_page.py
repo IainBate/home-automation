@@ -123,6 +123,7 @@ DASHBOARD_HTML = """<!doctype html>
   }
   .bar-fill { height: 100%; background: var(--good); border-radius: 6px; }
   .error-text { color: var(--bad); font-size: 15px; }
+  .value .delta { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 6px; }
   .stale-banner {
     display: none;
     background: var(--warn);
