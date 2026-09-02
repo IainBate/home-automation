@@ -45,7 +45,7 @@ home_automation_software/
 
 ### Two Subsystems
 
-1. **SolaX Inverter Control** — Direct Modbus TCP communication with SolaX X3 Hybrid G4 inverters (master + optional slave). Read-only monitoring (PV, battery SoC, grid power, etc.) and restricted write access for work mode changes (Self-Use, Charge, Discharge, Hold). All writes go to the **master inverter only**.
+1. **SolaX Inverter Control** — Direct Modbus TCP communication with a SolaX X3 Hybrid G4 **master + slave pair**. Both are required, not optional: `config.yaml`'s schema lists `slave_ip`/`slave_wifisn` as required, and `solax_modbus_soc()` returns `None` (rather than partial data) if either is missing — which `_check_battery_protection()` then treats as "can't verify SoC, block FORCE_DISCHARGE". A master-only install therefore reads as permanently unsafe to discharge. Read-only monitoring (PV, battery SoC, grid power, etc.) and restricted write access for work mode changes (Self-Use, Charge, Discharge, Hold). All writes go to the **master inverter only**.
 
 2. **Ohme EV Charger Control** — Async API client for Ohme Home Pro chargers via the `ohme` library. Provides charger status, mode control, price cap management, and vehicle selection. Includes a monkey-patch to ensure production `api.ohme.io` endpoint is used.
 

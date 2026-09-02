@@ -47,7 +47,6 @@ project_root = find_project_root()
 sys.path.append(str(project_root))
 
 # Import modules (must be after sys.path setup)
-from common_config_utils import find_config_file  # noqa: E402 - after sys.path modification
 
 from src.api_clients import (  # noqa: E402 - after sys.path modification
     solax_modbus_ac_power,
@@ -82,10 +81,22 @@ from src.api_clients.solax_modbus_client import (  # noqa: E402 - after sys.path
     _read_single_soc,
 )
 from src.config_manager import load_static_config  # noqa: E402 - after sys.path modification
+from src.utils.paths import get_project_root  # noqa: E402 - after sys.path modification
 
 # Configure basic logging (will be updated based on command line args)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def get_config_path() -> str:
+    """Resolve config.yaml relative to the project root, not the process cwd.
+
+    Same resolver every other script here uses (see
+    scripts/hotwater_automation_core.py): a manual tool run from another
+    directory must still find the one real config, not a different file that
+    happens to sit beside the shell's cwd.
+    """
+    return str(Path(get_project_root()) / "config.yaml")
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -156,7 +167,13 @@ def load_config(config_path: str | None = None) -> dict[str, Any] | None:
                 return None
             final_config_path = config_path
         else:
-            final_config_path = find_config_file(None, logger)
+            # Resolved against the project root, not the process cwd:
+            # common_config_utils.find_config_file() used to search cwd,
+            # then ../config.yaml, then ../../config.yaml, which meant this
+            # tool could silently pick up a different config (or none) when
+            # run from elsewhere - the exact cwd-dependence every other
+            # script here deliberately avoids.
+            final_config_path = get_config_path()
 
         return load_static_config(final_config_path)
     except (OSError, ValueError, KeyError, TypeError):

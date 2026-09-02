@@ -37,15 +37,15 @@ class OhmeChargingContext:
 
     Attributes:
         plugged_in: Whether car is plugged into the charger
-        smart_sync_enabled: True if charger mode is SMART_CHARGE (SSA-1)
+        smart_sync_enabled: True if charger mode is SMART_CHARGE
             Maps to OhmeChargerMode.SMART_CHARGE from ohme_ev_client.py
         price_cap_gbp: Maximum electricity price (£/kWh) for charging, or None if no cap
             NOTE: This is in GBP/kWh. Daemon code uses pence/kWh and must convert:
             price_cap_gbp = price_cap_pence / 100.0
-        active_charging_mode: Current charger mode (SSA-5 - future)
+        active_charging_mode: Current charger mode
             Values: "smart_charge", "max_charge", "paused", "unknown"
             Maps to OhmeChargerMode enum values
-        max_charge_finish_time_ms: Unix timestamp (ms) for timed max charge, or None (SSA-5 - future)
+        max_charge_finish_time_ms: Unix timestamp (ms) for timed max charge, or None
             When set, indicates user has requested "charge until time X"
 
     """
@@ -54,7 +54,7 @@ class OhmeChargingContext:
     smart_sync_enabled: bool  # True if mode is SMART_CHARGE
     price_cap_gbp: float | None  # None if no cap set, GBP/kWh if set
 
-    # SSA-5 fields (Max Charge support - future functionality)
+    # Max Charge support
     active_charging_mode: str  # "smart_charge", "max_charge", "paused", etc.
     max_charge_finish_time_ms: int | None = None  # Timestamp ms if timed max charge active
 
@@ -74,7 +74,7 @@ class SlotChargingDecision:
         demand_adjustment_kw: Additional household load (kW) from car charging
             = charger_demand_kw if should_charge, 0.0 otherwise
         reason: Human-readable explanation of the decision
-            Used for logging (daemon) and optimization_reason (optimizer)
+            Used for logging
 
     """
 

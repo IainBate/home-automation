@@ -1961,7 +1961,7 @@ def create_ohme_client_from_config(
 
 
 def get_ohme_charging_context_sync(config: dict[str, Any]) -> OhmeChargingContext | None:
-    """Get Ohme charging context synchronously for optimizer use.
+    """Get Ohme charging context synchronously.
 
     This function bridges the async Ohme client to the synchronous optimization pipeline.
     It fetches both Ohme API data and optimization settings to provide complete context
@@ -2020,7 +2020,7 @@ def get_ohme_charging_context_sync(config: dict[str, Any]) -> OhmeChargingContex
             # Fetch charger status from Ohme API
             status = await client.get_charger_status()
 
-            # Extract settings for Smart Sync prediction (NOT from Ohme API) - SSA-1 bugfix
+            # Extract settings for Smart Sync prediction (NOT from Ohme API)
             # User controls Ohme manually (Max Charge/Pause), we predict charging based on OUR settings
             ev_charging_settings = settings.get("ev_charging", {})
 
@@ -2053,8 +2053,8 @@ def get_ohme_charging_context_sync(config: dict[str, Any]) -> OhmeChargingContex
     # Run async function in sync context
     try:
         return asyncio.run(_fetch_context())
-    except Exception as e:  # noqa: BLE001  # pylint: disable=broad-exception-caught  # Graceful degradation for optimizer pipeline
+    except Exception as e:  # noqa: BLE001  # pylint: disable=broad-exception-caught  # Graceful degradation for callers
         # Graceful degradation - log warning but return None
-        # This allows optimizer to continue without Ohme data
+        # This allows the caller to continue without Ohme data
         logger.warning("Failed to fetch Ohme charging context: %s", e)
         return None
