@@ -81,6 +81,7 @@ class FakeMelCloudServer:
         target_tank_temperature: float = 45.0,
         max_tank_temperature: float = 75.0,
         forced_hot_water: bool = False,
+        power: bool = True,
         token: str = "fake-melcloud-token",
     ) -> None:
         self.device_conf = make_device_conf(max_tank_temperature=max_tank_temperature)
@@ -88,6 +89,7 @@ class FakeMelCloudServer:
             tank_temperature=tank_temperature,
             target_tank_temperature=target_tank_temperature,
             forced_hot_water=forced_hot_water,
+            power=power,
         )
         self.token = token
         self.set_calls: list[dict[str, Any]] = []
