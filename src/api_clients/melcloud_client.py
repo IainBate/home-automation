@@ -198,6 +198,25 @@ class MelCloudClient:
             missing_fields_msg = missing_fields_msg_template.format(fields=missing_fields)
             raise ValueError(missing_fields_msg)
 
+    async def _login(self, email: str, password: str) -> str:
+        """Perform a real MELCloud login and cache the resulting token."""
+        try:
+            logger.info("Authenticating with MELCloud...")
+            token = await pymelcloud.login(email, password, self._session)
+        except Exception as e:
+            msg = f"Failed to authenticate with MELCloud: {e}"
+            raise MelCloudAuthenticationError(msg) from e
+
+        try:
+            write_cached_token(email, token)
+        except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            # Circuit Breaker: the cache is an optimisation. Failing to write
+            # it (read-only filesystem, full disk) must not take down a
+            # login that actually succeeded.
+            logger.warning("Could not cache the MELCloud token - continuing without it")
+
+        return token
+
     async def connect(self) -> bool:
         """Authenticate with MELCloud and select the Air-to-Water (tank) device.
 
