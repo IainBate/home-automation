@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 from src.config_manager.config_manager import (
+    validate_business_rule_errors,
     _deep_merge,
     _find_unknown_overlay_keys,
     _load_secrets_overlay,
@@ -111,11 +112,19 @@ def test_business_rules_flags_daytime_load_less_than_nighttime():
     assert any("Daytime load is less than nighttime" in w for w in warnings)
 
 
-def test_business_rules_flags_daytime_start_after_end():
-    warnings = validate_business_rules(
+def test_daytime_window_inversion_blocks_loading_rather_than_warning():
+    """This one is a real contradiction, not an oddity - it now has to stop
+    the config loading rather than log a warning nobody reads."""
+    errors = validate_business_rule_errors(
         _valid_business_config(household_load={"daytime_start_hour": 23, "daytime_end_hour": 7})
     )
-    assert any("Daytime start hour must be before" in w for w in warnings)
+    assert any("must be before" in e for e in errors)
+
+
+def test_a_sane_daytime_window_produces_no_blocking_errors():
+    assert validate_business_rule_errors(
+        _valid_business_config(household_load={"daytime_start_hour": 7, "daytime_end_hour": 23})
+    ) == []
 
 
 def test_business_rules_flags_cheap_threshold_above_high_threshold():
