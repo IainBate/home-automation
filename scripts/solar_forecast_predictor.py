@@ -35,6 +35,7 @@ from hotwater_automation_core import get_config_path
 from src.api_clients.weather_client import fetch_forecast_weather_hourly
 from src.config_manager.config_manager import load_static_config
 from src.core_logic.solar_forecast_logic import build_forecast_rows, predict_hourly_kw
+from src.utils.logging_setup import configure_cron_safe_logging
 from src.utils.paths import get_solar_forecast_model_path, get_solar_forecast_path
 from src.utils.state_store import write_json_atomic
 
