@@ -271,10 +271,11 @@ function hotWaterCard(d) {
     <div class="row"><span class="label">Activity</span><span class="value">${escapeHtml(titleCase(d.status))}</span></div>
     ${d.force_heat_active ? `<div class="row"><span class="label">Force heat</span><span class="value"><span class="badge warn">Active</span></span></div>` : ""}
     ${d.legionella_cycle_in_progress ? `<div class="row"><span class="label">Legionella cycle</span><span class="value"><span class="badge warn">In progress</span></span></div>` : ""}
+    ${d.automation_holiday_active ? `<div class="row"><span class="label">Automation holiday</span><span class="value"><span class="badge warn">Active until ${escapeHtml(d.automation_holiday_until ?? "")}</span></span></div>` : ""}
   `;
   const details = `
     <div class="row"><span class="label">Power</span><span class="value">${d.power_on ? "On" : "Off"}</span></div>
-    <div class="row"><span class="label">Holiday mode</span><span class="value">${d.holiday_mode ? "On" : "Off"}</span></div>
+    <div class="row"><span class="label">Device holiday mode</span><span class="value">${d.holiday_mode ? "On" : "Off"}</span></div>
     ${d.force_heat_activated_at ? `<div class="row"><span class="label">Force heat since</span><span class="value">${escapeHtml(d.force_heat_activated_at)}</span></div>` : ""}
     ${d.legionella_last_completed_at ? `<div class="row"><span class="label">Last legionella cycle</span><span class="value">${escapeHtml(d.legionella_last_completed_at)}</span></div>` : ""}
   `;
