@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from src.daemon_support.base_daemon import TwoTierPollingDaemon, setup_rotating_logger
 
 
