@@ -74,6 +74,29 @@ def _weather_description(cloud_cover_percent: float) -> str:
     return "Overcast"
 
 
+def _carry_forward_yesterday_forecast(
+    previous_record: dict[str, Any], today_str: str, yesterday_str: str
+) -> float | None:
+    """The forecast to score yesterday's actual generation against.
+
+    solar_forecast.json is overwritten on every run, so nothing normally
+    remembers what was predicted for a day once it's over - by the time
+    "today" becomes "yesterday", its "today_kwh" is gone. This captures it
+    exactly once, at the first run after midnight, from the previous (now-
+    completed) day's own "today_kwh" (identified via that record's
+    "for_date"); every later run that same day then carries the already-
+    captured value forward via its own "yesterday_forecast_kwh" field, since
+    by then "for_date" has already rolled over to today. Returns None across
+    a >1-day gap (the predictor didn't run at all yesterday, e.g. the Pi was
+    down) - there's then no meaningful forecast to compare against.
+    """
+    if previous_record.get("for_date") == yesterday_str:
+        return previous_record.get("today_kwh")
+    if previous_record.get("for_date") == today_str:
+        return previous_record.get("yesterday_forecast_kwh")
+    return None
+
+
 def run(config: dict[str, Any], *, quiet: bool) -> int:
     """Predict today/tomorrow's solar generation and write it for the dashboard. 0/1 exit code."""
     location = config.get("location", {})
