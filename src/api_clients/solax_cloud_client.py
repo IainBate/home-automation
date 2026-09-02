@@ -467,23 +467,55 @@ def merge_realtime_snapshot(existing_record: dict[str, Any], snapshot: dict[str,
 
     """
     data = list(existing_record.get("data", []))
-    if data and data[-1].get("timestamp") == snapshot["timestamp"]:
+    if data and _is_same_reading(data[-1], snapshot):
         return existing_record
 
     data.append(snapshot)
-    data.sort(key=lambda entry: entry.get("timestamp", ""))
+    # Sorted on the LOCAL timestamp for every record, including ones that
+    # also carry timestamp_utc - never a mix of the two key types. Existing
+    # history (54k+ rows) predates timestamp_utc entirely, and a
+    # "utc-if-present-else-local" key would interleave the two formats
+    # incorrectly ("2026-09-02T13:52" vs "2026-09-02 21:52" compare by their
+    # separator, not their instant). Local-time ordering is also what every
+    # consumer wants: aggregate_pv_to_hourly() buckets by local hour, and
+    # "yesterday's generation" means the local calendar day.
+    data.sort(key=lambda entry: entry.get("timestamp") or "")
 
     return {
         "meta": {
             "last_updated": datetime.now(UTC).isoformat(),
             "data_points": len(data),
             "date_range": {
-                "start": data[0]["timestamp"].split()[0],
-                "end": data[-1]["timestamp"].split()[0],
+                # .get() throughout, not direct indexing: one malformed row
+                # already in the file (no "timestamp" key) sorts first under
+                # the "" default above and would otherwise KeyError here on
+                # every future poll, not just the poll that wrote it.
+                "start": (data[0].get("timestamp") or "").split(" ")[0],
+                "end": (data[-1].get("timestamp") or "").split(" ")[0],
             },
         },
         "data": data,
     }
+
+
+def _is_same_reading(previous: dict[str, Any], snapshot: dict[str, Any]) -> bool:
+    """Whether a new snapshot is the same device reading as the previous row.
+
+    The inverter only uploads every few minutes, so a more frequent poll
+    legitimately sees the same reading twice and must not store it twice.
+
+    Prefers timestamp_utc (the API's own unambiguous utcDateTime) when both
+    rows have it: during a DST fall-back, two genuinely different readings an
+    hour apart share the same LOCAL clock-face string, and comparing on that
+    alone would silently discard the second one as a duplicate. Falls back to
+    the local timestamp for rows written before timestamp_utc was recorded,
+    which is every row in the existing history.
+    """
+    previous_utc = previous.get("timestamp_utc")
+    snapshot_utc = snapshot.get("timestamp_utc")
+    if previous_utc and snapshot_utc:
+        return bool(previous_utc == snapshot_utc)
+    return bool(previous.get("timestamp") == snapshot.get("timestamp"))
 
 
 # =============================================================================
