@@ -254,6 +254,7 @@ class BatteryModeDaemon(TwoTierPollingDaemon):
             # Check if config actually changed
             if new_config != self.daemon_config:
                 self.daemon_config = new_config
+                self._apply_logging_level()
                 self.logger.info("Configuration reloaded from %s", self.config_path)
             else:
                 self.logger.debug("Configuration unchanged")
