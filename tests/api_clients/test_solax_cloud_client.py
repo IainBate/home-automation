@@ -42,11 +42,16 @@ def test_solax_cloud_get_realtime_snapshot_parses_successful_response():
         "code": 0,
         "result": {
             "uploadTime": "2026-09-02 21:37:53",
+            "utcDateTime": "2026-09-02T20:37:53Z",
             "soc": 99.0,
             "batPower": -70.0,
             "feedinpower": -154.0,
-            "powerdc1": 0.0,
-            "powerdc2": 0.0,
+            # Deliberately distinct non-zero values across the MPPT strings,
+            # with the two unused ones null: an all-zeroes fixture would pass
+            # even if the summation dropped a string or summed the wrong
+            # fields entirely.
+            "powerdc1": 1500.0,
+            "powerdc2": 900.0,
             "powerdc3": None,
             "powerdc4": None,
             "yieldtoday": 15.6,
@@ -58,7 +63,8 @@ def test_solax_cloud_get_realtime_snapshot_parses_successful_response():
 
     assert snapshot == {
         "timestamp": "2026-09-02 21:37:53",
-        "pv_power_kw": 0.0,
+        "timestamp_utc": "2026-09-02T20:37:53Z",
+        "pv_power_kw": 2.4,  # (1500 + 900) W, with the two null strings ignored
         "battery_power_kw": -0.07,
         "grid_power_kw": -0.154,
         "soc_percent": 99,
