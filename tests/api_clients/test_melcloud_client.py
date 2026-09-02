@@ -239,6 +239,71 @@ async def test_set_force_hot_water_exhausts_attempts_and_fails(tmp_path):
         await client.close()
 
 
+async def test_set_force_hot_water_powers_the_unit_on_first_when_off(tmp_path):
+    config_path = _write_config(tmp_path)
+    server = FakeMelCloudServer(power=False)
+
+    with aioresponses() as mocked:
+        server.register(mocked)
+        client = MelCloudClient(config_path=config_path)
+        await client.connect()
+
+        success = await client.set_force_hot_water(enabled=True)
+
+        assert success is True
+        # One SetAtw to power on, one to request the mode change.
+        assert len(server.set_calls) == 2
+        assert server.state["Power"] is True
+        assert server.state["ForcedHotWaterMode"] is True
+        await client.close()
+
+
+async def test_set_force_hot_water_aborts_without_requesting_mode_if_power_on_fails(tmp_path):
+    config_path = _write_config(tmp_path, max_attempts=2, check_delay_seconds=1)
+    server = FakeMelCloudServer(power=False)
+
+    def power_never_applies(url, **kwargs):
+        server.set_calls.append(kwargs.get("json") or {})
+        from aioresponses import CallbackResult
+
+        return CallbackResult(payload=dict(server.state))  # unchanged, forever
+
+    server._handle_set_state = power_never_applies
+
+    with aioresponses() as mocked:
+        server.register(mocked)
+        client = MelCloudClient(config_path=config_path)
+        await client.connect()
+
+        success = await client.set_force_hot_water(enabled=True)
+
+        assert success is False
+        # All calls were power-on attempts (max_attempts) - the mode change
+        # was never requested since the unit never came on.
+        assert len(server.set_calls) == 2
+        assert server.state["ForcedHotWaterMode"] is False
+        await client.close()
+
+
+async def test_set_force_hot_water_disable_powers_the_unit_off_after_revert(tmp_path):
+    config_path = _write_config(tmp_path)
+    server = FakeMelCloudServer(forced_hot_water=True, power=True)
+
+    with aioresponses() as mocked:
+        server.register(mocked)
+        client = MelCloudClient(config_path=config_path)
+        await client.connect()
+
+        success = await client.set_force_hot_water(enabled=False)
+
+        assert success is True
+        # One SetAtw to revert the mode, one to power the unit back off.
+        assert len(server.set_calls) == 2
+        assert server.state["ForcedHotWaterMode"] is False
+        assert server.state["Power"] is False
+        await client.close()
+
+
 async def test_set_target_tank_temperature_invalidates_cache(tmp_path):
     config_path = _write_config(tmp_path)
     server = FakeMelCloudServer(target_tank_temperature=45.0)
