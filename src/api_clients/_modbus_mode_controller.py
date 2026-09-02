@@ -44,41 +44,13 @@ from src.core_logic.battery_simulation import (  # pylint: disable=wrong-import-
 # Import modbus protocol functions for hardware communication
 # For test compatibility, we need to access functions through the main module
 
-# Debug instrumentation for detecting unmarked hardware tests
-try:
-    import os  # pylint: disable=reimported, ungrouped-imports
-    import sys  # pylint: disable=reimported, ungrouped-imports
-
-    # Add dev_scripts to path for debug module import
-    project_root = str(Path(__file__).parent.parent.parent)  # pylint: disable=invalid-name  # Local variable
-    dev_scripts_path = str(  # pylint: disable=invalid-name  # Local variable
-        Path(project_root) / "dev_scripts"
-    )  # pragma: no cover
-    if dev_scripts_path not in sys.path:  # pragma: no cover
-        sys.path.insert(0, dev_scripts_path)  # pragma: no cover
-
-    from hardware_debug_access import (  # pragma: no cover  # pylint: disable=import-outside-toplevel
-        log_hardware_access,
-        log_hardware_write_violation,
-        should_log_hardware_access,
-    )
-
-    DEBUG_ENABLED = True  # pragma: no cover
-except ImportError:  # pragma: no cover
-    DEBUG_ENABLED = False  # pragma: no cover
-
-    def log_hardware_access(  # pylint: disable=missing-function-docstring  # Stub function
-        *_args: object, **_kwargs: object
-    ) -> None:  # pragma: no cover
-        pass  # pragma: no cover
-
-    def log_hardware_write_violation(  # pylint: disable=missing-function-docstring  # Stub
-        *_args: object, **_kwargs: object
-    ) -> None:  # pragma: no cover
-        pass  # pragma: no cover
-
-    def should_log_hardware_access(*_args: object, **_kwargs: object) -> bool:  # noqa: ARG001  # pragma: no cover  # pylint: disable=missing-function-docstring  # Stub
-        return False  # pragma: no cover
+# A debug-instrumentation hook used to live here, importing
+# hardware_debug_access from a dev_scripts/ directory. No such directory
+# exists anywhere in this repo or its history, so the import always failed
+# and the module always ran on the no-op stubs below it - dead scaffolding
+# sitting inside a file whose whole purpose is hardware safety. Removed;
+# the audit trail that actually matters is the logging in this module and
+# the mode-change log written under lock by _log_mode_change().
 
 
 # Setup basic logging
