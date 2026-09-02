@@ -499,7 +499,10 @@ def validate_business_rules(  # pylint: disable=too-many-locals
         config_data: Configuration dictionary to validate
 
     Returns:
-        List of business rule violation messages (empty list if valid)
+        List of business rule violation messages (empty list if valid). These
+        are advisory only - load_static_config() logs them and carries on.
+        A rule that must actually BLOCK a bad config belongs in
+        validate_business_rule_errors() below, not here.
 
     """
     warnings = []
