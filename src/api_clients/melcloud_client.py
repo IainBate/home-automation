@@ -41,6 +41,7 @@ from pymelcloud.atw_device import (
     PROPERTY_TARGET_TANK_TEMPERATURE,
 )
 from pymelcloud.const import DEVICE_TYPE_ATW
+from pymelcloud.device import PROPERTY_POWER
 
 from src.config_manager.config_manager import load_static_config
 
