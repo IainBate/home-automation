@@ -6,9 +6,9 @@
 # any machine that's lost its plaintext secrets.yaml.
 #
 # Passphrase hint: this backup uses the SHA-256 hash of a passphrase as the
-# actual key - recommended (and, if never overridden, what was used) is this
-# Mac's own login password (computer name: UOY26M288). Type that below; this
-# script hashes it for you. See encrypt_secrets.sh for the encrypt side.
+# actual key - recommended (and, if never overridden, what was used) is the
+# Home Pi4's own login password. Type that below; this script hashes it for
+# you. See encrypt_secrets.sh for the encrypt side.
 #
 # Run from the repo root: bash scripts/decrypt_secrets.sh
 
