@@ -227,6 +227,21 @@ class BatteryModeDaemon(TwoTierPollingDaemon):
 
         self._load_mode_change_log()
 
+    def _apply_logging_level(self) -> None:
+        """Set the logger's level from daemon_config's "logging.level" (default INFO).
+
+        Was previously hardcoded to DEBUG regardless of this setting, which
+        produced a debug line on every fast-poll tick (every
+        FAST_POLL_INTERVAL_SECONDS) - roughly 500KB/day of log writes on the
+        Pi's SD card for no operational benefit. Re-applied on every
+        reload_config() too, so editing this file's "logging.level" while the
+        daemon is running takes effect without a restart, like every other
+        hot-reloaded setting here.
+        """
+        level_name = self.daemon_config.get("logging", {}).get("level", "INFO")
+        level = getattr(logging, str(level_name).upper(), logging.INFO)
+        self.logger.setLevel(level)
+
     def reload_config(self) -> None:
         """Reload daemon configuration (fast poll operation).
 
