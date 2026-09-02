@@ -242,6 +242,18 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
             ),
         )
 
+    # Holiday mode dominates everything below, including car charging - see
+    # HotWaterDecisionContext.holiday_mode_active.
+    if context.holiday_mode_active:
+        return HotWaterDecision(
+            should_force_heat=False,
+            reason=(
+                f"Tank at {context.tank_temperature_c:.1f}C < threshold "
+                f"{context.tank_temp_threshold_c:.1f}C, but holiday mode is active - "
+                f"not force-heating"
+            ),
+        )
+
     # Car charging dominates: Ohme has already decided this is an economical
     # time to draw power, so heat the tank too, regardless of trigger_hour,
     # battery SoC or grid tariff period.
