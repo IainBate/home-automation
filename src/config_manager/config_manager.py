@@ -763,7 +763,17 @@ def load_static_config(config_file_path: str) -> dict[str, Any] | None:
                 logger.error("  %s", error)
             return None
 
-        # Perform business rule validation (warnings only)
+        # Blocking business rules: a config that contradicts itself must fail
+        # to load, the same way a schema violation does, rather than running
+        # on with only a log line to show for it.
+        business_errors = validate_business_rule_errors(config)
+        if business_errors:
+            logger.error("Configuration business rule validation failed:")
+            for error in business_errors:
+                logger.error("  %s", error)
+            return None
+
+        # Advisory business rules (logged, non-blocking)
         business_warnings = validate_business_rules(config)
         if business_warnings:
             logger.warning("Configuration business rule validation warnings:")
