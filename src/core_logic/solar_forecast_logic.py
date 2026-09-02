@@ -122,19 +122,34 @@ def compute_actual_daily_kwh(pv_records: list[dict[str, Any]], date_str: str) ->
 
     Returns:
         kWh generated that day, or None if there's no historical data for it
-        at all (vs. a misleading 0.0 - e.g. the logger hasn't caught up yet).
+        at all - or none that's actually usable (vs. a misleading 0.0, which
+        would be scored as a real "the sun produced nothing" reading).
 
     """
-    day_records = [r for r in pv_records if r.get("timestamp", "").startswith(date_str)]
+    # `r.get("timestamp") or ""` rather than `r.get("timestamp", "")`: the
+    # two-arg default only applies when the key is ABSENT, so a record with
+    # an explicit {"timestamp": None} would reach .startswith() as None and
+    # raise AttributeError, crashing solar_forecast_predictor.py's cron run
+    # (its call site has no try/except). aggregate_pv_to_hourly() below
+    # already skips such records rather than raising, so this filter must be
+    # at least as forgiving as the fallback it guards.
+    day_records = [r for r in pv_records if (r.get("timestamp") or "").startswith(date_str)]
     if not day_records:
         return None
 
-    last_record = max(day_records, key=lambda r: r["timestamp"])
+    last_record = max(day_records, key=lambda r: r.get("timestamp") or "")
     yield_today_kwh = last_record.get("yield_today_kwh")
     if yield_today_kwh is not None:
         return yield_today_kwh
 
     hourly = aggregate_pv_to_hourly(day_records)
+    if not hourly:
+        # Records exist for this date but none carry usable pv_power_kw (all
+        # None/malformed), so there is nothing to sum. sum({}.values()) is
+        # 0.0, which this function's contract explicitly rules out - a real
+        # zero and "no usable data" must stay distinguishable, since the
+        # caller scores the difference against a forecast.
+        return None
     return sum(hourly.values())
 
 
