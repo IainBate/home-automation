@@ -39,11 +39,18 @@ from src.api_clients.solax_cloud_client import merge_realtime_snapshot, solax_cl
 from src.config_manager.config_manager import load_static_config
 from src.utils.logging_setup import configure_cron_safe_logging
 from src.utils.paths import get_solax_historical_data_path
-from src.utils.state_store import read_json_state, write_json_atomic
+from src.utils.state_store import locked_json_update
 
 logger = logging.getLogger(__name__)
 
 _PLACEHOLDER = "NOT_USED_FOR_MODBUS"
+
+# Generous relative to this script's own work (a lock is only held for the
+# local read-merge-write, never across the network call above), but a
+# stalled sibling tick holding the lock should be waited out rather than
+# racing it - this cron entry runs every 5 minutes, so a wait of even a
+# minute still finishes long before the next tick.
+LOCK_TIMEOUT_SECONDS = 60.0
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
