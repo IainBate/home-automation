@@ -9,20 +9,28 @@ set -e
 PROJECT_DIR="/home/pi/home_automation"
 BACKUP_DIR="/tmp/home_automation_backup_$(date +%Y%m%d_%H%M%S)"
 SERVICE_NAME="home_automation.service"
+HOTWATER_SERVICE_NAME="home_automation_hotwater.service"
 DASHBOARD_SERVICE_NAME="home_automation_dashboard.service"
 LOG_DIR="/var/log/home_automation"
 
 echo "=== Home Automation Pi Setup ==="
 echo ""
 
-# Step 1: Stop the daemon if running
-echo "Step 1: Stopping existing daemon..."
+# Step 1: Stop the daemons if running
+echo "Step 1: Stopping existing daemons..."
 if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
     echo "  Stopping $SERVICE_NAME..."
     sudo systemctl stop "$SERVICE_NAME"
     echo "  Stopped."
 else
-    echo "  Daemon not running (skipping)."
+    echo "  $SERVICE_NAME not running (skipping)."
+fi
+if systemctl is-active --quiet "$HOTWATER_SERVICE_NAME" 2>/dev/null; then
+    echo "  Stopping $HOTWATER_SERVICE_NAME..."
+    sudo systemctl stop "$HOTWATER_SERVICE_NAME"
+    echo "  Stopped."
+else
+    echo "  $HOTWATER_SERVICE_NAME not running (skipping)."
 fi
 echo ""
 
@@ -167,10 +175,23 @@ sudo systemctl start "$SERVICE_NAME"
 echo "  Service installed, enabled, and started."
 echo ""
 
-# Step 9: Install and enable the status dashboard service - independent of the
-# battery daemon above; read-only, never touches battery_mode_daemon.py or
+# Step 9: Install and enable the hot water automation service - independent
+# process from the battery daemon above (base_daemon.py's TwoTierPollingDaemon
+# architecture, own state/log files), gated by config.yaml's
+# hotwater_automation.enabled so it's safe to install even before that's
+# turned on (the daemon checks the flag itself on every cycle).
+echo "Step 9: Installing hot water automation service..."
+sudo cp scripts/home_automation_hotwater.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable "$HOTWATER_SERVICE_NAME"
+sudo systemctl start "$HOTWATER_SERVICE_NAME"
+echo "  Hot water service installed, enabled, and started."
+echo ""
+
+# Step 10: Install and enable the status dashboard service - independent of
+# both daemons above; read-only, never touches battery_mode_daemon.py or
 # hotwater_mode_daemon.py's state, so it's always safe to run alongside them.
-echo "Step 9: Installing dashboard service..."
+echo "Step 10: Installing dashboard service..."
 sudo cp scripts/home_automation_dashboard.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable "$DASHBOARD_SERVICE_NAME"
@@ -184,6 +205,8 @@ echo ""
 echo "Verify:"
 echo "  systemctl status $SERVICE_NAME"
 echo "  journalctl -u $SERVICE_NAME -f"
+echo "  systemctl status $HOTWATER_SERVICE_NAME"
+echo "  journalctl -u $HOTWATER_SERVICE_NAME -f"
 echo "  systemctl status $DASHBOARD_SERVICE_NAME"
 echo "  journalctl -u $DASHBOARD_SERVICE_NAME -f"
 echo "  Dashboard: http://<this Pi's IP>:8000/ from any device on your home WiFi"
@@ -193,6 +216,9 @@ if [ -d "$BACKUP_DIR" ]; then
 fi
 echo ""
 echo "Optional next steps (none of these run automatically):"
+echo "  - Hot water automation: set hotwater_automation.enabled: true in config.yaml"
+echo "      once melcloud (above) is configured and tested (this service runs"
+echo "      regardless, but sits idle checking the flag until it's on)."
 echo "  - Solar forecast: set location.latitude/longitude in config.yaml, then"
 echo "      python3 scripts/solar_forecast_trainer.py && python3 scripts/solar_forecast_predictor.py"
 echo "    then add cron entries per config.yaml's solar_forecast comments."

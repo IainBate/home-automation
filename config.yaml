@@ -145,7 +145,7 @@ melcloud:
 # read fresh on every force-heat check. Solar water heating (if you have a
 # separate diverter) is entirely outside this codebase and unaffected.
 hotwater_automation:
-  enabled: false                           # Set to true once melcloud is configured and tested
+  enabled: true                            # melcloud configured and tested (enabled 2026-09-02)
   trigger_hour: 21.5                       # Local hour (24h, fractional - 21.5 = 9:30pm) at which
                                             # car-charging monitoring stops and the battery/off-peak
                                             # conditions take over (see above).
