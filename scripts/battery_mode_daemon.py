@@ -178,8 +178,11 @@ class BatteryModeDaemon(TwoTierPollingDaemon):
         # Ohme charging detection state (requires 2 consecutive cycles)
         self.ohme_charging_count = 0
 
+        # INFO until load_config() reads the real level from daemon_config's
+        # "logging.level" - the logger has to exist before that JSON file is
+        # even read, since load_config() itself logs.
         self.logger = setup_rotating_logger(
-            "battery_mode_daemon", "battery_mode_daemon.log", level=logging.DEBUG
+            "battery_mode_daemon", "battery_mode_daemon.log", level=logging.INFO
         )
 
     def load_config(self) -> None:
