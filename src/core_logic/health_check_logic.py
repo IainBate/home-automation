@@ -67,17 +67,23 @@ class LogIssue:
     source_file: str
 
 
-def parse_log_line(line: str, source_file: str) -> LogIssue | None:
-    """Parse one log line into a LogIssue if it's an ERROR/CRITICAL entry, else None.
+def parse_log_line(
+    line: str, source_file: str, *, pattern: re.Pattern[str] = LOG_LINE_PATTERN
+) -> LogIssue | None:
+    """Parse one log line into a LogIssue if it matches `pattern`, else None.
 
     Args:
         line: A single line from a rotating log file (trailing newline OK).
         source_file: Bare filename the line came from, attached to the result.
+        pattern: Which levels count as an issue - LOG_LINE_PATTERN (default,
+            ERROR/CRITICAL only, used by the weekly check) or
+            DAILY_DIGEST_LOG_LINE_PATTERN (also matches WARNING, used by the
+            daily digest).
 
     Returns:
-        A LogIssue, or None if the line isn't a well-formed ERROR/CRITICAL
-        entry (INFO/DEBUG/WARNING lines, traceback continuation lines, blank
-        lines, or a malformed timestamp all return None).
+        A LogIssue, or None if the line isn't a well-formed entry at a
+        matching level (lower-level lines, traceback continuation lines,
+        blank lines, or a malformed timestamp all return None).
 
     Examples:
         >>> issue = parse_log_line(
@@ -102,7 +108,7 @@ def parse_log_line(line: str, source_file: str) -> LogIssue | None:
         True
 
     """
-    match = LOG_LINE_PATTERN.match(line.rstrip("\n"))
+    match = pattern.match(line.rstrip("\n"))
     if match is None:
         return None
     try:
