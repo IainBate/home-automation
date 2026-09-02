@@ -49,6 +49,7 @@ def test_solax_cloud_get_realtime_snapshot_parses_successful_response():
             "powerdc2": 0.0,
             "powerdc3": None,
             "powerdc4": None,
+            "yieldtoday": 15.6,
         },
     }
 
@@ -61,6 +62,7 @@ def test_solax_cloud_get_realtime_snapshot_parses_successful_response():
         "battery_power_kw": -0.07,
         "grid_power_kw": -0.154,
         "soc_percent": 99,
+        "yield_today_kwh": 15.6,
     }
 
 
