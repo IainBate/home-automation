@@ -97,10 +97,23 @@ scp secrets.yaml pi@<pi-ip>:/home/pi/home_automation/secrets.yaml
 ```
 There's also an encrypted backup checked into git (`secrets.yaml.enc`), for
 the case where neither this Mac nor the Pi survives to be the `scp` source.
-Run `bash scripts/encrypt_secrets.sh` after any edit to `secrets.yaml` and
-commit the result; `setup_pi.sh` offers to decrypt it automatically on a
-fresh install (or run `bash scripts/decrypt_secrets.sh` manually) using the
-same passphrase you set when encrypting.
+The passphrase is never stored directly - only its SHA-256 hash
+(`secrets_backup.passphrase_hash` in `secrets.yaml`) is, and both
+`encrypt_secrets.sh` and `decrypt_secrets.sh` hash whatever you type before
+using it. Recommended passphrase: the Pi's own login password, since the
+backup cron job runs there and it's already a password you know.
+
+- One-time setup on the Pi: `bash scripts/encrypt_secrets.sh` (enter the
+  Pi's login password when prompted), then paste the hash it prints into
+  `secrets_backup.passphrase_hash` in `secrets.yaml` and add a daily cron
+  entry so it keeps itself up to date and pushed, without a prompt:
+  ```
+  0 3 * * * cd /home/pi/home_automation && bash scripts/encrypt_secrets.sh --quiet
+  ```
+- Recovery on a fresh install: `setup_pi.sh` offers to run
+  `scripts/decrypt_secrets.sh` automatically when `secrets.yaml` is missing
+  but `secrets.yaml.enc` is present; it prompts with the same passphrase
+  hint.
 
 **`config.yaml` — copy, then review these fields for the new machine**:
 - `solaX_cloud_api.master_ip` / `slave_ip` — same LAN, should be unchanged,
