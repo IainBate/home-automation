@@ -24,6 +24,7 @@ config/resideo_token_state.json
 config/claude_usage.json
 config/mg_saic_status.json
 config/battery_evening_prediction.json
+config/hotwater_automation_state.json
 data/solar_forecast_model.joblib
 
 # Historical zip archives (not tracked in git)
