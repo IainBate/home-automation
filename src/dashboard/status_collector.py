@@ -79,6 +79,27 @@ SERVICE_HEALTH_CHECKS = [
     {"key": "dashboard", "label": "Dashboard", "unit": "home_automation_dashboard.service", "log_filename": "dashboard_server.log"},
 ]
 
+# How far back _check_log_health() looks for ERROR/CRITICAL lines, and how
+# many it requires before calling a service "unhealthy" rather than
+# "healthy". Tuned against ~15 days of real battery_mode_daemon.log history
+# (2026-06-27 to 07-04 and 2026-08-26 onward, pulled from the Pi): a
+# threshold of 1 flags the daemon's own min_command_interval safety check
+# (_modbus_mode_controller.py's "please wait N more seconds" message, logged
+# at ERROR by battery_mode_daemon.py) as unhealthy even though it's expected,
+# self-correcting behavior - 3 of the only 5 ERROR incidents in that history
+# were exactly this. Requiring 2+ within the window drops those isolated,
+# non-repeating incidents while still catching the one genuine sustained
+# problem in that history (a ~9-minute Ohme API outage that logged 7
+# consecutive "Failed to check Ohme status" errors).
+LOG_HEALTH_WINDOW_MINUTES = 60
+LOG_HEALTH_ERROR_THRESHOLD = 2
+_UNHEALTHY_LOG_LEVELS = {"ERROR", "CRITICAL"}
+_LOG_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ - \S+ - (\w+) - ")
+# Bounds how much of a (potentially still-growing, up to a day's worth of)
+# log file _check_log_health() reads per poll - only the tail is relevant to
+# a 60-minute-old question, so there's no need to read the whole file.
+_LOG_HEALTH_TAIL_BYTES = 128_000
+
 
 def collect_status(config: dict[str, Any], config_path: str | None = None) -> dict[str, Any]:
     """Gather a snapshot of current solar/battery, EV charging and hot water status.
