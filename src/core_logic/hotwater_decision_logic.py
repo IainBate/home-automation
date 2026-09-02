@@ -46,6 +46,13 @@ class HotWaterDecisionContext:
             evening so the day's solar/battery can cover it, so this is
             checked even on an out-of-schedule (e.g. manual) run. Not checked
             if car_is_charging.
+        holiday_mode_active: True if scripts/holiday_mode.py has an active
+            holiday period recorded (see hotwater_automation_core.py's
+            is_holiday_active). Dominates every other condition, including
+            car_is_charging - a holiday means "don't force-heat via the ASHP
+            for N days", full stop. Solar-heated hot water (if the household
+            has a separate diverter) is entirely outside this codebase and
+            unaffected either way.
 
     """
 
@@ -56,6 +63,7 @@ class HotWaterDecisionContext:
     battery_soc_min_percent: float
     grid_is_cheap: bool
     in_evening_window: bool
+    holiday_mode_active: bool = False
 
 
 @dataclass
