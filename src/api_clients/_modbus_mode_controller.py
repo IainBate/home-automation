@@ -286,37 +286,29 @@ def _execute_mode_change_hardware(
         )
         logger.debug("Master: %s:%s (Modbus address %s)", master_ip, port, master_address)
 
-        # CRITICAL SAFETY CHECK: Log hardware write
-        try:  # noqa: SIM105 - Explicit try-except-pass preferred over contextlib.suppress for clarity  # pragma: no cover
-            log_hardware_write_violation(
-                "_set_master_work_mode", test_mode, config
-            )  # pragma: no cover
-        except Exception:  # noqa: S110, BLE001  # Hardware control: audit logging failure must not crash mode change  # pragma: no cover  # pylint: disable=broad-exception-caught
-            pass  # pragma: no cover
-
         # Execute work mode change on master inverter
-        result = _set_master_work_mode(  # pragma: no cover
+        result = _set_master_work_mode(
             master_ip,
             port,
             connection_timeout,
             master_address,
             min_interval,
             mode,
-            test_mode=test_mode,  # pragma: no cover
-        )  # pragma: no cover
+            test_mode=test_mode,
+        )
 
-        if result:  # pragma: no cover
+        if result:
             logger.info(
                 "Successfully set work mode to '%s' on master inverter", mode
-            )  # pragma: no cover
-        else:  # pragma: no cover
+            )
+        else:
             logger.error(
                 "Failed to set work mode to '%s' on master inverter", mode
-            )  # pragma: no cover
+            )
     except (KeyError, AttributeError):
         logger.exception("Hardware execution error")
         return False
-    return result  # pragma: no cover
+    return result
 
 
 def _locked_mode_change_log(timeout: float = 10.0):
@@ -354,21 +346,21 @@ def _is_actively_testing() -> bool:
     if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("TESTING"):
         return True
 
-    # Check call stack for test execution context  # pragma: no cover
-    import inspect  # noqa: PLC0415 - lazy loading for optional fallback test detection  # pragma: no cover  # pylint: disable=import-outside-toplevel
+    # Check call stack for test execution context
+    import inspect  # noqa: PLC0415 - lazy loading for optional fallback test detection  # pylint: disable=import-outside-toplevel
 
-    stack = inspect.stack()  # pragma: no cover
-    for frame in stack:  # pragma: no cover
-        filename = frame.filename.lower()  # pragma: no cover
+    stack = inspect.stack()
+    for frame in stack:
+        filename = frame.filename.lower()
         if (
-            "test_" in filename  # pragma: no cover
-            or filename.endswith("_test.py")  # pragma: no cover
-            or "/tests/" in filename  # pragma: no cover
+            "test_" in filename
+            or filename.endswith("_test.py")
+            or "/tests/" in filename
             or "\\tests\\" in filename
-        ):  # pragma: no cover
-            return True  # pragma: no cover
+        ):
+            return True
 
-    return False  # pragma: no cover
+    return False
 
 
 def _check_hardware_write_safety(
@@ -421,24 +413,24 @@ def _check_hardware_write_safety(
         "CIRCLECI",
         "BUILDKITE",
         "GITLAB_CI",
-    ]  # pragma: no cover
+    ]
     if any(env_var in os.environ for env_var in ci_environments):  # pragma: no cover
         logger.error(
             "HARDWARE WRITE BLOCKED: CI environment detected - refusing mode change to %s", mode
-        )  # pragma: no cover
-        return False, "ci_environment_detected"  # pragma: no cover
+        )
+        return False, "ci_environment_detected"
 
     if Path(sys.argv[0]).name.startswith("pytest"):  # pragma: no cover
         logger.error(
             "HARDWARE WRITE BLOCKED: Running under pytest - refusing hardware write"
-        )  # pragma: no cover
+        )
         return False, "pytest_command_detected"  # pragma: no cover
 
     logger.info(
         "HARDWARE WRITE PROCEEDING: All safety checks passed for mode change to %s", mode
-    )  # pragma: no cover
+    )
 
-    return True, "safety_checks_passed"  # pragma: no cover  # pragma: no cover
+    return True, "safety_checks_passed"
 
 
 def _execute_register_writes(
@@ -462,43 +454,43 @@ def _execute_register_writes(
     """
     # Import from main module for test compatibility
     from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pragma: no cover - Hardware-only function  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+        solax_modbus_client,  # Hardware-only function  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
     )
 
-    # Get the register combination for this mode  # pragma: no cover
-    register_combination = VALID_WORK_MODE_COMBINATIONS[mode]  # pragma: no cover
+    # Get the register combination for this mode
+    register_combination = VALID_WORK_MODE_COMBINATIONS[mode]
 
-    logger.info("Executing work mode change: %s", mode)  # pragma: no cover
-    logger.info("Register writes required: %s", register_combination)  # pragma: no cover
+    logger.info("Executing work mode change: %s", mode)
+    logger.info("Register writes required: %s", register_combination)
 
-    # Execute all required writes for this mode  # pragma: no cover
-    for register_addr, value in register_combination.items():  # pragma: no cover
-        # Wait minimum interval before each write  # pragma: no cover
-        time.sleep(min_interval)  # pragma: no cover
+    # Execute all required writes for this mode
+    for register_addr, value in register_combination.items():
+        # Wait minimum interval before each write
+        time.sleep(min_interval)
 
-        logger.info("Writing value %s to register 0x%04X", value, register_addr)  # pragma: no cover
+        logger.info("Writing value %s to register 0x%04X", value, register_addr)
 
-        # Execute the write with complete combination validation  # pragma: no cover
-        write_result = solax_modbus_client._write_single_register(  # pragma: no cover  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+        # Execute the write with complete combination validation
+        write_result = solax_modbus_client._write_single_register(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
             client,
             register_addr,
             value,
             slave_address,
-            mode,  # pragma: no cover
-        )  # pragma: no cover
+            mode,
+        )
 
-        if not write_result:  # pragma: no cover
+        if not write_result:
             logger.error(
                 "Failed to write register 0x%04X for mode '%s'", register_addr, mode
-            )  # pragma: no cover
-            return False  # pragma: no cover
+            )
+            return False
 
         logger.info(
             "Successfully wrote value %s to register 0x%04X", value, register_addr
-        )  # pragma: no cover
+        )
 
-    logger.info("Work mode '%s' set successfully on master inverter", mode)  # pragma: no cover
-    return True  # pragma: no cover
+    logger.info("Work mode '%s' set successfully on master inverter", mode)
+    return True
 
 
 def _validate_register_write_safety(  # pylint: disable=too-many-return-statements  # Safety guard clauses
@@ -604,32 +596,17 @@ def _execute_modbus_write(
 
     """
     # Execute the write using pymodbus version compatibility
+    logger.info(
+        "Writing register 0x%04X = %s (device %s)", register_addr, value, slave_addr
+    )
     try:
-        # DEBUG: Log actual hardware write operation (skip mocked/test contexts)
-        if should_log_hardware_access(client=client):  # pragma: no cover
-            log_hardware_access(
-                f"WRITE_REGISTER:0x{register_addr:04X}:value={value}:device_id={slave_addr}"
-            )  # pragma: no cover
-
         # Latest pymodbus (v3.11+) uses 'device_id' parameter
         result = client.write_register(address=register_addr, value=value, device_id=slave_addr)
     except TypeError:
         try:
-            # DEBUG: Log actual hardware write operation (skip mocked/test contexts)
-            if should_log_hardware_access(client=client):  # pragma: no cover
-                log_hardware_access(
-                    f"WRITE_REGISTER_SLAVE:0x{register_addr:04X}:value={value}:slave={slave_addr}"
-                )  # pragma: no cover
-
             # Earlier pymodbus (v3.x) uses 'slave' parameter
             result = client.write_register(address=register_addr, value=value, slave=slave_addr)
         except TypeError:
-            # DEBUG: Log actual hardware write operation (legacy, skip mocked/test contexts)
-            if should_log_hardware_access(client=client):  # pragma: no cover
-                log_hardware_access(
-                    f"WRITE_REGISTER_LEGACY:0x{register_addr:04X}:value={value}:unit={slave_addr}"
-                )  # pragma: no cover
-
             # Oldest pymodbus (v2.x) uses 'unit' parameter
             result = client.write_register(address=register_addr, value=value, unit=slave_addr)
 
@@ -681,43 +658,43 @@ def _set_master_work_mode(  # pylint: disable=too-many-positional-arguments  # H
 
     # Import functions from main module for test compatibility
     from . import (  # noqa: PLC0415 - avoid circular import in modbus package  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pragma: no cover
+        solax_modbus_client,
     )
 
-    client = None  # pragma: no cover
+    client = None
 
-    try:  # pragma: no cover
-        # Connect to master inverter  # pragma: no cover
+    try:
+        # Connect to master inverter
         client = solax_modbus_client._connect_modbus_client(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
             ip, port, timeout
-        )  # pragma: no cover
-        if not client:  # pragma: no cover
+        )
+        if not client:
             logger.error(
                 "Failed to connect to master inverter for write operation"
-            )  # pragma: no cover
-            return False  # pragma: no cover
+            )
+            return False
 
-        # Execute all required register writes for this mode  # pragma: no cover
+        # Execute all required register writes for this mode
         return _execute_register_writes(
             client, mode, slave_address, min_interval
-        )  # pragma: no cover
+        )
 
-    except (ConnectionError, OSError):  # pragma: no cover
-        logger.exception("Error setting work mode on %s", ip)  # pragma: no cover
-        return False  # pragma: no cover
+    except (ConnectionError, OSError):
+        logger.exception("Error setting work mode on %s", ip)
+        return False
 
-    finally:  # pragma: no cover
-        # Always close connection  # pragma: no cover
-        if client:  # pragma: no cover
-            try:  # pragma: no cover
-                client.close()  # pragma: no cover
+    finally:
+        # Always close connection
+        if client:
+            try:
+                client.close()
                 logger.debug(
                     "Connection to %s closed after write operation", ip
-                )  # pragma: no cover
-            except OSError:  # pragma: no cover
+                )
+            except OSError:
                 logger.warning(
                     "Error closing connection to %s", ip
-                )  # pragma: no cover  # pragma: no cover  # pragma: no cover  # pragma: no cover
+                )
 
 
 def _write_single_register(
