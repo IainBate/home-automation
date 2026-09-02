@@ -10,7 +10,11 @@ deterministically and fast.
 
 from __future__ import annotations
 
-from src.daemon_support.base_daemon import TwoTierPollingDaemon
+import logging
+
+import pytest
+
+from src.daemon_support.base_daemon import TwoTierPollingDaemon, setup_rotating_logger
 
 
 class _NoopConfigDaemon(TwoTierPollingDaemon):
