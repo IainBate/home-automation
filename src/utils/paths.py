@@ -129,6 +129,18 @@ def get_mg_saic_status_path() -> str:
     return get_config_path("mg_saic_status.json")
 
 
+def get_melcloud_token_cache_path() -> str:
+    """Get absolute path to the cached MELCloud login token.
+
+    Lets each hot water check reuse one account session instead of logging
+    in again every 10-15 minutes - see
+    src/api_clients/melcloud_token_cache.py for why the token (rather than
+    the client) is what gets cached. Safe to delete at any time: the next
+    connect() just logs in normally and rewrites it.
+    """
+    return get_config_path("melcloud_token.json")
+
+
 def get_ohme_status_path() -> str:
     """Get absolute path to the cached Ohme charger status file.
 
