@@ -330,6 +330,12 @@ def _read_fresh_evening_prediction(
 async def _get_ohme_charging_power_watts(config: dict[str, Any]) -> float | None:
     """Read the Ohme EV charger's current power draw in watts, or None if unavailable.
 
+    Prefers scripts/ohme_status_daemon.py's shared cache (see
+    src/api_clients/ohme_status_cache.py) over opening a session here, which
+    performed a full Firebase login on every force-heat check. Falls back to
+    a direct read when that cache is missing or stale, so this behaves
+    exactly as it did before the poller existed if it isn't running.
+
     Best-effort: if Ohme isn't configured/enabled, or the check fails for any
     reason, this degrades to None (treat as "no charging signal") rather than
     blocking the hot water decision - the battery/off-peak conditions can
@@ -337,6 +343,10 @@ async def _get_ohme_charging_power_watts(config: dict[str, Any]) -> float | None
     """
     if not config.get("ohme_ev", {}).get("enabled", False):
         return None
+
+    cached = read_fresh_status()
+    if cached is not None:
+        return cached.get("power_watts", 0)
 
     client = None
     try:
