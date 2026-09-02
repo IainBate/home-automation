@@ -526,13 +526,6 @@ def validate_business_rules(  # pylint: disable=too-many-locals
         if daytime_load < nighttime_load:
             warnings.append("Warning: Daytime load is less than nighttime load - this is unusual")
 
-        # Time range validation
-        daytime_start = household_config.get("daytime_start_hour", 7)
-        daytime_end = household_config.get("daytime_end_hour", 23)
-
-        if daytime_start >= daytime_end:
-            warnings.append("Error: Daytime start hour must be before daytime end hour")
-
         # Financial thresholds consistency
         financial_config = config_data.get("financial_costs", {})
         export_price = financial_config.get("fixed_export_price_per_kwh", 0)
