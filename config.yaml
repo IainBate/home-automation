@@ -522,6 +522,13 @@ daily_digest_check:
     - "mg_saic_poller.log"
     - "solar_forecast_predictor.log"
     - "solar_forecast_trainer.log"
+    # Every 5 minutes, and the only thing keeping
+    # data/solax_historical_data.json growing at all (see
+    # src/api_clients/solax_cloud_client.py's module docstring) - so a
+    # silent, repeated failure here would starve both the solar forecast
+    # trainer and the battery evening predictor of new data.
+    - "solax_realtime_logger.log"
+    - "ohme_status_poller.log"
 
 # =============================================================================
 # ENCRYPTED SECRETS BACKUP (scripts/encrypt_secrets.sh / decrypt_secrets.sh)
