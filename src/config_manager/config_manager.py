@@ -580,13 +580,52 @@ def validate_business_rules(  # pylint: disable=too-many-locals
         if hotwater_config.get("enabled", False):
             hotwater_melcloud_error = get_hotwater_melcloud_config_error(config_data)
             if hotwater_melcloud_error:
-                warnings.append(f"Error: {hotwater_melcloud_error}")
+                warnings.append(f"Warning: {hotwater_melcloud_error}")
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        warnings.append(f"Error validating business rules: {e!s}")
+        warnings.append(f"Warning: could not validate business rules: {e!s}")
         logger.exception("Business rule validation error")
 
     return warnings
+
+
+def validate_business_rule_errors(config_data: dict[str, Any]) -> list[str]:
+    """Validate business rules that must BLOCK loading, not merely warn.
+
+    Split out from validate_business_rules() because that function mixed the
+    two: several of its messages began "Error:" but were returned in the same
+    list as genuine advisories, and load_static_config() logged the whole list
+    at warning level and returned the config regardless. A self-contradictory
+    setting (daytime start after daytime end) therefore loaded and ran with
+    nothing but a log line nobody reads.
+
+    Only rules whose violation makes the config internally inconsistent
+    belong here - not "this looks unusual", which is what warnings are for.
+
+    Args:
+        config_data: Configuration dictionary to validate
+
+    Returns:
+        List of blocking error messages (empty list if valid).
+
+    """
+    errors = []
+
+    try:
+        household_config = config_data.get("household_load", {})
+        daytime_start = household_config.get("daytime_start_hour", 7)
+        daytime_end = household_config.get("daytime_end_hour", 23)
+        if daytime_start >= daytime_end:
+            errors.append(
+                f"household_load.daytime_start_hour ({daytime_start}) must be before "
+                f"daytime_end_hour ({daytime_end}) - the daytime window is empty or inverted"
+            )
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
+        # A rule that can't be evaluated must not silently pass: report it.
+        errors.append(f"Could not validate business rules: {e!s}")
+        logger.exception("Blocking business rule validation error")
+
+    return errors
 
 
 def _load_secrets_overlay(config_file_path: str) -> dict[str, Any]:
