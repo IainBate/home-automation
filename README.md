@@ -43,10 +43,15 @@ Standalone package for controlling SolaX inverters and Ohme EV chargers. Provide
 ## System Requirements
 
 ### Hardware
-- SolaX X3 Hybrid G4 inverters - a master **and** a slave, both required (see
-  note below) - with WiFi dongles
+- SolaX X3 Hybrid G4 inverters - a master **and** a slave, both required - with WiFi dongles
   - Modbus TCP must be enabled (via SolaX cloud or local web UI)
   - WiFi dongles must be on local network with fixed IP addresses
+  - **Both inverters are required, not optional.** `config.yaml`'s schema lists
+    `slave_ip`/`slave_wifisn` as required fields, and `solax_modbus_soc()` returns
+    nothing at all (rather than master-only data) if either is missing. The battery
+    daemon treats an unreadable SoC as "unsafe to discharge", so a master-only
+    install would find `FORCE_DISCHARGE` permanently blocked - safe, but silently
+    unable to export at peak rate.
 - Ohme Home Pro EV charger (for EV control features)
   - Internet connection required (uses Ohme cloud API)
 
