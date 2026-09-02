@@ -237,3 +237,126 @@ class HealthReport:
                 lines.append(f"  {marker} {status.name}")
 
         return "\n".join(lines)
+
+
+# Used to put the digest's most-actionable groups first: an ERROR/CRITICAL
+# that fired even once outranks any number of WARNINGs, since this
+# codebase's convention (see CLAUDE.md) reserves ERROR/CRITICAL for things a
+# Circuit Breaker had to catch, not routine "one poll failed" noise.
+_LEVEL_RANK = {"CRITICAL": 0, "ERROR": 1, "WARNING": 2}
+
+
+@dataclass(frozen=True)
+class IssueGroup:
+    """One distinct recurring problem: every LogIssue with the same source/level/message, collapsed.
+
+    Attributes:
+        source_file: Bare filename the issues were read from.
+        level: "WARNING", "ERROR", or "CRITICAL".
+        message: The shared log message text.
+        count: How many times this exact message occurred in the window.
+        first_seen: Timestamp of the earliest occurrence.
+        last_seen: Timestamp of the latest occurrence.
+
+    """
+
+    source_file: str
+    level: str
+    message: str
+    count: int
+    first_seen: datetime
+    last_seen: datetime
+
+
+def group_issues(issues: list[LogIssue]) -> list[IssueGroup]:
+    """Collapse issues into one IssueGroup per (source_file, level, message).
+
+    Groups are sorted most-important first: by level (CRITICAL, then ERROR,
+    then WARNING), then by how many times each recurred (most frequent -
+    i.e. most persistent - first) within that level.
+
+    Examples:
+        >>> issues = [
+        ...     LogIssue(datetime(2026, 1, 1, 9), "x", "WARNING", "flaky", "a.log"),
+        ...     LogIssue(datetime(2026, 1, 1, 10), "x", "WARNING", "flaky", "a.log"),
+        ...     LogIssue(datetime(2026, 1, 1, 9, 30), "x", "ERROR", "rare", "a.log"),
+        ... ]
+        >>> groups = group_issues(issues)
+        >>> [(g.level, g.message, g.count) for g in groups]
+        [('ERROR', 'rare', 1), ('WARNING', 'flaky', 2)]
+
+    """
+    buckets: dict[tuple[str, str, str], list[LogIssue]] = {}
+    for issue in issues:
+        buckets.setdefault((issue.source_file, issue.level, issue.message), []).append(issue)
+
+    groups = [
+        IssueGroup(
+            source_file=source_file,
+            level=level,
+            message=message,
+            count=len(bucket),
+            first_seen=min(item.timestamp for item in bucket),
+            last_seen=max(item.timestamp for item in bucket),
+        )
+        for (source_file, level, message), bucket in buckets.items()
+    ]
+    groups.sort(key=lambda g: (_LEVEL_RANK.get(g.level, 99), -g.count, g.source_file, g.message))
+    return groups
+
+
+def squelch_transient(groups: list[IssueGroup], min_occurrences: int = 2) -> list[IssueGroup]:
+    """Drop groups seen fewer than `min_occurrences` times - one-off blips, not sustained problems.
+
+    Examples:
+        >>> groups = [
+        ...     IssueGroup("a.log", "WARNING", "once", 1, datetime(2026, 1, 1), datetime(2026, 1, 1)),
+        ...     IssueGroup("a.log", "WARNING", "twice", 2, datetime(2026, 1, 1), datetime(2026, 1, 2)),
+        ... ]
+        >>> [g.message for g in squelch_transient(groups)]
+        ['twice']
+
+    """
+    return [group for group in groups if group.count >= min_occurrences]
+
+
+def render_digest_text(groups: list[IssueGroup], lookback_days: int) -> str:
+    """Render squelched, sorted IssueGroups as the daily digest's plain-text email body.
+
+    Each group is one summary line ("X on Y occasions") rather than a list
+    of raw log lines - the digest only ever holds recurring problems (see
+    squelch_transient), so a count-and-time-range is more useful here than
+    a wall of near-identical timestamps.
+
+    Examples:
+        >>> groups = [
+        ...     IssueGroup(
+        ...         "mg_saic_poller.log", "WARNING", "value out of range", 3,
+        ...         datetime(2026, 1, 1, 9), datetime(2026, 1, 1, 15),
+        ...     ),
+        ... ]
+        >>> print(render_digest_text(groups, lookback_days=1))
+        Daily automation digest (last 1 day)
+        <BLANKLINE>
+        1 recurring issue(s) found (one-off blips are not reported):
+        <BLANKLINE>
+          [WARNING] mg_saic_poller.log: value out of range (3 times, 09:00-15:00)
+
+    """
+    lines = [f"Daily automation digest (last {lookback_days} day{'s' if lookback_days != 1 else ''})", ""]
+
+    if not groups:
+        lines.append("No recurring issues found.")
+        return "\n".join(lines)
+
+    lines.append(f"{len(groups)} recurring issue(s) found (one-off blips are not reported):")
+    lines.append("")
+    for group in groups:
+        first = group.first_seen.strftime("%H:%M")
+        last = group.last_seen.strftime("%H:%M")
+        lines.append(
+            f"  [{group.level}] {group.source_file}: {group.message} "
+            f"({group.count} times, {first}-{last})"
+        )
+
+    return "\n".join(lines)
