@@ -159,11 +159,27 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
             "description": _weather_description(current_weather_row["cloud_cover"]),
         }
 
+    previous_record = read_json_state(get_solar_forecast_path())
+    yesterday_forecast_kwh = _carry_forward_yesterday_forecast(previous_record, today_str, yesterday_str)
+
+    pv_history = read_json_state(get_solax_historical_data_path())
+    yesterday_actual_kwh = compute_actual_daily_kwh(pv_history.get("data", []), yesterday_str)
+
+    yesterday_error_kwh = (
+        round(yesterday_actual_kwh - yesterday_forecast_kwh, 2)
+        if yesterday_actual_kwh is not None and yesterday_forecast_kwh is not None
+        else None
+    )
+
     record = {
         "generated_at": datetime.now(tz=UTC).isoformat(),
+        "for_date": today_str,
         "model_trained_at": datetime.fromtimestamp(model_path.stat().st_mtime, tz=UTC).isoformat(),
         "today_kwh": round(today_kwh, 2),
         "tomorrow_kwh": round(tomorrow_kwh, 2),
+        "yesterday_forecast_kwh": yesterday_forecast_kwh,
+        "yesterday_actual_kwh": round(yesterday_actual_kwh, 2) if yesterday_actual_kwh is not None else None,
+        "yesterday_error_kwh": yesterday_error_kwh,
         "current_weather": current_weather,
         "hourly_kw": hourly,
     }
