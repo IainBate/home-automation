@@ -96,7 +96,10 @@ def test_collect_ev_charging_disabled_in_config():
 
 
 def test_collect_ev_charging_maps_fields():
-    with mock.patch.object(status_collector, "OhmeEVClient", _FakeOhmeClient):
+    with (
+        mock.patch.object(status_collector, "read_fresh_status", return_value=None),
+        mock.patch.object(status_collector, "OhmeEVClient", _FakeOhmeClient),
+    ):
         result = status_collector._collect_ev_charging({"ohme_ev": {"enabled": True}}, "config.yaml")
 
     assert result["available"] is True
@@ -119,7 +122,10 @@ def test_collect_ev_charging_survives_an_unexpected_field_shape():
         async def get_charger_status(self, *, use_cache=False):  # noqa: ARG002
             return {"status": "charging", "mode": "smart_charge"}  # plain str, no .value
 
-    with mock.patch.object(status_collector, "OhmeEVClient", _FakeOhmeClientWithBadStatus):
+    with (
+        mock.patch.object(status_collector, "read_fresh_status", return_value=None),
+        mock.patch.object(status_collector, "OhmeEVClient", _FakeOhmeClientWithBadStatus),
+    ):
         result = status_collector._collect_ev_charging({"ohme_ev": {"enabled": True}}, "config.yaml")
 
     assert result["available"] is False
@@ -129,7 +135,10 @@ def test_collect_ev_charging_passes_explicit_config_path_to_client():
     """Regression test: must not rely on OhmeEVClient's cwd-relative default -
     see status_collector.collect_status()'s config_path docstring.
     """
-    with mock.patch.object(status_collector, "OhmeEVClient", _FakeOhmeClient):
+    with (
+        mock.patch.object(status_collector, "read_fresh_status", return_value=None),
+        mock.patch.object(status_collector, "OhmeEVClient", _FakeOhmeClient),
+    ):
         status_collector._collect_ev_charging({"ohme_ev": {"enabled": True}}, "/abs/path/config.yaml")
 
     assert _FakeOhmeClient.last_init_kwargs.get("config_path") == "/abs/path/config.yaml"
@@ -350,6 +359,7 @@ def test_collect_service_health_distinguishes_running_stopped_and_not_installed(
         "home_automation.service": ("loaded", "active"),
         "home_automation_dashboard.service": ("loaded", "failed"),
         "home_automation_hotwater.service": ("not-found", "inactive"),
+        "home_automation_ohme.service": ("loaded", "active"),
     }
 
     with (
@@ -493,6 +503,7 @@ def test_collect_service_health_reports_unhealthy_for_active_daemon_with_repeate
         "home_automation.service": ("loaded", "active"),
         "home_automation_dashboard.service": ("loaded", "active"),
         "home_automation_hotwater.service": ("not-found", "inactive"),
+        "home_automation_ohme.service": ("loaded", "active"),
     }
 
     with (
