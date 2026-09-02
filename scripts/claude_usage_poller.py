@@ -39,6 +39,7 @@ from hotwater_automation_core import get_config_path
 
 from src.api_clients.claude_usage_client import RateLimited, fetch_claude_usage
 from src.config_manager.config_manager import load_static_config
+from src.utils.logging_setup import configure_cron_safe_logging
 from src.utils.paths import get_claude_usage_path
 from src.utils.state_store import write_json_atomic
 
