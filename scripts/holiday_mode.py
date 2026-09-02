@@ -176,15 +176,25 @@ def main() -> None:
             print("--start-days must be a positive number of days")
             sys.exit(1)
 
-        until = start_holiday(args.start_days)
+        try:
+            until = start_holiday(args.start_days)
+        except TimeoutError:
+            print(
+                "Could not start automation holiday: timed out waiting for the hot water "
+                "state file lock (a force-heat/revert check may be stuck). Try again shortly."
+            )
+            sys.exit(1)
+
         print(
-            f"Holiday mode started for {args.start_days} day(s), until "
+            f"Automation holiday started for {args.start_days} day(s), until "
             f"{_format_local(until, tz_name)}."
         )
         print(
-            "Hot water: ASHP force-heat is paused for the duration (an already-in-progress "
-            "heating cycle, if any, will still finish/time out normally, then stay off). "
-            "Solar-heated hot water, if you have a separate diverter, is unaffected."
+            "Hot water: ASHP force-heat (including any overdue legionella cycle - it rides "
+            "on the same trigger, so it's deferred too) is paused for the duration. An "
+            "already-in-progress heating cycle, if any, will still finish/time out normally, "
+            "then stay off. Solar-heated hot water, if you have a separate diverter, is "
+            "unaffected."
         )
         if not config.get("hotwater_automation", {}).get("enabled", False):
             print(
@@ -200,11 +210,19 @@ def main() -> None:
         return
 
     if args.cancel:
-        was_active = cancel_holiday()
+        try:
+            was_active = cancel_holiday()
+        except TimeoutError:
+            print(
+                "Could not cancel automation holiday: timed out waiting for the hot water "
+                "state file lock (a force-heat/revert check may be stuck). Try again shortly."
+            )
+            sys.exit(1)
+
         if was_active:
-            print("Holiday mode cancelled - hot water automation resumes normally.")
+            print("Automation holiday cancelled - hot water automation resumes normally.")
         else:
-            print("Holiday mode was not active - nothing to cancel.")
+            print("Automation holiday was not active - nothing to cancel.")
         return
 
     print_status(tz_name)
