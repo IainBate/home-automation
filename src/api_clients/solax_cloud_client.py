@@ -347,8 +347,16 @@ def solax_cloud_get_realtime_snapshot(config: dict[str, Any]) -> dict[str, Any] 
     Returns:
         {"timestamp": "2026-09-02 21:37:53", "pv_power_kw": float,
         "battery_power_kw": float, "grid_power_kw": float, "soc_percent":
-        int}, or None if not configured, the API call fails, or the
-        response can't be parsed.
+        int, "yield_today_kwh": float | None}, or None if not configured,
+        the API call fails, or the response can't be parsed.
+        yield_today_kwh is the API's own cumulative today-so-far energy
+        total (resets at local midnight on SolaX's side) - a ground-truth
+        figure independent of how many samples happen to exist for the day,
+        unlike pv_power_kw. compute_actual_daily_kwh()
+        (solar_forecast_logic.py) prefers it for exactly that reason: a day
+        with only a late/partial sample (a cron gap, or the very first day
+        this logger ever ran) would otherwise sum to a fraction of the
+        day's real total instead of the true figure.
 
     """
     try:
