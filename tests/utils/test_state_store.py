@@ -113,6 +113,80 @@ def test_locked_json_state_serializes_concurrent_writers(tmp_path):
     assert read_json_state(path)["count"] == 5
 
 
+def test_locked_json_update_serializes_concurrent_writers(tmp_path):
+    """Same mutual-exclusion guarantee as locked_json_state, but for the
+    atomic-write variant used by the (large) SolaX history file."""
+    path = tmp_path / "history.json"
+    with locked_json_update(path) as state:
+        state["count"] = 0
+
+    def increment_slowly() -> None:
+        with locked_json_update(path) as state:
+            current = state["count"]
+            time.sleep(0.05)
+            state["count"] = current + 1
+
+    threads = [threading.Thread(target=increment_slowly) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert read_json_state(path)["count"] == 5
+
+
+def test_locked_json_update_replaces_the_file_rather_than_truncating_it(tmp_path):
+    """The point of this variant: the data file is swapped in by rename, so a
+    crash mid-write can't leave a half-written history file behind."""
+    path = tmp_path / "history.json"
+    with locked_json_update(path) as state:
+        state["data"] = [1, 2, 3]
+
+    replaced_paths = []
+    real_replace = state_store.os.replace
+
+    def spy_replace(src, dst):
+        replaced_paths.append((str(src), str(dst)))
+        return real_replace(src, dst)
+
+    with mock.patch.object(state_store.os, "replace", spy_replace):
+        with locked_json_update(path) as state:
+            state["data"] = [1, 2, 3, 4]
+
+    assert replaced_paths, "expected an atomic os.replace() into the data file"
+    assert replaced_paths[-1][1] == str(path)
+    assert read_json_state(path)["data"] == [1, 2, 3, 4]
+
+
+def test_locked_json_update_skips_the_write_when_nothing_changed(tmp_path):
+    """A duplicate reading must cost no disk I/O on a multi-megabyte file."""
+    path = tmp_path / "history.json"
+    with locked_json_update(path) as state:
+        state["data"] = [1]
+
+    mtime_before = path.stat().st_mtime_ns
+
+    with locked_json_update(path) as state:
+        _ = state["data"]  # read only - no mutation
+
+    assert path.stat().st_mtime_ns == mtime_before
+
+
+def test_locked_json_update_does_not_write_on_exception(tmp_path):
+    path = tmp_path / "history.json"
+    with locked_json_update(path) as state:
+        state["keep"] = "original"
+
+    try:
+        with locked_json_update(path) as state:
+            state["keep"] = "clobbered"
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+
+    assert read_json_state(path)["keep"] == "original"
+
+
 def test_locked_json_state_raises_timeout_when_lock_held(tmp_path):
     path = tmp_path / "state.json"
     holder_ready = threading.Event()
