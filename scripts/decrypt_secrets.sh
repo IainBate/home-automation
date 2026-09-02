@@ -37,7 +37,7 @@ sha256_hex() {
     fi
 }
 
-echo "Passphrase hint: this is UOY26M288's login password (unless you set a"
+echo "Passphrase hint: this is the Home Pi4's login password (unless you set a"
 echo "different secrets_backup.passphrase_hash when it was encrypted)."
 read -r -s -p "Passphrase: " RAW_PASSPHRASE
 echo ""
