@@ -85,15 +85,31 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
             print(msg)
         return 1
 
+    # Locked (not a bare read-then-write): two ticks of this same cron entry
+    # can overlap when a slow API call runs past the next 5-minute mark, and
+    # an unlocked read-modify-write would silently drop whichever snapshot
+    # finished second. locked_json_update also skips the write entirely when
+    # the merge was a no-op, so a duplicate reading costs no disk I/O on an
+    # 8MB file.
     data_path = get_solax_historical_data_path()
-    existing_record = read_json_state(data_path)
-    updated_record = merge_realtime_snapshot(existing_record, snapshot)
-    write_json_atomic(data_path, updated_record)
+    stored = False
+    data_points = 0
+    with locked_json_update(data_path, timeout=LOCK_TIMEOUT_SECONDS) as record:
+        updated_record = merge_realtime_snapshot(record, snapshot)
+        stored = updated_record is not record
+        if stored:
+            record.clear()
+            record.update(updated_record)
+        # .get() rather than record["meta"]: merge_realtime_snapshot returns
+        # the existing record untouched on a duplicate reading, and that
+        # record isn't guaranteed to carry a "meta" key.
+        data_points = record.get("meta", {}).get("data_points", len(record.get("data", [])))
 
+    detail = "stored" if stored else "duplicate reading, not stored"
     summary = (
         f"SolaX realtime snapshot at {snapshot['timestamp']}: "
         f"PV {snapshot['pv_power_kw']:.2f}kW, SoC {snapshot['soc_percent']}% "
-        f"({updated_record['meta']['data_points']} total data points)"
+        f"({detail}; {data_points} total data points)"
     )
     logger.info(summary)
     if not quiet:
