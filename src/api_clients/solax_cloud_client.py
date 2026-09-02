@@ -631,25 +631,6 @@ class SolaxDataLogger:
 # =============================================================================
 
 
-def load_static_config(config_path: str = "./config.yaml") -> dict[str, Any] | None:
-    """Load configuration from YAML file.
-
-    Args:
-        config_path: Path to config file
-
-    Returns:
-        Configuration dictionary or None if error
-    """
-    try:
-        import yaml
-
-        with open(config_path, "r") as f:
-            return yaml.safe_load(f)
-    except Exception as e:
-        logger.error("Failed to load config from %s: %s", config_path, e)
-        return None
-
-
 def main():
     """Main entry point for command-line data logging."""
     import argparse
