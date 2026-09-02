@@ -37,3 +37,18 @@ data/solar_forecast_model.joblib
 # in plaintext. An encrypted backup (secrets.yaml.enc) IS deliberately tracked - see
 # scripts/encrypt_secrets.sh and scripts/decrypt_secrets.sh.
 secrets.yaml
+# ...and any stray plaintext copies. The encrypt/decrypt scripts work in
+# $TMPDIR now, but a backup taken by hand before editing credentials (or a
+# leftover from an older version of those scripts) would otherwise be
+# untracked-but-committable, since only the exact name above is ignored.
+# secrets.yaml.enc is the deliberate exception and stays tracked.
+secrets.yaml.tmp
+secrets.yaml.bak*
+secrets.yaml.enc.tmp
+
+# Lock sidecars for locked_json_update() (src/utils/state_store.py)
+*.json.lock
+
+# Coverage output (pytest-cov, see requirements-dev.txt)
+.coverage
+htmlcov/
