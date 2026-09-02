@@ -143,3 +143,60 @@ def test_shutdown_signal_handler_sets_flag():
     assert daemon.shutdown_requested is False
     daemon._handle_shutdown(15, None)
     assert daemon.shutdown_requested is True
+
+
+@pytest.fixture
+def _clean_root_logger():
+    """setup_rotating_logger() attaches handlers to the real root logger - save
+    and restore its handlers/level so this doesn't leak into other tests."""
+    root = logging.getLogger()
+    saved_handlers = list(root.handlers)
+    saved_level = root.level
+    yield
+    for handler in root.handlers:
+        if handler not in saved_handlers:
+            handler.close()
+    root.handlers = saved_handlers
+    root.setLevel(saved_level)
+
+
+def test_setup_rotating_logger_captures_other_modules_warnings_via_root(tmp_path, monkeypatch, _clean_root_logger):
+    """A completely unrelated logger (standing in for src.api_clients._modbus_reader,
+    which shares no ancestor with "battery_mode_daemon") must still reach the
+    daemon's log file at WARNING+ - this is the blind spot found via the
+    dashboard's health check missing real Modbus errors."""
+    monkeypatch.chdir(tmp_path)
+    setup_rotating_logger("battery_mode_daemon_test", "test_daemon.log", level=logging.INFO)
+
+    other_logger = logging.getLogger("src.api_clients._modbus_reader_test")
+    other_logger.warning("Error reading work mode from 192.168.68.105")
+
+    log_contents = (tmp_path / "logs" / "test_daemon.log").read_text(encoding="utf-8")
+    assert "Error reading work mode from 192.168.68.105" in log_contents
+    assert "src.api_clients._modbus_reader_test" in log_contents
+
+
+def test_setup_rotating_logger_does_not_double_log_its_own_messages(tmp_path, monkeypatch, _clean_root_logger):
+    """The named logger gets no handlers of its own - only root's, reached via
+    propagation - so its own records must appear exactly once."""
+    monkeypatch.chdir(tmp_path)
+    logger = setup_rotating_logger("battery_mode_daemon_test2", "test_daemon2.log", level=logging.INFO)
+    logger.info("Daemon started")
+
+    log_contents = (tmp_path / "logs" / "test_daemon2.log").read_text(encoding="utf-8")
+    assert log_contents.count("Daemon started") == 1
+
+
+def test_setup_rotating_logger_does_not_pass_third_party_debug_chatter(tmp_path, monkeypatch, _clean_root_logger):
+    """Root's floor stays at WARNING regardless of the daemon's own (more
+    verbose) level, so an unrelated module's routine DEBUG/INFO output isn't
+    suddenly written to the daemon's log - only its own WARNING+ from
+    setup_rotating_logger()'s explicit level is unaffected by this floor."""
+    monkeypatch.chdir(tmp_path)
+    setup_rotating_logger("battery_mode_daemon_test3", "test_daemon3.log", level=logging.DEBUG)
+
+    other_logger = logging.getLogger("src.api_clients._some_chatty_module_test")
+    other_logger.info("Routine status check")
+
+    log_contents = (tmp_path / "logs" / "test_daemon3.log").read_text(encoding="utf-8")
+    assert "Routine status check" not in log_contents
