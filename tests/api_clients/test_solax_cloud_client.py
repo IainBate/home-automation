@@ -111,6 +111,53 @@ def test_merge_realtime_snapshot_appends_to_existing_data():
     assert updated["meta"]["date_range"] == {"start": "2026-09-01", "end": "2026-09-02"}
 
 
+def test_merge_realtime_snapshot_survives_a_malformed_existing_row():
+    """One row with no "timestamp" must not KeyError every future poll.
+
+    Such a row sorts first under the "" default, so the date_range
+    computation is where it used to crash.
+    """
+    existing = {"meta": {}, "data": [{"pv_power_kw": 1.0}]}
+    snapshot = {"timestamp": "2026-09-02 08:00:00", "pv_power_kw": 2.0}
+
+    updated = solax_cloud_client.merge_realtime_snapshot(existing, snapshot)
+
+    assert updated["meta"]["data_points"] == 2
+    assert updated["meta"]["date_range"] == {"start": "", "end": "2026-09-02"}
+
+
+def test_merge_realtime_snapshot_keeps_both_readings_across_a_dst_fallback():
+    """Two real readings an hour apart share one local clock string at the UK
+    fall-back; timestamp_utc is what tells them apart."""
+    existing = {
+        "meta": {},
+        "data": [
+            {
+                "timestamp": "2026-10-25 01:30:00",
+                "timestamp_utc": "2026-10-25T00:30:00Z",
+                "pv_power_kw": 0.0,
+            }
+        ],
+    }
+    second_pass = {
+        "timestamp": "2026-10-25 01:30:00",
+        "timestamp_utc": "2026-10-25T01:30:00Z",
+        "pv_power_kw": 0.0,
+    }
+
+    updated = solax_cloud_client.merge_realtime_snapshot(existing, second_pass)
+
+    assert updated["meta"]["data_points"] == 2
+
+
+def test_merge_realtime_snapshot_still_dedups_on_local_time_without_utc():
+    """Existing history predates timestamp_utc entirely - dedup must still work."""
+    existing = {"meta": {}, "data": [{"timestamp": "2026-09-02 08:00:00", "pv_power_kw": 1.0}]}
+    snapshot = {"timestamp": "2026-09-02 08:00:00", "pv_power_kw": 1.0}
+
+    assert solax_cloud_client.merge_realtime_snapshot(existing, snapshot) is existing
+
+
 def test_merge_realtime_snapshot_is_a_noop_for_a_duplicate_timestamp():
     existing = {
         "meta": {"data_points": 1, "date_range": {"start": "2026-09-02", "end": "2026-09-02"}},
