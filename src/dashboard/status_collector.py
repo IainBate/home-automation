@@ -78,6 +78,7 @@ SERVICE_HEALTH_CHECKS = [
     {"key": "battery_daemon", "label": "Battery Daemon", "unit": "home_automation.service", "log_filename": "battery_mode_daemon.log"},
     {"key": "hot_water_daemon", "label": "Hot Water Daemon", "unit": "home_automation_hotwater.service", "log_filename": "hotwater_mode_daemon.log"},
     {"key": "dashboard", "label": "Dashboard", "unit": "home_automation_dashboard.service", "log_filename": "dashboard_server.log"},
+    {"key": "ohme_poller", "label": "Ohme Poller", "unit": "home_automation_ohme.service", "log_filename": "ohme_status_daemon.log"},
 ]
 
 # How far back _check_log_health() looks for ERROR/CRITICAL lines, and how
