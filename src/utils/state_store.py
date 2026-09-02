@@ -54,6 +54,65 @@ def write_json_atomic(path: str | Path, record: dict[str, Any]) -> None:
 
 
 @contextlib.contextmanager
+def locked_json_update(
+    path: str | Path, timeout: float = DEFAULT_LOCK_TIMEOUT_SECONDS
+) -> Iterator[dict[str, Any]]:
+    """Exclusive read-modify-write like locked_json_state, but writing atomically.
+
+    locked_json_state() truncates and rewrites the file in place while
+    holding its lock on that same file. That is fine for the small state
+    files it was built for (a few hundred bytes - the window where a crash
+    could leave a half-written file is negligible), but not for a large,
+    slow-growing, expensive-to-rebuild one: data/solax_historical_data.json
+    is ~8MB of months-long PV history that the solar forecast model trains
+    on, and a power cut mid-rewrite would truncate it.
+
+    This variant keeps the lock on a separate `<path>.lock` sidecar and
+    writes the data file via tmp-file + os.replace(), so:
+      - concurrent writers still exclude each other (the sidecar's inode is
+        stable, unlike the data file's, which os.replace() swaps out), and
+      - a crash at any moment leaves either the old complete file or the new
+        complete file, never a partial one.
+
+    Yields:
+        The current state dict - mutate it in place; it is written back when
+        the block exits normally, and the write is skipped entirely if the
+        block didn't actually change anything. Nothing is written if the
+        block raises.
+
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f"{path.name}.lock")
+
+    with lock_path.open("a+", encoding="utf-8") as lock_fd:
+        start_time = time_module.time()
+        while time_module.time() - start_time < timeout:
+            try:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                time_module.sleep(0.05)
+        else:
+            msg = f"Could not acquire lock on {lock_path} within {timeout} seconds"
+            raise TimeoutError(msg)
+
+        try:
+            state = read_json_state(path)
+            # sort_keys so key order alone can't register as a change - same
+            # reasoning as locked_json_state's own before/after comparison.
+            before = json.dumps(state, sort_keys=True)
+
+            yield state
+
+            if json.dumps(state, sort_keys=True) != before:
+                write_json_atomic(path, state)
+        finally:
+            with contextlib.suppress(OSError):
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+
+
+@contextlib.contextmanager
 def locked_json_state(
     path: str | Path, timeout: float = DEFAULT_LOCK_TIMEOUT_SECONDS
 ) -> Iterator[dict[str, Any]]:
