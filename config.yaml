@@ -74,6 +74,14 @@ ohme_ev:
   refresh_interval_minutes: 15             # How often to poll charger data
   connection_timeout: 30                   # Connection timeout in seconds
   retry_attempts: 3                        # Retry attempts for failed API calls
+  # How often scripts/ohme_status_daemon.py refreshes the shared status
+  # cache that the battery daemon, hot water automation and dashboard all
+  # read (see src/api_clients/ohme_status_cache.py). That daemon logs in
+  # ONCE at startup and reuses the session, so this cadence costs one API
+  # call - not a login - unlike the per-consumer polling it replaced.
+  # Readers ignore the cache once it's older than ~150s and fall back to
+  # their own direct call, so keep this comfortably under that.
+  status_poll_interval_seconds: 30
 
 # =============================================================================
 # MELCLOUD HOT WATER TANK CONFIGURATION
