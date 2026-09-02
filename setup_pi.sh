@@ -119,6 +119,27 @@ else
     fi
 fi
 
+# secrets.yaml is gitignored by design (real credentials), but its encrypted
+# backup (secrets.yaml.enc) IS tracked in git - see scripts/encrypt_secrets.sh.
+if [ -f "secrets.yaml" ]; then
+    echo "  secrets.yaml exists."
+elif [ -d "$BACKUP_DIR" ] && [ -f "$BACKUP_DIR/secrets.yaml" ]; then
+    echo "  Restoring secrets.yaml from local backup..."
+    cp "$BACKUP_DIR/secrets.yaml" .
+    echo "  Restored."
+elif [ -f "secrets.yaml.enc" ]; then
+    echo "  secrets.yaml not found, but secrets.yaml.enc (encrypted git backup) is present."
+    read -p "  Decrypt it now? [y/N] " decrypt_confirm
+    if [ "$decrypt_confirm" = "y" ] || [ "$decrypt_confirm" = "Y" ]; then
+        bash scripts/decrypt_secrets.sh
+    else
+        echo "  Skipped. Run 'bash scripts/decrypt_secrets.sh' later, or create secrets.yaml manually."
+    fi
+else
+    echo "  WARNING: secrets.yaml not found and no secrets.yaml.enc backup in git!"
+    echo "  You will need to create secrets.yaml manually (see secrets.yaml.example)."
+fi
+
 # Restore or create runtime data files from backup
 if [ -d "$BACKUP_DIR" ]; then
     for f in config/solax_mode_change_log.json data/battery_mode_daemon_log.json; do
