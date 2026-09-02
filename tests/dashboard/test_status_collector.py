@@ -351,16 +351,93 @@ def test_collect_service_health_distinguishes_running_stopped_and_not_installed(
     assert by_key["battery_daemon"]["installed"] is True
     assert by_key["battery_daemon"]["active"] is True
     assert by_key["battery_daemon"]["log_age_seconds"] < 5
+    # Active with only an "x" placeholder line in the log (no ERROR/CRITICAL) -> healthy.
+    assert by_key["battery_daemon"]["health_status"] == "healthy"
 
     assert by_key["dashboard"]["installed"] is True
     assert by_key["dashboard"]["active"] is False
     assert by_key["dashboard"]["active_state"] == "failed"
+    assert by_key["dashboard"]["health_status"] == "disabled"
 
     # Not yet deployed (see docs/PI4_DEPLOYMENT.md) - must read as "not
     # installed", not a false "stopped".
     assert by_key["hot_water_daemon"]["installed"] is False
     assert by_key["hot_water_daemon"]["active"] is None
     assert by_key["hot_water_daemon"]["log_age_seconds"] is None
+    assert by_key["hot_water_daemon"]["health_status"] == "disabled"
+
+
+def _log_line(dt, level, message="something happened"):
+    return f"{dt.strftime('%Y-%m-%d %H:%M:%S')},000 - battery_mode_daemon - {level} - {message}"
+
+
+def test_check_log_health_healthy_when_log_missing():
+    with mock.patch.object(status_collector, "get_project_root", return_value="/no/such/dir"):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
+
+
+def test_check_log_health_healthy_with_only_info_lines(tmp_path):
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(
+        _log_line(now, "INFO") + "\n" + _log_line(now, "DEBUG") + "\n", encoding="utf-8"
+    )
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
+
+
+def test_check_log_health_healthy_with_single_recent_error(tmp_path):
+    """A lone recent ERROR stays "healthy" - see LOG_HEALTH_ERROR_THRESHOLD's
+    comment: this is exactly what the daemon's own self-correcting safety-
+    interval message looks like in real logs, and must not false-positive."""
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(_log_line(now, "ERROR") + "\n", encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
+
+
+def test_check_log_health_unhealthy_with_two_recent_errors(tmp_path):
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    lines = _log_line(now, "ERROR") + "\n" + _log_line(now, "ERROR") + "\n"
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "unhealthy"
+
+
+def test_check_log_health_healthy_when_second_error_outside_window(tmp_path):
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    old = now - status_collector.timedelta(minutes=status_collector.LOG_HEALTH_WINDOW_MINUTES + 5)
+    lines = _log_line(old, "ERROR") + "\n" + _log_line(now, "ERROR") + "\n"
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
+
+
+def test_check_log_health_unhealthy_with_mixed_error_and_critical(tmp_path):
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    lines = _log_line(now, "ERROR") + "\n" + _log_line(now, "CRITICAL") + "\n"
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "unhealthy"
+
+
+def test_check_log_health_traceback_continuation_lines_count_once(tmp_path):
+    """A logger.exception() call emits one ERROR line followed by unprefixed
+    traceback lines - those continuation lines don't match the log format and
+    must not each count toward the threshold."""
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    lines = (
+        _log_line(now, "ERROR", "Failed to check Ohme status")
+        + "\nTraceback (most recent call last):\n  File \"x.py\", line 1\nValueError: boom\n"
+    )
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
 
 
 def test_systemctl_show_batch_returns_none_pairs_on_subprocess_failure():
