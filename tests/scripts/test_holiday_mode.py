@@ -106,3 +106,37 @@ def test_print_status_expired(tmp_path, capsys):
         holiday_mode.print_status("Europe/London")
 
     assert "expired" in capsys.readouterr().out
+
+
+def test_main_start_days_reports_friendly_error_on_lock_timeout(monkeypatch, capsys):
+    import sys
+
+    monkeypatch.setattr(sys, "argv", ["holiday_mode.py", "--start-days", "7"])
+    fake_config = {"location": {"default_timezone_str": "Europe/London"}}
+
+    with mock.patch.object(
+        holiday_mode, "load_static_config", return_value=fake_config
+    ), mock.patch.object(
+        holiday_mode, "start_holiday", side_effect=TimeoutError("lock busy")
+    ), mock.patch.object(sys, "exit") as exit_mock:
+        holiday_mode.main()
+
+    exit_mock.assert_called_once_with(1)
+    assert "timed out" in capsys.readouterr().out
+
+
+def test_main_cancel_reports_friendly_error_on_lock_timeout(monkeypatch, capsys):
+    import sys
+
+    monkeypatch.setattr(sys, "argv", ["holiday_mode.py", "--cancel"])
+    fake_config = {"location": {"default_timezone_str": "Europe/London"}}
+
+    with mock.patch.object(
+        holiday_mode, "load_static_config", return_value=fake_config
+    ), mock.patch.object(
+        holiday_mode, "cancel_holiday", side_effect=TimeoutError("lock busy")
+    ), mock.patch.object(sys, "exit") as exit_mock:
+        holiday_mode.main()
+
+    exit_mock.assert_called_once_with(1)
+    assert "timed out" in capsys.readouterr().out
