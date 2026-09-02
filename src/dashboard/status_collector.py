@@ -482,7 +482,14 @@ def _collect_service_health() -> dict[str, Any]:
         states = _systemctl_show_batch(units)
         return {
             "available": True,
-            "services": [_check_one_service(s, states[s["unit"]]) for s in SERVICE_HEALTH_CHECKS],
+            # .get(): _systemctl_show_batch backfills every requested unit,
+            # but a direct index would turn any future gap (a unit dropped
+            # from its output) into a blanked-out card for ALL services
+            # rather than one unknown row.
+            "services": [
+                _check_one_service(s, states.get(s["unit"], (None, None)))
+                for s in SERVICE_HEALTH_CHECKS
+            ],
         }
     except Exception:
         # Circuit Breaker: see the matching comment in _collect_ev_charging.
