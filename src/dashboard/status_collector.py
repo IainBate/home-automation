@@ -205,6 +205,25 @@ async def _fetch_ohme_status(config_path: str) -> dict[str, Any]:
         await client.close()
 
 
+def _parse_holiday_until(automation_state: dict[str, Any]) -> datetime | None:
+    """Return hotwater_automation_state.json's holiday.until as an aware datetime, or None.
+
+    Deliberately reimplements scripts/hotwater_automation_core.py's
+    get_holiday_until() rather than importing it - this module (src/) doesn't
+    otherwise depend on scripts/, and this is a display-only read, so it's
+    fine to duplicate the same tolerant "missing/malformed/naive means no
+    holiday" parsing rather than invert that dependency direction for it.
+    """
+    until_str = automation_state.get("holiday", {}).get("until")
+    if not until_str:
+        return None
+    try:
+        until = datetime.fromisoformat(until_str)
+    except (TypeError, ValueError):
+        return None
+    return until if until.tzinfo is not None else None
+
+
 def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, Any]:
     """Read-only MELCloud tank snapshot, plus this project's own force-heat/legionella state."""
     melcloud_config = config.get("melcloud", {})
