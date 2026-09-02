@@ -579,12 +579,28 @@ class BatteryModeDaemon(TwoTierPollingDaemon):
             self.logger.exception("Failed to set mode safely")
 
     def _check_ohme_status(self) -> dict[str, Any] | None:
-        """Synchronous wrapper for async Ohme API call.
+        """Current Ohme status - from the shared cache if fresh, else read directly.
+
+        Prefers scripts/ohme_status_daemon.py's cache (one login per daemon
+        start, shared with the hot water automation and the dashboard) over
+        opening a session here, which performed a full Firebase login on
+        every single hardware cycle - see src/api_clients/ohme_status_cache.py.
+
+        Falls back to the direct read whenever that cache is missing or
+        stale, so this keeps working exactly as before if the poller isn't
+        deployed, is stopped, or has wedged. A cache miss must never be read
+        as "not charging": that would silently drop out of FORCE_CHARGE
+        mid-session.
 
         Returns:
             Ohme status dictionary or None on error
 
         """
+        cached = read_fresh_status()
+        if cached is not None:
+            self.logger.debug("Using cached Ohme status (power %sW)", cached.get("power_watts"))
+            return cached
+
         try:
             return asyncio.run(self._check_ohme_status_async())
         except Exception:
