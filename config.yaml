@@ -133,6 +133,14 @@ melcloud:
 # Because the car-charging condition can occur at any time before
 # trigger_hour, run this continuously via hotwater_mode_daemon.py (mirrors
 # battery_mode_daemon.py's architecture) rather than a once-daily cron job.
+#
+# Holiday mode (scripts/holiday_mode.py): "for N days, don't force-heat the
+# tank via the ASHP" - overrides every trigger above (car charging, battery
+# surplus, off-peak) while active. No config toggle here - it's a runtime
+# command that stamps a holiday.until timestamp into
+# hotwater_automation_state.json (see get_hotwater_automation_state_path()),
+# read fresh on every force-heat check. Solar water heating (if you have a
+# separate diverter) is entirely outside this codebase and unaffected.
 hotwater_automation:
   enabled: false                           # Set to true once melcloud is configured and tested
   trigger_hour: 21.5                       # Local hour (24h, fractional - 21.5 = 9:30pm) at which
