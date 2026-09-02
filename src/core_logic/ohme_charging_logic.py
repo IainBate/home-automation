@@ -1,15 +1,26 @@
 """Ohme EV Charger Charging Decision Logic.
 
-This module provides shared logic for determining when the Ohme charger should charge
-based on battery mode, electricity prices, and user-configured price caps. It is used by:
-- The daemon (scripts/daemon/schedule_manager.py) for real-time charging decisions
-- The optimizer (SSA-3) for predicting charging behavior and adjusting demand forecasts
+Shared "is the car actually charging" logic, so the two automations that ask
+that question agree on the answer. Used by:
+- scripts/battery_mode_daemon.py, to decide whether to force-charge the
+  house battery while the car draws power, and
+- scripts/hotwater_automation_core.py, for the same signal in its
+  force-heat decision.
+
+Both use is_charging_above_threshold() plus
+confirm_charging_over_consecutive_cycles(), so a brief current spike on
+plug-in can't trigger either one.
 
 Design Principles:
 - Pure functions: No side effects, no API calls, testable
 - Clear data contracts: Explicit input/output types using dataclasses
-- Price units: GBP/kWh (optimizer convention), daemon must convert pence→GBP
-- SSA-5 ready: Includes fields for Max Charge mode support (future)
+- Price units: GBP/kWh; callers working in pence must convert
+
+Note: OhmeChargingContext and SlotChargingDecision below describe a
+price-cap-driven per-slot planner that this repo does not currently have a
+consumer for - nothing here builds or reads them. They are kept because
+they document the intended shape of that decision, but they are not part of
+any live path; the live path is the two threshold functions.
 """
 
 from dataclasses import dataclass
