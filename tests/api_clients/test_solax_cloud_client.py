@@ -39,15 +39,17 @@ def test_solax_cloud_get_realtime_snapshot_parses_successful_response():
     payload = {
         "success": True,
         "exception": "Query success!",
-        "result": {},
-        "uploadTime": "2026-09-02 21:37:53",
-        "soc": 99.0,
-        "batPower": -70.0,
-        "feedinpower": -154.0,
-        "powerdc1": 0.0,
-        "powerdc2": 0.0,
-        "powerdc3": None,
-        "powerdc4": None,
+        "code": 0,
+        "result": {
+            "uploadTime": "2026-09-02 21:37:53",
+            "soc": 99.0,
+            "batPower": -70.0,
+            "feedinpower": -154.0,
+            "powerdc1": 0.0,
+            "powerdc2": 0.0,
+            "powerdc3": None,
+            "powerdc4": None,
+        },
     }
 
     with mock.patch.object(solax_cloud_client.requests, "get", return_value=_fake_response(payload)):
