@@ -22,6 +22,8 @@ from typing import Any
 import json
 import requests
 
+from src.config_manager.config_manager import load_static_config
+
 logger = logging.getLogger(__name__)
 
 
