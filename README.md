@@ -15,6 +15,8 @@ Standalone package for controlling SolaX inverters and Ohme EV chargers. Provide
 - **solar_forecast_trainer.py** / **solar_forecast_predictor.py** - Train and run a solar generation forecast model from this system's own historical PV data plus weather (feeds the dashboard)
 - **mg_saic_poller.py** - Cached MG SAIC (MG iSmart) EV battery/range fetch, run hourly via cron
 - **claude_usage_poller.py** / **claude_usage_token_extract.py** - Cached Claude Code usage fetch (cron) and its macOS Keychain token extraction helper
+- **holiday_mode.py** - `--start-days N` / `--cancel` / `--status`: pause ASHP hot water force-heating for N days (hot water only for now - see its module docstring)
+- **weekly_health_check.py** - Scans logs/ and systemd services for the past week's errors/outages and emails a summary if it finds any, run weekly via cron
 
 ### API Clients
 - **SolaX Modbus Client** - Direct Modbus TCP access to SolaX X3 Hybrid G4 inverters
