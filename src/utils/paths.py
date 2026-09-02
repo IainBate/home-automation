@@ -129,6 +129,19 @@ def get_mg_saic_status_path() -> str:
     return get_config_path("mg_saic_status.json")
 
 
+def get_ohme_status_path() -> str:
+    """Get absolute path to the cached Ohme charger status file.
+
+    Written every ~30s by scripts/ohme_status_daemon.py from a single
+    long-lived Ohme session, and read by the battery daemon, the hot water
+    automation and the dashboard instead of each opening its own session
+    (which meant a full Firebase login per poll, per consumer). Every reader
+    falls back to its own direct Ohme call when this file is missing or
+    stale - see src/api_clients/ohme_status_cache.py.
+    """
+    return get_config_path("ohme_status.json")
+
+
 def get_solar_forecast_path() -> str:
     """Get absolute path to the solar generation forecast status file.
 
