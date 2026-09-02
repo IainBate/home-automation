@@ -539,3 +539,46 @@ def _log_file_age_seconds(log_filename: str) -> float | None:
     except OSError:
         return None
     return datetime.now(tz=UTC).timestamp() - mtime
+
+
+def _check_log_health(log_filename: str) -> str:
+    """"unhealthy" if a daemon's log shows repeated recent errors, else "healthy".
+
+    See LOG_HEALTH_ERROR_THRESHOLD's comment for why this requires 2+
+    ERROR/CRITICAL lines in the window rather than just 1 - a single one is
+    frequently the daemon's own safety check self-correcting, not a real
+    problem. A missing/unreadable log, or one with no matching recent lines,
+    reads as "healthy" (absence of evidence of a problem), matching how
+    _log_file_age_seconds() already treats a missing log.
+    """
+    log_path = Path(get_project_root()) / "logs" / log_filename
+    try:
+        with log_path.open("rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - _LOG_HEALTH_TAIL_BYTES))
+            tail = f.read()
+    except OSError:
+        return "healthy"
+
+    # The seek may have landed mid-line - drop the (possibly truncated)
+    # first line rather than risk misparsing it.
+    lines = tail.decode("utf-8", errors="replace").splitlines()[1:]
+
+    cutoff = datetime.now() - timedelta(minutes=LOG_HEALTH_WINDOW_MINUTES)  # noqa: DTZ005 - asctime is local time, must compare naive-to-naive
+    recent_issue_count = 0
+    for line in lines:
+        match = _LOG_LINE_RE.match(line)
+        if not match:
+            continue
+        level = match.group(2)
+        if level not in _UNHEALTHY_LOG_LEVELS:
+            continue
+        try:
+            timestamp = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")  # noqa: DTZ007 - see cutoff above
+        except ValueError:
+            continue
+        if timestamp >= cutoff:
+            recent_issue_count += 1
+
+    return "unhealthy" if recent_issue_count >= LOG_HEALTH_ERROR_THRESHOLD else "healthy"
