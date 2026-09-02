@@ -93,18 +93,21 @@ melcloud:
                                             # Leave blank to auto-select if there's only one.
 
   # Forced hot water mode change verification (src/api_clients/melcloud_client.py
-  # set_force_hot_water). The MELCloud app often needs a mode change requested more
-  # than once before the physical unit applies it - these settings control the
-  # request -> wait -> check -> retry loop that works around that. Each attempt
-  # does one check (not continuous polling), since MELCloud's API documents that
-  # device status should not be fetched more than once a minute. There's no
-  # urgency for a force-heat/legionella mode change to land quickly, so these
-  # favour giving each attempt's cloud round-trip more room over a fast worst
-  # case - 4 x 15s is a deliberate, easy-to-reason-about one minute total.
+  # set_force_hot_water) - also reused for the unit's separate power on/standby
+  # toggle (set_power), which set_force_hot_water calls automatically around a
+  # force-heat cycle (on before, off after). The MELCloud app often needs a
+  # change requested more than once before the physical unit applies it - these
+  # settings control the request -> wait -> check -> retry loop that works
+  # around that. Each attempt does one check (not continuous polling), since
+  # MELCloud's API documents that device status should not be fetched more than
+  # once a minute. There's no urgency for a force-heat/legionella/power change
+  # to land quickly, so these favour giving each attempt's cloud round-trip more
+  # room over a fast worst case - 4 x 15s is a deliberate, easy-to-reason-about
+  # one minute total.
   mode_change_retry:
-    max_attempts: 4                        # How many times to (re-)request the mode change
+    max_attempts: 4                        # How many times to (re-)request the change
     check_delay_seconds: 15                # Wait this long after each request before checking
-                                            # whether MELCloud reports the new mode
+                                            # whether MELCloud reports the new mode/power state
 
 # =============================================================================
 # HOT WATER AUTOMATION (scripts/hotwater_mode_daemon.py, hotwater_auto_check.py)
