@@ -556,14 +556,18 @@ def _check_log_health(log_filename: str) -> str:
         with log_path.open("rb") as f:
             f.seek(0, 2)
             size = f.tell()
-            f.seek(max(0, size - _LOG_HEALTH_TAIL_BYTES))
+            start = max(0, size - _LOG_HEALTH_TAIL_BYTES)
+            f.seek(start)
             tail = f.read()
     except OSError:
         return "healthy"
 
-    # The seek may have landed mid-line - drop the (possibly truncated)
-    # first line rather than risk misparsing it.
-    lines = tail.decode("utf-8", errors="replace").splitlines()[1:]
+    lines = tail.decode("utf-8", errors="replace").splitlines()
+    if start > 0:
+        # The seek landed mid-file, possibly mid-line - drop the (possibly
+        # truncated) first line rather than risk misparsing it. When start
+        # is 0 the whole file was read, so there's nothing to drop.
+        lines = lines[1:]
 
     cutoff = datetime.now() - timedelta(minutes=LOG_HEALTH_WINDOW_MINUTES)  # noqa: DTZ005 - asctime is local time, must compare naive-to-naive
     recent_issue_count = 0
