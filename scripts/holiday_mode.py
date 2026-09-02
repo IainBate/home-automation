@@ -98,7 +98,7 @@ def start_holiday(days: int) -> datetime:
     """
     now = datetime.now(tz=UTC)
     until = now + timedelta(days=days)
-    with locked_state() as state:
+    with locked_state(timeout=HOLIDAY_STATE_LOCK_TIMEOUT_SECONDS) as state:
         state["holiday"] = {
             "started_at": now.isoformat(),
             "until": until.isoformat(),
@@ -115,24 +115,24 @@ def cancel_holiday() -> bool:
         message) - False if there was nothing to cancel.
 
     """
-    with locked_state() as state:
+    with locked_state(timeout=HOLIDAY_STATE_LOCK_TIMEOUT_SECONDS) as state:
         was_active = is_holiday_active(state)
         state.pop("holiday", None)
     return was_active
 
 
 def print_status(tz_name: str) -> None:
-    """Print whether holiday mode is currently active, and until when."""
+    """Print whether the automation holiday pause is currently active, and until when."""
     state = read_state()
     until = get_holiday_until(state)
     if until is None:
-        print("Holiday mode: not active")
+        print("Automation holiday: not active")
         return
 
     if is_holiday_active(state):
-        print(f"Holiday mode: ACTIVE until {_format_local(until, tz_name)}")
+        print(f"Automation holiday: ACTIVE until {_format_local(until, tz_name)}")
     else:
-        print(f"Holiday mode: expired ({_format_local(until, tz_name)} has passed)")
+        print(f"Automation holiday: expired ({_format_local(until, tz_name)} has passed)")
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
