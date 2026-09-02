@@ -31,6 +31,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.api_clients.ohme_ev_client import OhmeEVClient
+from src.api_clients.ohme_status_cache import read_fresh_status
 from src.api_clients.solax_modbus_client import (
     solax_modbus_set_work_mode,
     solax_modbus_soc,
