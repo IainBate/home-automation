@@ -21,10 +21,11 @@ from unittest import mock
 from src.api_clients import claude_usage_client
 
 
-def _fake_response(status_code=200, json_payload=None):
+def _fake_response(status_code=200, json_payload=None, headers=None):
     response = mock.Mock()
     response.status_code = status_code
     response.json.return_value = json_payload or {}
+    response.headers = headers or {}
     return response
 
 
@@ -99,14 +100,28 @@ def test_fetch_returns_none_on_unauthorized():
     assert result is None
 
 
-def test_fetch_returns_none_on_rate_limit():
+def test_fetch_returns_rate_limited_sentinel_on_rate_limit():
+    config = {"claude_usage": {"enabled": True, "access_token": "tok"}}
+    with _no_local_token(), mock.patch.object(
+        claude_usage_client.requests,
+        "get",
+        return_value=_fake_response(status_code=429, headers={"retry-after": "1350"}),
+    ):
+        result = claude_usage_client.fetch_claude_usage(config)
+
+    assert isinstance(result, claude_usage_client.RateLimited)
+    assert result.retry_after_seconds == 1350.0
+
+
+def test_fetch_returns_rate_limited_sentinel_without_retry_after_header():
     config = {"claude_usage": {"enabled": True, "access_token": "tok"}}
     with _no_local_token(), mock.patch.object(
         claude_usage_client.requests, "get", return_value=_fake_response(status_code=429)
     ):
         result = claude_usage_client.fetch_claude_usage(config)
 
-    assert result is None
+    assert isinstance(result, claude_usage_client.RateLimited)
+    assert result.retry_after_seconds is None
 
 
 def test_fetch_returns_none_on_network_error():

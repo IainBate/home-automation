@@ -58,6 +58,21 @@ _KIND_LABELS = {
 _FALLBACK_BLOCKS = [("five_hour", "session"), ("seven_day", "weekly_all"), ("seven_day_opus", "weekly_opus")]
 
 
+class RateLimited:
+    """fetch_claude_usage() returns this on HTTP 429, instead of None.
+
+    Distinct from a real failure (expired token, network error, bad
+    response): a 429 here is the expected, self-healing outcome of this
+    shared-budget endpoint under load (see module docstring), not something
+    that needs a human's attention. scripts/claude_usage_poller.py's run()
+    only logs at WARNING (and so only cron-mails) on None - this sentinel
+    lets it log the routine backoff at INFO instead.
+    """
+
+    def __init__(self, retry_after_seconds: float | None = None) -> None:
+        self.retry_after_seconds = retry_after_seconds
+
+
 def _label(kind: str) -> str:
     return _KIND_LABELS.get(kind, kind.replace("_", " ").title())
 
@@ -131,7 +146,7 @@ def _parse_usage(payload: dict[str, Any]) -> dict[str, Any]:
     return {"buckets": buckets, "extra_usage_percent": extra_usage_percent}
 
 
-def fetch_claude_usage(config: dict[str, Any]) -> dict[str, Any] | None:
+def fetch_claude_usage(config: dict[str, Any]) -> dict[str, Any] | RateLimited | None:
     """Read-only Claude Code usage snapshot.
 
     Args:
@@ -141,11 +156,14 @@ def fetch_claude_usage(config: dict[str, Any]) -> dict[str, Any] | None:
     Returns:
         Dict with "buckets" (list of {kind, label, percent_used, resets_at,
         severity}) and "extra_usage_percent" (or None if not enabled on the
-        account), or None if disabled, misconfigured, the token has expired/
-        was rejected, or the request was rate-limited - the caller should
-        keep showing its last cached snapshot rather than treat any of these
-        as reason to blank the display (fail-fast, matches this codebase's
-        other cloud clients).
+        account). On failure: a RateLimited instance if the request was
+        rate-limited (HTTP 429 - expected under load, self-heals), or None
+        for every other failure (disabled, misconfigured, expired/rejected
+        token, network error, bad response). Either way the caller should
+        keep showing its last cached snapshot rather than treat this as
+        reason to blank the display (fail-fast, matches this codebase's
+        other cloud clients) - RateLimited vs None only changes how loudly
+        the caller logs it.
 
     """
     usage_config = config.get("claude_usage", {})
@@ -185,8 +203,16 @@ def fetch_claude_usage(config: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     if response.status_code == 429:
-        logger.info("Claude usage endpoint rate-limited this request - will retry next cycle")
-        return None
+        retry_after_header = response.headers.get("retry-after")
+        try:
+            retry_after_seconds = float(retry_after_header) if retry_after_header is not None else None
+        except (TypeError, ValueError):
+            retry_after_seconds = None
+        logger.info(
+            "Claude usage endpoint rate-limited this request (retry-after=%ss) - will retry next cycle",
+            retry_after_seconds,
+        )
+        return RateLimited(retry_after_seconds=retry_after_seconds)
 
     if response.status_code != 200:
         logger.warning("Unexpected Claude usage response: HTTP %d", response.status_code)

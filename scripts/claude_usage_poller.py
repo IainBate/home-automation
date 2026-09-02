@@ -37,7 +37,7 @@ from typing import Any
 
 from hotwater_automation_core import get_config_path
 
-from src.api_clients.claude_usage_client import fetch_claude_usage
+from src.api_clients.claude_usage_client import RateLimited, fetch_claude_usage
 from src.config_manager.config_manager import load_static_config
 from src.utils.paths import get_claude_usage_path
 from src.utils.state_store import write_json_atomic
@@ -64,6 +64,13 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
     treated as fatal - it leaves the previous cached file in place rather
     than overwriting it with an error, so the dashboard keeps showing the
     last known-good reading rather than going blank on a transient hiccup.
+
+    A rate limit (HTTP 429) is logged at INFO, not WARNING - it's the
+    expected, self-healing outcome of this shared-budget endpoint under
+    load (see claude_usage_client.py's module docstring), not something
+    that should page anyone. This cron job's own --log-level default
+    (WARNING) means an INFO line here produces no stderr output, so cron's
+    MAILTO doesn't fire for it. Every other failure still logs at WARNING.
     """
     if not config.get("claude_usage", {}).get("enabled", False):
         if not quiet:
@@ -71,6 +78,13 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         return 1
 
     usage = fetch_claude_usage(config)
+    if isinstance(usage, RateLimited):
+        retry_after = usage.retry_after_seconds if usage.retry_after_seconds is not None else "?"
+        msg = f"Claude usage endpoint rate-limited (retry after {retry_after}s) - leaving previous cache in place"
+        logger.info(msg)
+        if not quiet:
+            print(msg)
+        return 1
     if usage is None:
         msg = "Failed to fetch Claude usage (see logs above) - leaving previous cache in place"
         logger.warning(msg)
