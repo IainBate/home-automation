@@ -82,6 +82,43 @@ def test_second_due_tick_performs_a_real_hardware_cycle(tmp_path, monkeypatch):
     assert daemon.hardware_cycle_calls == [1]
 
 
+def test_load_config_applies_configured_logging_level(tmp_path, monkeypatch):
+    """Regression test: the logger used to be hardcoded to DEBUG regardless of
+    this setting, producing a debug line on every fast-poll tick (~500KB/day
+    of SD card writes on the Pi for no operational benefit - see
+    _apply_logging_level()'s docstring).
+    """
+    daemon = _make_daemon(tmp_path, monkeypatch, {"logging": {"level": "WARNING", "file_path": "x"}})
+
+    assert daemon.logger.level == logging.WARNING
+
+
+def test_load_config_defaults_logging_level_to_info_when_unset(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config = _daemon_config()
+    del config["logging"]
+    path = tmp_path / "daemon_config.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+    daemon = BatteryModeDaemon(str(path), SYSTEM_CONFIG_PATH)
+
+    daemon.load_config()
+
+    assert daemon.logger.level == logging.INFO
+
+
+def test_reload_config_reapplies_logging_level_when_config_changes(tmp_path, monkeypatch):
+    daemon = _make_daemon(tmp_path, monkeypatch)
+    assert daemon.logger.level == logging.INFO
+
+    daemon.config_path.write_text(
+        json.dumps({**_daemon_config(), "logging": {"level": "WARNING", "file_path": "x"}}),
+        encoding="utf-8",
+    )
+    daemon.reload_config()
+
+    assert daemon.logger.level == logging.WARNING
+
+
 def test_reload_config_runs_every_tick(tmp_path, monkeypatch):
     daemon = _make_daemon(tmp_path, monkeypatch)
     reload_calls = []
