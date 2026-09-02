@@ -190,6 +190,26 @@ def _collect_ev_charging(config: dict[str, Any], config_path: str) -> dict[str, 
     if not ohme_config.get("enabled", False):
         return {"available": False, "disabled": True, "error": "Ohme EV charger disabled in config.yaml"}
 
+    # Prefer scripts/ohme_status_daemon.py's shared cache (see
+    # src/api_clients/ohme_status_cache.py). This poller runs every 45s and
+    # was opening its own session - and so performing a full Firebase login -
+    # on every one of those, alongside the battery daemon and hot water
+    # automation doing the same. Falls through to the direct read below
+    # whenever the cache is missing or stale, so the dashboard still shows
+    # live data if that daemon isn't deployed or has stopped.
+    cached = read_fresh_status()
+    if cached is not None:
+        return {
+            "available": True,
+            "plugged_in": cached.get("plugged_in"),
+            "status": cached.get("status"),
+            "mode": cached.get("mode"),
+            "power_watts": cached.get("power_watts"),
+            "battery_percent": cached.get("battery_percent"),
+            "target_soc": cached.get("target_soc"),
+            "current_vehicle": cached.get("current_vehicle"),
+        }
+
     try:
         status = asyncio.run(_fetch_ohme_status(config_path))
         return {
