@@ -6,11 +6,12 @@
 # way to recover it. secrets.yaml.enc is a deliberate exception: it IS meant
 # to be committed.
 #
-# Passphrase: recommended is this Mac's own login password (computer name:
-# UOY26M288) - you already know it, so there's nothing new to remember or
-# store. The script never uses it directly: it hashes whatever you type with
-# SHA-256 first, and that hash is the actual openssl passphrase. See
-# decrypt_secrets.sh for the recovery side (same hint is printed there).
+# Passphrase: recommended is the Home Pi4's own login password - the cron
+# job below runs there, so that's the password already at hand, and there's
+# nothing new to remember or store. The script never uses it directly: it
+# hashes whatever you type with SHA-256 first, and that hash is the actual
+# openssl passphrase. See decrypt_secrets.sh for the recovery side (same
+# hint is printed there).
 #
 # Passphrase source, checked in this order:
 #   1. secrets_backup.passphrase_hash in secrets.yaml, if set - a
