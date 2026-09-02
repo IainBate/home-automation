@@ -1,15 +1,39 @@
 """SolaX Cloud API Client Module.
 
-Provides access to SolaX inverter historical data via the SolaX Cloud API.
-Supports incremental data collection with 5-minute granularity for energy flows.
+Talks to TWO genuinely different SolaX Cloud APIs, discovered the hard way
+(2026-09-02) after a "token invalid!" chase across both:
+
+1. The old, officially-documented "Residential API" (getRealtimeInfo.do,
+   solax_cloud_get_realtime_snapshot() below) - authenticated with the plain
+   numeric tokenID an end-user gets for free from their own account's
+   "Residential API (OLD)" page. Per SolaX's own SolaXCloud_User_Monitoring_API
+   PDF, this endpoint is REAL-TIME ONLY - it has no historical/daily data of
+   any kind, by design.
+2. The undocumented "app" API (/app/station/list, /app/inverter/list,
+   /app/powerPlant/getPowerData - _get_station_id()/_get_inverter_serials()/
+   solax_cloud_get_daily_yield() below) that this module's original author
+   reverse-engineered from the SolaX Cloud mobile app's own network traffic
+   (hence "these can be found ... by inspecting network traffic" below) to
+   get historical 5-minute data, which (1) can't provide. It needs the
+   mobile app's own login-session token, NOT the account page's tokenID -
+   confirmed by that tokenID coming back {"exception": "no auth!"} against
+   this API even once it's valid enough to work against (1). Nobody has
+   captured that app session token, so every function in this second group
+   is currently unusable - kept only in case that token is captured later.
+
+Because of that gap, scripts/solax_realtime_logger.py polls (1) every few
+minutes going forward instead - it can never backfill the past (a live
+snapshot has nothing to say about a day that's already over), but it's the
+only source data/solax_historical_data.json actually has right now.
 
 API Documentation:
-- Base URL: https://www.solaxcloud.com/api
-- Authentication: Token-based (token_id from config)
-- Data endpoints: Historical yield and power data by day
-
-Note: This client requires the token_id and wifisn values from your config.yaml.
-These can be found in the SolaX Cloud app or by inspecting network traffic.
+- Base URL (this file's REALTIME_* functions): https://global.solaxcloud.com
+  (NOT www.solaxcloud.com - that also returns "token invalid!" for a
+  perfectly valid tokenID; the working domain is account/region-specific)
+- Base URL (this file's app-API functions, currently unusable - see above):
+  https://www.solaxcloud.com/api
+- Authentication: Token-based (token_id from config) - but see above, it's
+  two different kinds of token depending which base URL/endpoint group.
 """
 
 from __future__ import annotations
