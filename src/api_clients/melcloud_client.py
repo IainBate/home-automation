@@ -6,11 +6,15 @@ by the official MELCloud iPhone app.
 
 Key Features:
 - Tank temperature and heating activity reporting
-- Forced hot water heating control (on / back to auto)
+- Forced hot water heating control (on / back to auto) - `set_force_hot_water`
+  also powers the unit on first if it's in standby, and back off once a revert
+  to auto is confirmed, mirroring the manual "switch it on, force-heat, switch
+  it back off" routine rather than leaving the unit powered on continuously.
 - Change verification: the MELCloud app frequently needs a mode-change request
   repeated before the physical unit picks it up. `set_force_hot_water` re-issues
   the request and re-checks the reported mode until it matches, or a configurable
-  number of attempts is exhausted.
+  number of attempts is exhausted. `set_power` does the same for the power
+  on/standby toggle.
 
 Usage:
     from src.api_clients.melcloud_client import MelCloudClient
