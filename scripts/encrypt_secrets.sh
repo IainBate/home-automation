@@ -64,7 +64,7 @@ if [ -z "$PASSPHRASE_HASH" ]; then
         exit 1
     fi
     echo "No secrets_backup.passphrase_hash in secrets.yaml."
-    echo "Enter a passphrase (hint: recommended is UOY26M288's login password -"
+    echo "Enter a passphrase (hint: recommended is the Home Pi4's login password -"
     echo "something you already know, nothing new to store). Not echoed, and the"
     echo "raw text is never written anywhere - only its SHA-256 hash is used."
     echo ""
