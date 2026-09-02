@@ -194,6 +194,35 @@ def get_hotwater_automation_config_error(config: dict[str, Any]) -> str | None:
     return get_hotwater_melcloud_config_error(config)
 
 
+def get_holiday_until(state: dict[str, Any]) -> datetime | None:
+    """Return the active holiday's end time (state["holiday"]["until"]), or None.
+
+    Written by scripts/holiday_mode.py's --start-days, cleared by --cancel,
+    and left in place (but naturally ignored once it's in the past - see
+    is_holiday_active) when a holiday simply runs its course. None covers
+    both "no holiday recorded" and "malformed/unparseable timestamp" - both
+    mean holiday mode has no effect, the safe default for a household that
+    isn't currently on holiday.
+    """
+    until_str = state.get("holiday", {}).get("until")
+    if not until_str:
+        return None
+    try:
+        return datetime.fromisoformat(until_str)
+    except ValueError:
+        logger.error(
+            "holiday.until (%r) is not a valid timestamp, ignoring - holiday mode has no effect",
+            until_str,
+        )
+        return None
+
+
+def is_holiday_active(state: dict[str, Any]) -> bool:
+    """Whether a holiday period (scripts/holiday_mode.py) is currently in effect."""
+    until = get_holiday_until(state)
+    return until is not None and datetime.now(tz=UTC) < until
+
+
 def get_effective_battery_soc_percent(
     config: dict[str, Any], hw_config: dict[str, Any], now_local: datetime
 ) -> tuple[float | None, str]:
