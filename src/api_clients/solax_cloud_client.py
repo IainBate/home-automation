@@ -412,6 +412,7 @@ def solax_cloud_get_realtime_snapshot(config: dict[str, Any]) -> dict[str, Any] 
             "battery_power_kw": _safe_float(result.get("batPower"), 0) / 1000,
             "grid_power_kw": _safe_float(result.get("feedinpower"), 0) / 1000,
             "soc_percent": _safe_int(result.get("soc", 0)),
+            "yield_today_kwh": _safe_float(result.get("yieldtoday"), None),
         }
 
     except requests.exceptions.RequestException as e:
