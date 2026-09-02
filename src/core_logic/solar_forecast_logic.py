@@ -100,12 +100,21 @@ def aggregate_pv_to_hourly(pv_records: list[dict[str, Any]]) -> dict[str, float]
 
 
 def compute_actual_daily_kwh(pv_records: list[dict[str, Any]], date_str: str) -> float | None:
-    """Sum a completed day's actual generation from historical 5-minute PV readings.
+    """Get a completed day's actual generation from historical PV readings.
 
     Used to score a past forecast against what really happened (see
     scripts/solar_forecast_predictor.py's yesterday_actual_kwh/
-    yesterday_error_kwh) - reuses aggregate_pv_to_hourly() since an hour's
-    mean kW is numerically that hour's kWh, same as in build_training_rows().
+    yesterday_error_kwh).
+
+    Prefers the day's last record's "yield_today_kwh" (solax_cloud_client.py's
+    solax_cloud_get_realtime_snapshot() - the API's own cumulative
+    today-so-far total) when present, since that's a ground-truth figure
+    independent of how many samples exist for the day. Falls back to
+    summing hourly-averaged "pv_power_kw" (aggregate_pv_to_hourly() - an
+    hour's mean kW is numerically that hour's kWh, same as in
+    build_training_rows()) for older records that predate that field, or
+    any other source that never sets it - a day with only a late/partial
+    sample would otherwise silently undercount instead of falling back.
 
     Args:
         pv_records: solax_historical_data.json's "data" list.
@@ -116,11 +125,17 @@ def compute_actual_daily_kwh(pv_records: list[dict[str, Any]], date_str: str) ->
         at all (vs. a misleading 0.0 - e.g. the logger hasn't caught up yet).
 
     """
-    hourly = aggregate_pv_to_hourly(pv_records)
-    day_hours = [kw for hour_key, kw in hourly.items() if hour_key.startswith(date_str)]
-    if not day_hours:
+    day_records = [r for r in pv_records if r.get("timestamp", "").startswith(date_str)]
+    if not day_records:
         return None
-    return sum(day_hours)
+
+    last_record = max(day_records, key=lambda r: r["timestamp"])
+    yield_today_kwh = last_record.get("yield_today_kwh")
+    if yield_today_kwh is not None:
+        return yield_today_kwh
+
+    hourly = aggregate_pv_to_hourly(day_records)
+    return sum(hourly.values())
 
 
 def build_training_rows(
