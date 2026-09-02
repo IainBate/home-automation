@@ -469,7 +469,7 @@ def test_systemctl_show_batch_parses_multi_unit_output_by_property_name():
 def test_collect_service_health_reports_unhealthy_for_active_daemon_with_repeated_errors(tmp_path):
     (tmp_path / "logs").mkdir()
     now = status_collector.datetime.now()
-    lines = _log_line(now, "ERROR", "Failed to check Ohme status") * 0 + (
+    lines = (
         _log_line(now, "ERROR", "Failed to check Ohme status") + "\n"
         + _log_line(now, "ERROR", "Failed to check Ohme status") + "\n"
     )
