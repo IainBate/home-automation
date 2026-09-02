@@ -87,7 +87,17 @@ from src.utils.paths import (
 )
 from src.utils.state_store import locked_json_state, read_json_state
 
-logger = logging.getLogger(__name__)
+
+# Named as a child of "hotwater_mode_daemon" (not __name__) so its records
+# propagate up to that logger's rotating-file handler (see
+# src/daemon_support/base_daemon.py's setup_rotating_logger) when running
+# under hotwater_mode_daemon.py - otherwise every decision/action log here
+# (force-heat activated, reverted, legionella started, etc.) had no handler
+# anywhere in its chain and was silently lost rather than reaching
+# logs/hotwater_mode_daemon.log (discovered 2026-09-02: the daemon was
+# making correct decisions per its own tests, but none of them were
+# observable in the log a human would actually check).
+logger = logging.getLogger("hotwater_mode_daemon.hotwater_automation_core")
 
 DEFAULT_TANK_TEMP_THRESHOLD_C = 45.0
 DEFAULT_BATTERY_SOC_MIN_PERCENT = 50.0
