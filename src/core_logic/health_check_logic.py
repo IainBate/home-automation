@@ -32,6 +32,15 @@ LOG_LINE_PATTERN = re.compile(
     r"(?P<logger_name>\S+) - (?P<level>ERROR|CRITICAL) - (?P<message>.*)$"
 )
 
+# Same shape as LOG_LINE_PATTERN but also matches WARNING - used by
+# scripts/daily_digest_check.py, which (unlike the weekly check above) cares
+# about the WARNING-level failures logged by cron-driven pollers like
+# claude_usage_poller.py and mg_saic_poller.py.
+DAILY_DIGEST_LOG_LINE_PATTERN = re.compile(
+    r"^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ - "
+    r"(?P<logger_name>\S+) - (?P<level>WARNING|ERROR|CRITICAL) - (?P<message>.*)$"
+)
+
 LOG_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
