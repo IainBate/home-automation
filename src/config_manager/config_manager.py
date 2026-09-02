@@ -372,6 +372,33 @@ CONFIG_SCHEMA = {
                 "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 60},
             },
         },
+        "email": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "smtp_host": {"type": "string", "minLength": 1},
+                "smtp_port": {"type": "integer", "minimum": 1, "maximum": 65535},
+                "username": {"type": "string", "minLength": 1},
+                "password": {"type": "string", "minLength": 1},
+                "to_address": {"type": "string", "minLength": 1},
+                "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 60},
+            },
+            # username/password/to_address only need to be non-empty when
+            # enabled: true - matches every other optional integration here.
+            "if": {"properties": {"enabled": {"const": True}}, "required": ["enabled"]},
+            "then": {"required": ["username", "password", "to_address"]},
+        },
+        "weekly_health_check": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "log_lookback_days": {"type": "integer", "minimum": 1, "maximum": 30},
+                "systemd_services": {
+                    "type": "array",
+                    "items": {"type": "string", "minLength": 1},
+                },
+            },
+        },
     },
 }
 
