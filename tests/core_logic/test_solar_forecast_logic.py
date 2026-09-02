@@ -30,6 +30,22 @@ def test_aggregate_pv_to_hourly_averages_five_minute_samples():
     assert result == {"2026-01-01 12:00": 3.0, "2026-01-01 13:00": 1.0}
 
 
+def test_compute_actual_daily_kwh_sums_matching_day_only():
+    records = [
+        {"timestamp": "2026-01-01 12:00:00", "pv_power_kw": 2.0},
+        {"timestamp": "2026-01-01 13:00:00", "pv_power_kw": 1.0},
+        {"timestamp": "2026-01-02 12:00:00", "pv_power_kw": 5.0},
+    ]
+
+    assert compute_actual_daily_kwh(records, "2026-01-01") == pytest.approx(3.0)
+
+
+def test_compute_actual_daily_kwh_returns_none_when_no_data_for_date():
+    records = [{"timestamp": "2026-01-01 12:00:00", "pv_power_kw": 2.0}]
+
+    assert compute_actual_daily_kwh(records, "2026-01-02") is None
+
+
 def test_build_training_rows_joins_pv_and_weather_by_hour():
     pv_records = [{"timestamp": "2026-06-15 12:03:00", "pv_power_kw": 3.5}]
     weather_records = [
