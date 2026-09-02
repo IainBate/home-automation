@@ -86,7 +86,7 @@ def setup_rotating_logger(
     console_handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
-    root_logger.setLevel(min(level, _THIRD_PARTY_LOG_FLOOR))
+    root_logger.setLevel(_THIRD_PARTY_LOG_FLOOR)
     root_logger.addHandler(handler)
     root_logger.addHandler(console_handler)
 
