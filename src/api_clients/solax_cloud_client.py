@@ -208,7 +208,6 @@ def solax_cloud_get_daily_yield(
         url = f"{SOLAX_CLOUD_BASE_URL}{HISTORICAL_POWER_ENDPOINT}"
 
         payload = {
-            "tokenId": token_id,
             "sn": wifisn,
             "startDate": date_str,
             "endDate": date_str,
@@ -224,6 +223,7 @@ def solax_cloud_get_daily_yield(
         response = requests.post(
             url,
             json=payload,
+            headers={"tokenId": token_id},
             timeout=60,
         )
         response.raise_for_status()
