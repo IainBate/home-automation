@@ -400,6 +400,18 @@ CONFIG_SCHEMA = {
                 },
             },
         },
+        "daily_digest_check": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "log_lookback_days": {"type": "integer", "minimum": 1, "maximum": 30},
+                "min_occurrences": {"type": "integer", "minimum": 1},
+                "log_files": {
+                    "type": "array",
+                    "items": {"type": "string", "minLength": 1},
+                },
+            },
+        },
     },
 }
 
