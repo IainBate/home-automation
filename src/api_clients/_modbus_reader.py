@@ -41,6 +41,10 @@ INT16_UNSIGNED_OFFSET = 65536  # Offset for unsigned-to-signed conversion
 PV_POWER_REGISTER_COUNT = 2
 WORK_MODE_REGISTER_COUNT = 2
 GRID_TOTALS_REGISTER_COUNT = 2  # Grid import/export totals are 32-bit (2 registers)
+# Its own constant rather than borrowing PV_POWER_REGISTER_COUNT, which is
+# what the pre-refactor copy of this read did - they happen to share a value,
+# so changing either one would silently have broken the other.
+BATTERY_CAPACITY_REGISTER_COUNT = 2  # Battery capacity is 32-bit (2 registers)
 MASSIVE_BLOCK_EXPECTED_SIZE = 79
 
 # SoC validation constants
@@ -226,90 +230,20 @@ def _read_single_inverter_serial(
         Serial number string or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
     from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+        solax_modbus_client,
     )
 
-    max_retries = 4
+    def interpret(registers: list[int]) -> str | None:
+        serial_number = solax_modbus_client._format_serial_number(registers)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+        # "ERROR" is the formatter's way of saying the words didn't decode -
+        # worth another attempt rather than returning it to the caller.
+        return None if serial_number == "ERROR" else serial_number
 
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Serial number connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read serial number registers (0x0000, 7 registers) using Holding Registers
-                registers = solax_modbus_client._read_holding_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0000, 7, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "Serial number read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Format serial number using existing logic
-                    serial_number = solax_modbus_client._format_serial_number(registers)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    if serial_number == "ERROR":
-                        logger.warning(
-                            "Serial number format error on attempt %s/%s for %s",
-                            attempt + 1,
-                            max_retries,
-                            ip,
-                        )
-                    else:
-                        logger.debug(
-                            "Serial number from %s: %s on attempt %s",
-                            ip,
-                            serial_number,
-                            attempt + 1,
-                        )
-                        return serial_number
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Serial number error on attempt %s/%s for %s: %s",
-                attempt + 1,
-                max_retries,
-                ip,
-                e,
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after serial number attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection, read, OR format failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying serial number read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s serial number read attempts failed for %s", max_retries, ip)
-    return None
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Serial number", register=0x0000, count=7, interpret=interpret, holding=True,
+    )
 
 
 def _read_single_ac_power(
@@ -332,82 +266,11 @@ def _read_single_ac_power(
         AC power value in watts (signed integer) or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="AC power", register=0x0002, count=1,
+        interpret=lambda registers: _convert_uint16_to_int16(registers[0]),
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "AC power connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read AC power register (0x0002) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0002, 1, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "AC power read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Convert from unsigned to signed (int16)
-                    raw_value = registers[0]
-                    if raw_value > INT16_MAX_SIGNED:  # noqa: SIM108 - Explicit if-else improves readability over ternary
-                        signed_value = raw_value - INT16_UNSIGNED_OFFSET
-                    else:
-                        signed_value = raw_value
-
-                    logger.debug(
-                        "AC power from %s: %sW (raw: %s) on attempt %s",
-                        ip,
-                        signed_value,
-                        raw_value,
-                        attempt + 1,
-                    )
-                    return signed_value
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "AC power error on attempt %s/%s for %s: %s", attempt + 1, max_retries, ip, e
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after AC power attempt %s", ip, attempt + 1
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying AC power read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s AC power read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_battery_temperature(
@@ -431,88 +294,11 @@ def _read_single_battery_temperature(
         or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Battery temperature", register=0x0018, count=1,
+        interpret=lambda registers: _convert_uint16_to_int16(registers[0]),
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Battery temperature connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read battery temperature register (0x0018) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0018, 1, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "Battery temperature read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Convert from unsigned to signed (int16)
-                    raw_value = registers[0]
-                    if raw_value > INT16_MAX_SIGNED:  # noqa: SIM108 - Explicit if-else improves readability over ternary
-                        signed_value = raw_value - INT16_UNSIGNED_OFFSET
-                    else:
-                        signed_value = raw_value
-
-                    logger.debug(
-                        "Battery temperature from %s: %s°C (raw: %s) on attempt %s",
-                        ip,
-                        signed_value,
-                        raw_value,
-                        attempt + 1,
-                    )
-                    return signed_value
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Battery temperature error on attempt %s/%s for %s: %s",
-                attempt + 1,
-                max_retries,
-                ip,
-                e,
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after battery temperature attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying battery temperature read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s battery temperature read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_rtc_timestamp(
@@ -538,92 +324,18 @@ def _read_single_rtc_timestamp(
         Formatted timestamp string or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
     from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+        solax_modbus_client,
     )
 
-    max_retries = 4
+    def interpret(registers: list[int]) -> str | None:
+        timestamp = solax_modbus_client._format_rtc_timestamp(registers)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+        return None if timestamp == "ERROR" else timestamp
 
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "RTC timestamp connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read RTC registers (0x0085-0x008A = 6 registers) using Holding Registers
-                # CRITICAL: Must use Function Code 0x03, NOT 0x04 despite documentation
-                registers = solax_modbus_client._read_holding_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0085, 6, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "RTC timestamp read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Format timestamp using existing logic
-                    timestamp = solax_modbus_client._format_rtc_timestamp(registers)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    if timestamp == "ERROR":
-                        logger.warning(
-                            "RTC timestamp format error on attempt %s/%s for %s",
-                            attempt + 1,
-                            max_retries,
-                            ip,
-                        )
-                    else:
-                        logger.debug(
-                            "RTC timestamp from %s: %s (raw: %s) on attempt %s",
-                            ip,
-                            timestamp,
-                            registers,
-                            attempt + 1,
-                        )
-                        return timestamp
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "RTC timestamp error on attempt %s/%s for %s: %s",
-                attempt + 1,
-                max_retries,
-                ip,
-                e,
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after RTC timestamp attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection, read, OR format failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying RTC timestamp read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s RTC timestamp read attempts failed for %s", max_retries, ip)
-    return None
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="RTC timestamp", register=0x0085, count=6, interpret=interpret, holding=True,
+    )
 
 
 def _read_single_run_mode(
@@ -646,79 +358,15 @@ def _read_single_run_mode(
         Descriptive run mode string or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
     from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+        solax_modbus_client,
     )
 
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Run mode connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read run mode register (0x0009) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0009, 1, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "Run mode read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Get raw run mode value and convert to descriptive text
-                    raw_mode = registers[0]
-                    mode_text = solax_modbus_client._interpret_run_mode(raw_mode)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-
-                    logger.debug(
-                        "Run mode from %s: %s (raw: %s) on attempt %s",
-                        ip,
-                        mode_text,
-                        raw_mode,
-                        attempt + 1,
-                    )
-                    return mode_text
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Run mode error on attempt %s/%s for %s: %s", attempt + 1, max_retries, ip, e
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after run mode attempt %s", ip, attempt + 1
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying run mode read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s run mode read attempts failed for %s", max_retries, ip)
-    return None
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Run mode", register=0x0009, count=1,
+        interpret=lambda registers: solax_modbus_client._interpret_run_mode(registers[0]),  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
+    )
 
 
 # Helper functions for code reuse and reduced complexity
@@ -836,91 +484,14 @@ def _read_single_battery_power(
         Dictionary with power and mode or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    def interpret(registers: list[int]) -> dict[str, Any]:
+        signed_value = _convert_uint16_to_int16(registers[0])
+        return {"power": signed_value, "mode": _interpret_battery_mode_from_power(signed_value)}
+
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Battery power", register=0x0016, count=1, interpret=interpret,
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Battery power connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read battery power register (0x0016) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0016, 1, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "Battery power read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Convert from unsigned to signed (int16)
-                    raw_value = registers[0]
-                    signed_value = _convert_uint16_to_int16(raw_value)
-
-                    # Interpret battery mode from power value using helper
-                    mode = _interpret_battery_mode_from_power(signed_value)
-
-                    result = {"power": signed_value, "mode": mode}
-
-                    logger.debug(
-                        "Battery power from %s: %sW (%s) (raw: %s) on attempt %s",
-                        ip,
-                        signed_value,
-                        mode,
-                        raw_value,
-                        attempt + 1,
-                    )
-                    return result
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Battery power error on attempt %s/%s for %s: %s",
-                attempt + 1,
-                max_retries,
-                ip,
-                e,
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after battery power attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying battery power read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s battery power read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_grid_power(
@@ -961,85 +532,11 @@ def _read_single_grid_power(
         Grid power value in watts (signed integer) or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Grid power", register=0x0046, count=1,
+        interpret=lambda registers: _convert_uint16_to_int16(registers[0]),
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Grid power connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read grid power register (0x0046) using Input Registers (Function Code 0x04)
-                # Based on test results: FC 0x04 provides valid data, FC 0x03 returns 0
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0046, 1, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "Grid power read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Convert from unsigned to signed (int16)
-                    raw_value = registers[0]
-                    if raw_value > INT16_MAX_SIGNED:  # noqa: SIM108 - Explicit if-else improves readability over ternary
-                        signed_value = raw_value - INT16_UNSIGNED_OFFSET
-                    else:
-                        signed_value = raw_value
-
-                    logger.debug(
-                        "Grid power from %s: %sW (raw: %s) on attempt %s",
-                        ip,
-                        signed_value,
-                        raw_value,
-                        attempt + 1,
-                    )
-                    return signed_value
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Grid power error on attempt %s/%s for %s: %s", attempt + 1, max_retries, ip, e
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after grid power attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying grid power read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s grid power read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_soc(
@@ -1062,78 +559,17 @@ def _read_single_soc(
         SoC percentage (0-100) or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    def interpret(registers: list[int]) -> int | None:
+        soc_value = registers[0]
+        # Out of range means a garbled read, not a real battery state - returning
+        # None here retries rather than handing a nonsense SoC to the battery
+        # protection check in battery_mode_daemon.py.
+        return None if soc_value > SOC_MAX_PERCENT else soc_value
+
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="SoC", register=0x001C, count=1, interpret=interpret,
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "SoC connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read SoC register (0x001C) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x001C, 1, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "SoC read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Extract SoC value (uint16, 0-100%)
-                    soc_value = registers[0]
-
-                    # Validate range using existing logic
-                    if soc_value > SOC_MAX_PERCENT:
-                        logger.warning(
-                            "Invalid SoC value from %s: %s%% (expected 0-100%%) on attempt %s",
-                            ip,
-                            soc_value,
-                            attempt + 1,
-                        )
-                        # Continue to retry for invalid range
-                    else:
-                        logger.debug("SoC from %s: %s%% on attempt %s", ip, soc_value, attempt + 1)
-                        return soc_value
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning("SoC error on attempt %s/%s for %s: %s", attempt + 1, max_retries, ip, e)
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug("Connection to %s closed after SoC attempt %s", ip, attempt + 1)
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection, read, OR validation failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying SoC read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s SoC read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_pv_power(
@@ -1156,81 +592,11 @@ def _read_single_pv_power(
         Dictionary with PV1 and PV2 power values or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="PV power", register=0x000A, count=PV_POWER_REGISTER_COUNT,
+        interpret=lambda registers: {"pv1": registers[0], "pv2": registers[1]},
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "PV power connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read PV power registers (0x000A, 0x000B) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x000A, 2, slave_address
-                )
-                if not registers or len(registers) != PV_POWER_REGISTER_COUNT:
-                    logger.warning(
-                        "PV power read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Extract PV string power values (uint16, watts)
-                    pv1_power = registers[0]
-                    pv2_power = registers[1]
-
-                    result = {"pv1": pv1_power, "pv2": pv2_power}
-
-                    logger.debug(
-                        "PV power from %s: PV1=%sW, PV2=%sW on attempt %s",
-                        ip,
-                        pv1_power,
-                        pv2_power,
-                        attempt + 1,
-                    )
-                    return result
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "PV power error on attempt %s/%s for %s: %s", attempt + 1, max_retries, ip, e
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after PV power attempt %s", ip, attempt + 1
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying PV power read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s PV power read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_daily_yield(
@@ -1253,87 +619,12 @@ def _read_single_daily_yield(
         Daily yield in kWh or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Daily yield", register=0x0050, count=1,
+        # Reported in 0.1 kWh units.
+        interpret=lambda registers: registers[0] * 0.1,
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Daily yield connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read daily yield register (0x0050) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0050, 1, slave_address
-                )
-                if not registers:
-                    logger.warning(
-                        "Daily yield read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Extract daily yield value (uint16, 0.1kWh units)
-                    raw_yield = registers[0]
-
-                    # Convert from 0.1kWh units to kWh using existing logic
-                    yield_kwh = raw_yield * 0.1
-
-                    logger.debug(
-                        "Daily yield from %s: %.2f kWh (raw: %s) on attempt %s",
-                        ip,
-                        yield_kwh,
-                        raw_yield,
-                        attempt + 1,
-                    )
-                    return yield_kwh
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Daily yield error on attempt %s/%s for %s: %s",
-                attempt + 1,
-                max_retries,
-                ip,
-                e,
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after daily yield attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying daily yield read from %s in %s...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s daily yield read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_battery_capacity(
@@ -1352,104 +643,12 @@ def _read_single_battery_capacity(
         Battery capacity in kWh or None if error occurs
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Battery capacity", register=0x0026, count=BATTERY_CAPACITY_REGISTER_COUNT,
+        # uint32 across two registers (LSB first), in Wh.
+        interpret=lambda registers: (registers[0] + (registers[1] << 16)) / 1000.0,
     )
-
-    # Retry configuration: 4 total attempts (1 + 3 retries) with exponential backoff
-    retry_delays = [1.0, 1.5, 2.0, 3.0]  # seconds between retry attempts
-    max_attempts = len(retry_delays)
-
-    for attempt in range(max_attempts):
-        client = None
-
-        try:
-            # Connect to inverter
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                if attempt < max_attempts - 1:
-                    logger.warning(
-                        "Connection failed to %s (attempt %s/%s), retrying in %ss",
-                        ip,
-                        attempt + 1,
-                        max_attempts,
-                        retry_delays[attempt],
-                    )
-                    time.sleep(retry_delays[attempt])
-                else:
-                    logger.error("All connection attempts failed to %s", ip)
-                    return None
-            else:
-                # Wait minimum interval before reading
-                time.sleep(min_interval)
-
-                # Read battery capacity registers (0x0026-0x0027) using Input Registers (Function Code 0x04)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0026, 2, slave_address
-                )
-                if not registers or len(registers) != PV_POWER_REGISTER_COUNT:
-                    if attempt < max_attempts - 1:
-                        logger.warning(
-                            "Register read failed from %s (attempt %s/%s), retrying in %ss",
-                            ip,
-                            attempt + 1,
-                            max_attempts,
-                            retry_delays[attempt],
-                        )
-                        time.sleep(retry_delays[attempt])
-                    else:
-                        logger.error("All register read attempts failed from %s", ip)
-                        return None
-                else:
-                    # Extract LSB and MSB values
-                    lsb_value = registers[0]
-                    msb_value = registers[1]
-
-                    # Combine into uint32 (Wh)
-                    capacity_wh = lsb_value + (msb_value << 16)
-
-                    # Convert to kWh
-                    capacity_kwh = capacity_wh / 1000.0
-
-                    logger.debug(
-                        "Battery capacity from %s: %.2f kWh (raw: LSB=%s, MSB=%s, combined=%sWh)",
-                        ip,
-                        capacity_kwh,
-                        lsb_value,
-                        msb_value,
-                        capacity_wh,
-                    )
-                    return capacity_kwh
-
-        except (  # pylint: disable=broad-exception-caught  # Hardware can fail unpredictably
-            Exception
-        ) as e:
-            if attempt < max_attempts - 1:
-                logger.warning(
-                    "Error reading battery capacity from %s (attempt %s/%s): %s, retrying in %ss",
-                    ip,
-                    attempt + 1,
-                    max_attempts,
-                    e,
-                    retry_delays[attempt],
-                )
-                time.sleep(retry_delays[attempt])
-            else:
-                logger.exception("All attempts failed reading battery capacity from %s", ip)
-                return None
-
-        finally:
-            # Always close connection
-            if client:
-                try:
-                    client.close()
-                    logger.debug("Connection to %s closed", ip)
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-    # This should never be reached due to explicit returns above
-    return None  # pragma: no cover  # pragma: no cover  # pragma: no cover  # pragma: no cover
 
 
 def _read_single_grid_export_total(
@@ -1476,92 +675,12 @@ def _read_single_grid_export_total(
         Grid export total in kWh or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Grid export total", register=0x0048, count=GRID_TOTALS_REGISTER_COUNT,
+        # uint32 across two registers (LSB first), in 0.01 kWh units.
+        interpret=lambda registers: ((registers[1] << 16) | registers[0]) * 0.01,
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Grid export total connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read grid export registers (0x0048-0x0049) using Input Registers (Function Code 0x04)
-                # uint32 stored across two registers: 0x0048 (LSB) and 0x0049 (MSB)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x0048, GRID_TOTALS_REGISTER_COUNT, slave_address
-                )
-                if not registers or len(registers) != GRID_TOTALS_REGISTER_COUNT:
-                    logger.warning(
-                        "Grid export total read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Combine uint32 from two uint16 registers: value = (MSB << 16) | LSB
-                    lsb = registers[0]
-                    msb = registers[1]
-                    raw_value = (msb << 16) | lsb
-
-                    # Convert from 0.01kWh units to kWh
-                    export_kwh = raw_value * 0.01
-
-                    logger.debug(
-                        "Grid export total from %s: %.2f kWh (raw: %s, LSB: %s, MSB: %s) on attempt %s",
-                        ip,
-                        export_kwh,
-                        raw_value,
-                        lsb,
-                        msb,
-                        attempt + 1,
-                    )
-                    return export_kwh
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Grid export total error on attempt %s/%s for %s: %s",
-                attempt + 1,
-                max_retries,
-                ip,
-                e,
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after grid export total attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying grid export total read from %s in %ss...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s grid export total read attempts failed for %s", max_retries, ip)
-    return None
 
 
 def _read_single_grid_import_total(
@@ -1588,92 +707,12 @@ def _read_single_grid_import_total(
         Grid import total in kWh or None if all attempts fail
 
     """
-    # Import functions from main module for test compatibility
-    from . import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-        solax_modbus_client,  # pylint: disable=import-outside-toplevel
+    return _read_register_with_retry(
+        ip, port, timeout, slave_address, min_interval,
+        label="Grid import total", register=0x004A, count=GRID_TOTALS_REGISTER_COUNT,
+        # uint32 across two registers (LSB first), in 0.01 kWh units.
+        interpret=lambda registers: ((registers[1] << 16) | registers[0]) * 0.01,
     )
-
-    max_retries = 4
-
-    for attempt in range(max_retries):
-        client = None
-
-        try:
-            # Connect to inverter (new connection each attempt)
-            client = solax_modbus_client._connect_modbus_client(ip, port, timeout)  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-            if not client:
-                logger.warning(
-                    "Grid import total connection failed on attempt %s/%s to %s",
-                    attempt + 1,
-                    max_retries,
-                    ip,
-                )
-            else:
-                # Connection successful, try the read
-                time.sleep(min_interval)
-
-                # Read grid import registers (0x004A-0x004B) using Input Registers (Function Code 0x04)
-                # uint32 stored across two registers: 0x004A (LSB) and 0x004B (MSB)
-                registers = solax_modbus_client._read_input_registers(  # noqa: SLF001  # pylint: disable=protected-access  # Internal package API
-                    client, 0x004A, GRID_TOTALS_REGISTER_COUNT, slave_address
-                )
-                if not registers or len(registers) != GRID_TOTALS_REGISTER_COUNT:
-                    logger.warning(
-                        "Grid import total read failed on attempt %s/%s for %s",
-                        attempt + 1,
-                        max_retries,
-                        ip,
-                    )
-                else:
-                    # Success! Combine uint32 from two uint16 registers: value = (MSB << 16) | LSB
-                    lsb = registers[0]
-                    msb = registers[1]
-                    raw_value = (msb << 16) | lsb
-
-                    # Convert from 0.01kWh units to kWh
-                    import_kwh = raw_value * 0.01
-
-                    logger.debug(
-                        "Grid import total from %s: %.2f kWh (raw: %s, LSB: %s, MSB: %s) on attempt %s",
-                        ip,
-                        import_kwh,
-                        raw_value,
-                        lsb,
-                        msb,
-                        attempt + 1,
-                    )
-                    return import_kwh
-
-        except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "Grid import total error on attempt %s/%s for %s: %s",
-                attempt + 1,
-                max_retries,
-                ip,
-                e,
-            )
-
-        finally:
-            # Always close connection (connect → read → close → retry pattern)
-            if client:
-                try:
-                    client.close()
-                    logger.debug(
-                        "Connection to %s closed after grid import total attempt %s",
-                        ip,
-                        attempt + 1,
-                    )
-                except Exception as e:  # noqa: BLE001  # Hardware can fail unpredictably  # pylint: disable=broad-exception-caught
-                    logger.warning("Error closing connection to %s: %s", ip, e)
-
-        # Retry timing logic - ALWAYS executed for failed attempts (connection OR read failures)
-        if attempt < max_retries - 1:
-            retry_delay = [1.0, 1.5, 2.0, 3.0][attempt]  # 1.0s, 1.5s, 2.0s, 3.0s
-            logger.debug("Retrying grid import total read from %s in %ss...", ip, retry_delay)
-            time.sleep(retry_delay)
-
-    logger.error("All %s grid import total read attempts failed for %s", max_retries, ip)
-    return None
 
 
 # Bulk reading functions and data extraction
