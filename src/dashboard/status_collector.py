@@ -35,6 +35,7 @@ from src.api_clients.ohme_ev_client import (
     OhmeConnectionError,
     OhmeEVClient,
 )
+from src.api_clients.ohme_status_cache import read_fresh_status
 from src.api_clients.resideo_client import fetch_resideo_status
 from src.api_clients.solax_modbus_client import solax_modbus_bulk_data
 from src.core_logic.battery_simulation.constants_and_models import (
