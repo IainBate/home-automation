@@ -468,6 +468,12 @@ def _collect_service_health() -> dict[str, Any]:
 def _check_one_service(service: dict[str, str], state: tuple[str | None, str | None]) -> dict[str, Any]:
     load_state, active_state = state
     installed = load_state == "loaded"
+    active = active_state == "active" if installed else False
+    # "disabled" covers both "not installed" and "installed but stopped/
+    # failed" - callers only need the three-state health_status, not a
+    # separate not-deployed-vs-stopped distinction (active_state carries
+    # that detail already for anyone who wants it).
+    health_status = "disabled" if not active else _check_log_health(service["log_filename"])
     return {
         "key": service["key"],
         "label": service["label"],
@@ -475,6 +481,7 @@ def _check_one_service(service: dict[str, str], state: tuple[str | None, str | N
         "active": active_state == "active" if installed else None,
         "active_state": active_state if installed else None,
         "log_age_seconds": _log_file_age_seconds(service["log_filename"]) if installed else None,
+        "health_status": health_status,
     }
 
 
