@@ -24,6 +24,15 @@ from typing import Any, Callable
 DEFAULT_FAST_POLL_INTERVAL_SECONDS = 30.0
 
 
+# Effective level floor for every OTHER logger in the process (src.api_clients.*
+# and friends - see setup_rotating_logger()'s docstring) that doesn't set its
+# own level. Matches logging's built-in root default (WARNING) exactly, so
+# this is purely additive - the same records that already reached stderr via
+# Python's "no handler found" last-resort fallback now also land in the
+# daemon's own log file, with no new chatter from third-party DEBUG/INFO.
+_THIRD_PARTY_LOG_FLOOR = logging.WARNING
+
+
 def setup_rotating_logger(
     logger_name: str, log_filename: str, *, level: int = logging.INFO
 ) -> logging.Logger:
@@ -34,11 +43,28 @@ def setup_rotating_logger(
     battery_mode_daemon.py and hotwater_mode_daemon.py so the two can't drift
     apart (different retention, different format, etc.) by accident.
 
+    The handlers are attached to the ROOT logger, not the named one this
+    returns - every module this daemon calls into (src.api_clients.*, the
+    ohme/melcloud clients, ...) logs via `logging.getLogger(__name__)`, a
+    completely separate logger with no ancestor relationship to
+    "battery_mode_daemon"/"hotwater_mode_daemon". Those modules' own
+    WARNING+/ERROR+/CRITICAL calls (e.g. _modbus_reader's "Error reading work
+    mode..." on a dropped Modbus connection) would otherwise never reach this
+    file - discovered when the dashboard's Service Health "unhealthy" check
+    (status_collector.py's _check_log_health) turned out unable to see a real,
+    recurring hardware issue because it was invisible to this file. Attaching
+    to root instead of the named logger means every logger in the process
+    propagates into the same file/console handlers exactly once - the named
+    logger keeps its own explicit level (via _apply_logging_level()) and gets
+    no handlers of its own, so its records aren't double-written.
+
     Args:
         logger_name: Name passed to logging.getLogger().
         log_filename: Bare filename under logs/ (e.g. "battery_mode_daemon.log").
-        level: Logger level - the file/console handlers have no level of
-            their own, so this is the effective floor.
+        level: Logger level - this daemon's own effective floor. Root's floor
+            is fixed at _THIRD_PARTY_LOG_FLOOR regardless of this, so a more
+            verbose `level` (e.g. DEBUG for local troubleshooting) doesn't
+            also open the floodgates to every dependency's DEBUG/INFO output.
 
     """
     logger = logging.getLogger(logger_name)
@@ -55,11 +81,14 @@ def setup_rotating_logger(
     )
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(min(level, _THIRD_PARTY_LOG_FLOOR))
+    root_logger.addHandler(handler)
+    root_logger.addHandler(console_handler)
 
     return logger
 
