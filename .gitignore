@@ -18,6 +18,7 @@ logs/
 
 # Runtime data (generated at runtime)
 config/ohme_status.json
+config/melcloud_token.json
 config/solax_mode_change_log.json
 data/battery_mode_daemon_log.json
 config/solar_forecast.json
