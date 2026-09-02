@@ -376,17 +376,18 @@ CONFIG_SCHEMA = {
             "type": "object",
             "properties": {
                 "enabled": {"type": "boolean"},
-                "smtp_host": {"type": "string", "minLength": 1},
-                "smtp_port": {"type": "integer", "minimum": 1, "maximum": 65535},
-                "username": {"type": "string", "minLength": 1},
-                "password": {"type": "string", "minLength": 1},
                 "to_address": {"type": "string", "minLength": 1},
+                "from_address": {"type": "string", "minLength": 1},
+                "msmtp_account": {"type": "string", "minLength": 1},
+                "msmtp_binary": {"type": "string", "minLength": 1},
                 "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 60},
             },
-            # username/password/to_address only need to be non-empty when
-            # enabled: true - matches every other optional integration here.
+            # Sent via msmtp (src/utils/emailer.py) - it owns its own
+            # credentials (~/.msmtprc), so no username/password lives here.
+            # to_address only needs to be non-empty when enabled: true -
+            # matches every other optional integration here.
             "if": {"properties": {"enabled": {"const": True}}, "required": ["enabled"]},
-            "then": {"required": ["username", "password", "to_address"]},
+            "then": {"required": ["to_address"]},
         },
         "weekly_health_check": {
             "type": "object",
