@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # pylint: disable=wrong-import-position  # Imports after sys.path modification for src access
-"""Holiday Mode - pause ASHP hot water force-heating for N days (one-shot CLI).
+"""Hot Water Automation Holiday Pause - N days, no ASHP force-heat (one-shot CLI).
+
+NOT the same as MELCloud's own native "Holiday Mode" device setting (see
+src/api_clients/melcloud_client.py's holiday_mode field, surfaced by
+scripts/melcloud_hotwater_control.py --status as "Holiday Mode: ON/OFF") -
+that's a setting on the physical unit itself, which this project only ever
+reads, never sets. This is a separate, software-side pause of *this
+project's own* force-heat automation, deliberately labelled "automation
+holiday" everywhere it's printed to avoid the two being confused.
 
 "For N days, don't force-heat the hot water tank via the ASHP" - a single
 command that stamps a holiday.until timestamp into the same state file
@@ -12,9 +20,14 @@ hotwater_auto_check.py run) - no daemon restart needed.
 
 Overrides every force-heat trigger (car charging, battery surplus, off-peak
 grid) for the duration - see src/core_logic/hotwater_decision_logic.py's
-HotWaterDecisionContext.holiday_mode_active. An already-in-progress force-heat
-window when holiday mode starts is deliberately left to finish/time out
-normally via the existing revert check (bounded by
+HotWaterDecisionContext.holiday_mode_active. This also means a legionella
+high-temperature cycle (see hotwater_automation_core.py's module docstring)
+is silently deferred for the whole holiday if it falls due during it, since
+that cycle rides on the exact same force-heat trigger - there is no separate
+schedule for it, so pausing force-heat pauses it too. It will simply run at
+the next opportunity after the holiday ends. An already-in-progress
+force-heat window when holiday mode starts is deliberately left to
+finish/time out normally via the existing revert check (bounded by
 force_heat_max_duration_hours, a few hours by default) rather than being
 force-interrupted - simpler and no less safe, since it can only overlap the
 first day of a holiday.
@@ -33,7 +46,7 @@ nothing.
 Usage:
     python3 scripts/holiday_mode.py --start-days 7   # pause hot water force-heat for 7 days
     python3 scripts/holiday_mode.py --cancel         # resume normal automation immediately
-    python3 scripts/holiday_mode.py --status         # show whether holiday mode is active
+    python3 scripts/holiday_mode.py --status         # show whether the pause is active
 """
 
 from __future__ import annotations
@@ -48,6 +61,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytz
 from hotwater_automation_core import (
+    DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS,
     get_config_path,
     get_holiday_until,
     is_holiday_active,
@@ -58,6 +72,16 @@ from hotwater_automation_core import (
 from src.config_manager.config_manager import load_static_config
 
 DEFAULT_TIMEZONE = "Europe/London"
+
+# start_holiday()/cancel_holiday() can run concurrently with
+# hotwater_mode_daemon.py or a cron-triggered hotwater_auto_check.py, which
+# hold this same state-file lock across their whole MELCloud
+# request-then-verify retry loop - up to DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS
+# (~120s worst case, see hotwater_automation_core.py). Waiting the same
+# worst-case-plus-margin here (rather than locked_state()'s own 10s default)
+# means a routine force-heat/revert check in progress doesn't make this CLI
+# fail with a raw TimeoutError under normal, expected timing.
+HOLIDAY_STATE_LOCK_TIMEOUT_SECONDS = DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS + 30.0
 
 
 def _format_local(when: datetime, tz_name: str) -> str:
