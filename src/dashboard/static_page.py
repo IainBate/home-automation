@@ -323,14 +323,22 @@ function resideoCard(d) {
 function solarForecastCard(d) {
   if (!d.available) return unavailableCard("Solar Forecast", d.error, d.disabled);
   const w = d.current_weather;
+  const hasYesterday = d.yesterday_actual_kwh !== null && d.yesterday_actual_kwh !== undefined;
+  const yesterdayDelta = hasYesterday && d.yesterday_error_kwh !== null && d.yesterday_error_kwh !== undefined
+    ? `<span class="delta">(${fmtSignedKwh(d.yesterday_error_kwh)} vs forecast)</span>`
+    : "";
   const body = `
+    ${hasYesterday ? `<div class="row"><span class="label">Yesterday</span><span class="value">${d.yesterday_actual_kwh.toFixed(1)} kWh${yesterdayDelta}</span></div>` : ""}
     <div class="row"><span class="label">Today</span><span class="value">${d.today_kwh !== null && d.today_kwh !== undefined ? d.today_kwh.toFixed(1) + " kWh" : "&mdash;"}</span></div>
     <div class="row"><span class="label">Tomorrow</span><span class="value">${d.tomorrow_kwh !== null && d.tomorrow_kwh !== undefined ? d.tomorrow_kwh.toFixed(1) + " kWh" : "&mdash;"}</span></div>
     ${w ? `<div class="row"><span class="label">Right now</span><span class="value">${escapeHtml(w.description)}, ${fmtTemp(w.temperature_c)}</span></div>` : ""}
   `;
-  const details = d.model_trained_at
-    ? `<div class="row"><span class="label">Model last trained</span><span class="value">${escapeHtml(d.model_trained_at)}</span></div>`
+  const yesterdayForecastRow = d.yesterday_forecast_kwh !== null && d.yesterday_forecast_kwh !== undefined
+    ? `<div class="row"><span class="label">Yesterday's forecast</span><span class="value">${d.yesterday_forecast_kwh.toFixed(1)} kWh</span></div>`
     : "";
+  const details = yesterdayForecastRow + (d.model_trained_at
+    ? `<div class="row"><span class="label">Model last trained</span><span class="value">${escapeHtml(d.model_trained_at)}</span></div>`
+    : "");
   return card("Solar Forecast", body, details);
 }
 
