@@ -140,6 +140,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
     now_local = datetime.now(tz=UTC).astimezone(pytz.timezone(timezone_name))
     today_str = now_local.strftime("%Y-%m-%d")
     tomorrow_str = (now_local + timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_str = (now_local - timedelta(days=1)).strftime("%Y-%m-%d")
 
     hourly = [
         {"timestamp": row["timestamp"], "predicted_kw": round(kw, 3)}
