@@ -466,6 +466,32 @@ def test_systemctl_show_batch_parses_multi_unit_output_by_property_name():
     }
 
 
+def test_collect_service_health_reports_unhealthy_for_active_daemon_with_repeated_errors(tmp_path):
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    lines = _log_line(now, "ERROR", "Failed to check Ohme status") * 0 + (
+        _log_line(now, "ERROR", "Failed to check Ohme status") + "\n"
+        + _log_line(now, "ERROR", "Failed to check Ohme status") + "\n"
+    )
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+
+    fake_states = {
+        "home_automation.service": ("loaded", "active"),
+        "home_automation_dashboard.service": ("loaded", "active"),
+        "home_automation_hotwater.service": ("not-found", "inactive"),
+    }
+
+    with (
+        mock.patch.object(status_collector.shutil, "which", return_value="/usr/bin/systemctl"),
+        mock.patch.object(status_collector, "_systemctl_show_batch", return_value=fake_states),
+        mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)),
+    ):
+        result = status_collector._collect_service_health()
+
+    by_key = {s["key"]: s for s in result["services"]}
+    assert by_key["battery_daemon"]["health_status"] == "unhealthy"
+
+
 def test_collect_service_health_survives_an_unexpected_error():
     """Circuit Breaker: an unexpected exception here must not blank the whole snapshot."""
     with (
