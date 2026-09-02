@@ -129,6 +129,8 @@ elif [ -d "$BACKUP_DIR" ] && [ -f "$BACKUP_DIR/secrets.yaml" ]; then
     echo "  Restored."
 elif [ -f "secrets.yaml.enc" ]; then
     echo "  secrets.yaml not found, but secrets.yaml.enc (encrypted git backup) is present."
+    echo "  Recovery hint: the passphrase is this Pi's own login password (unless a"
+    echo "  different one was set - see scripts/decrypt_secrets.sh for details)."
     read -p "  Decrypt it now? [y/N] " decrypt_confirm
     if [ "$decrypt_confirm" = "y" ] || [ "$decrypt_confirm" = "Y" ]; then
         bash scripts/decrypt_secrets.sh
