@@ -290,7 +290,18 @@ def test_collect_solar_forecast_disabled():
 
 def test_collect_solar_forecast_reads_cached_file(tmp_path):
     forecast_path = tmp_path / "solar_forecast.json"
-    forecast_path.write_text(json.dumps({"today_kwh": 12.3, "tomorrow_kwh": 8.1}), encoding="utf-8")
+    forecast_path.write_text(
+        json.dumps(
+            {
+                "today_kwh": 12.3,
+                "tomorrow_kwh": 8.1,
+                "yesterday_forecast_kwh": 38.0,
+                "yesterday_actual_kwh": 40.0,
+                "yesterday_error_kwh": 2.0,
+            }
+        ),
+        encoding="utf-8",
+    )
 
     with mock.patch.object(status_collector, "get_solar_forecast_path", lambda: str(forecast_path)):
         result = status_collector._collect_solar_forecast({"solar_forecast": {"enabled": True}})
@@ -299,6 +310,9 @@ def test_collect_solar_forecast_reads_cached_file(tmp_path):
         "available": True,
         "today_kwh": 12.3,
         "tomorrow_kwh": 8.1,
+        "yesterday_forecast_kwh": 38.0,
+        "yesterday_actual_kwh": 40.0,
+        "yesterday_error_kwh": 2.0,
         "current_weather": None,
         "generated_at": None,
         "model_trained_at": None,
