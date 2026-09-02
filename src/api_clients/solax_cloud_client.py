@@ -431,6 +431,46 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def merge_realtime_snapshot(existing_record: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Append one solax_cloud_get_realtime_snapshot() reading to a historical record.
+
+    Pure/no I/O, so scripts/solax_realtime_logger.py's own read-transform-
+    write is easy to test without mocking the filesystem. A duplicate
+    timestamp (the device only updates every few minutes; a cron poll can
+    land between updates and see the same uploadTime twice) is a no-op
+    rather than a second identical row - existing_record is returned
+    unchanged, not a copy with a repeated entry.
+
+    Args:
+        existing_record: Current data/solax_historical_data.json contents
+            (or {} for a fresh file) - {"meta": {...}, "data": [...]}.
+        snapshot: One solax_cloud_get_realtime_snapshot() return value.
+
+    Returns:
+        The updated record, with "meta" (last_updated/data_points/
+        date_range) recomputed to match "data".
+
+    """
+    data = list(existing_record.get("data", []))
+    if data and data[-1].get("timestamp") == snapshot["timestamp"]:
+        return existing_record
+
+    data.append(snapshot)
+    data.sort(key=lambda entry: entry.get("timestamp", ""))
+
+    return {
+        "meta": {
+            "last_updated": datetime.now(UTC).isoformat(),
+            "data_points": len(data),
+            "date_range": {
+                "start": data[0]["timestamp"].split()[0],
+                "end": data[-1]["timestamp"].split()[0],
+            },
+        },
+        "data": data,
+    }
+
+
 # =============================================================================
 # Incremental Data Logger
 # =============================================================================
