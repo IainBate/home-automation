@@ -47,6 +47,11 @@ from pymelcloud.atw_device import (
 from pymelcloud.const import DEVICE_TYPE_ATW
 from pymelcloud.device import PROPERTY_POWER
 
+from src.api_clients.melcloud_token_cache import (
+    clear_cached_token,
+    read_cached_token,
+    write_cached_token,
+)
 from src.config_manager.config_manager import load_static_config
 
 if TYPE_CHECKING:
