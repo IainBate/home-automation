@@ -602,10 +602,13 @@ async def _run_force_heat_check_locked(
         )
         decision = determine_hotwater_decision(context)
 
+        decision_basis = "live" if car_is_charging else "6pm snapshot"
         logger.info(
-            "Tank: %sC | Car charging: %s | Battery SoC: %s%% (%s) | Off-peak: %s | "
-            "Decision: %s (%s)",
+            "Tank: %sC live (%sC %s) | Car charging: %s | Battery SoC: %s%% (%s) | "
+            "Off-peak: %s | Decision: %s (%s)",
             tank_temperature,
+            decision_tank_temperature,
+            decision_basis,
             car_is_charging,
             battery_soc,
             battery_soc_source,
@@ -615,8 +618,9 @@ async def _run_force_heat_check_locked(
         )
         if not quiet:
             print(
-                f"Tank: {tank_temperature}C | Car charging: {car_is_charging} | "
-                f"Battery SoC: {battery_soc}% ({battery_soc_source}) | Off-peak: {grid_is_cheap}"
+                f"Tank: {tank_temperature}C live ({decision_tank_temperature}C {decision_basis}) "
+                f"| Car charging: {car_is_charging} | Battery SoC: {battery_soc}% "
+                f"({battery_soc_source}) | Off-peak: {grid_is_cheap}"
             )
             print(
                 f"Decision: {'FORCE HEAT' if decision.should_force_heat else 'no action'} "
