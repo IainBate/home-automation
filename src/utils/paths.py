@@ -89,6 +89,20 @@ def get_solax_historical_data_path() -> str:
     return str(Path(get_data_dir()) / "solax_historical_data.json")
 
 
+def get_solax_cloud_daily_history_path() -> str:
+    """Get absolute path to the bundled SolaX Cloud daily-generation seed dataset.
+
+    Static, checked into git (data/solax_cloud_daily_history.csv) - manually
+    collected from the SolaX Cloud web portal for 2025-09-01..2026-08-31,
+    after get_solax_historical_data_path()'s file was found to be synthetic
+    for that whole period (see ml_forecast_eval/RESULTS.md). Read-only;
+    scripts/solar_forecast_trainer.py merges it with newly-accumulating real
+    data via solar_forecast_logic.merge_daily_pv_history() rather than
+    editing this file further.
+    """
+    return str(Path(get_data_dir()) / "solax_cloud_daily_history.csv")
+
+
 def get_battery_evening_prediction_path() -> str:
     """Get absolute path to the battery evening SoC prediction status file.
 
