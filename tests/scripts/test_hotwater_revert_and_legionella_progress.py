@@ -79,7 +79,7 @@ def test_revert_check_no_active_window_is_a_noop(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_revert_check({}, dry_run=False, quiet=True), state_path, client
+        lambda: core.run_revert_check({}, {}, dry_run=False, quiet=True), state_path, client
     )
 
     assert exit_code == 0
@@ -98,7 +98,7 @@ def test_revert_check_defers_when_legionella_in_progress(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_revert_check({}, dry_run=False, quiet=True), state_path, client
+        lambda: core.run_revert_check({}, {}, dry_run=False, quiet=True), state_path, client
     )
 
     assert exit_code == 0
@@ -113,7 +113,7 @@ def test_revert_check_reverts_when_tank_reached_target(tmp_path):
     client = FakeMelCloudClient(tank_temp=50.0, target_temp=45.0)  # reached
 
     exit_code, final_state = _run(
-        lambda: core.run_revert_check({}, dry_run=False, quiet=True), state_path, client
+        lambda: core.run_revert_check({}, {}, dry_run=False, quiet=True), state_path, client
     )
 
     assert exit_code == 0
@@ -128,7 +128,7 @@ def test_revert_check_leaves_window_open_while_still_heating(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)  # not reached, not timed out
 
     exit_code, final_state = _run(
-        lambda: core.run_revert_check(
+        lambda: core.run_revert_check({}, 
             {"force_heat_max_duration_hours": 3.0}, dry_run=False, quiet=True
         ),
         state_path,
@@ -146,7 +146,7 @@ def test_revert_check_reverts_anyway_once_timed_out(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)  # never reached
 
     exit_code, final_state = _run(
-        lambda: core.run_revert_check(
+        lambda: core.run_revert_check({}, 
             {"force_heat_max_duration_hours": 3.0}, dry_run=False, quiet=True
         ),
         state_path,
@@ -163,7 +163,7 @@ def test_revert_check_clears_malformed_timestamp(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_revert_check({}, dry_run=False, quiet=True), state_path, client
+        lambda: core.run_revert_check({}, {}, dry_run=False, quiet=True), state_path, client
     )
 
     assert exit_code == 1
@@ -179,7 +179,7 @@ def test_legionella_progress_no_cycle_is_a_noop(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_progress_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_progress_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -194,7 +194,7 @@ def test_legionella_progress_clears_on_missing_fields(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_progress_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_progress_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -222,7 +222,7 @@ def test_legionella_progress_clears_on_malformed_timestamp(tmp_path):
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_progress_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_progress_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -249,7 +249,7 @@ def test_legionella_progress_reverts_when_target_reached(tmp_path):
     client = FakeMelCloudClient(tank_temp=61.0, target_temp=60.0)  # reached
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_progress_check(
+        lambda: core.run_legionella_progress_check({}, 
             {"legionella_max_cycle_duration_hours": 6.0}, dry_run=False, quiet=True
         ),
         state_path,
@@ -287,7 +287,7 @@ def test_legionella_progress_times_out_without_marking_completed(tmp_path):
     client = FakeMelCloudClient(tank_temp=40.0, target_temp=60.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_progress_check(
+        lambda: core.run_legionella_progress_check({}, 
             {"legionella_max_cycle_duration_hours": 6.0}, dry_run=False, quiet=True
         ),
         state_path,
@@ -323,7 +323,7 @@ def test_legionella_progress_reverts_at_the_natural_completion_temp_even_below_t
     client = FakeMelCloudClient(tank_temp=56.0, target_temp=60.0)  # >= 55C, < 60C requested
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_progress_check(
+        lambda: core.run_legionella_progress_check({}, 
             {"legionella_max_cycle_duration_hours": 6.0}, dry_run=False, quiet=True
         ),
         state_path,
@@ -353,7 +353,7 @@ def test_legionella_progress_natural_completion_temp_is_configurable(tmp_path):
     client = FakeMelCloudClient(tank_temp=52.0, target_temp=60.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_progress_check(
+        lambda: core.run_legionella_progress_check({}, 
             {"legionella_max_cycle_duration_hours": 6.0, "legionella_natural_completion_temp_c": 50.0},
             dry_run=False,
             quiet=True,
@@ -511,6 +511,6 @@ def test_revert_and_legionella_progress_hold_a_single_lock_for_the_whole_call(tm
     with mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)), \
          mock.patch.object(core, "locked_state", counting_locked_state), \
          mock.patch.object(core, "MelCloudClient", lambda config_path=None: client):
-        asyncio.run(core.run_revert_check({}, dry_run=False, quiet=True))
+        asyncio.run(core.run_revert_check({}, {}, dry_run=False, quiet=True))
 
     assert lock_call_count["n"] == 1

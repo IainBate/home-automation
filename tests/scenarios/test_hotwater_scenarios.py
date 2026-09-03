@@ -149,7 +149,9 @@ async def _revert(env, melcloud, *, at):
     with aioresponses() as mocked:
         melcloud.register(mocked)
         with _at(at):
-            return await core.run_revert_check(env["hw_config"], dry_run=False, quiet=True)
+            return await core.run_revert_check(
+                env["config"], env["hw_config"], dry_run=False, quiet=True
+            )
 
 
 async def _legionella_progress(env, melcloud, *, at):
@@ -157,7 +159,7 @@ async def _legionella_progress(env, melcloud, *, at):
         melcloud.register(mocked)
         with _at(at):
             return await core.run_legionella_progress_check(
-                env["hw_config"], dry_run=False, quiet=True
+                env["config"], env["hw_config"], dry_run=False, quiet=True
             )
 
 
