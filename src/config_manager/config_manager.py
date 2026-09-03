@@ -302,6 +302,12 @@ CONFIG_SCHEMA = {
                     "minimum": 1,
                     "maximum": 24,
                 },
+                "legionella_check_hour": {"type": "number", "minimum": 0, "maximum": 23.99},
+                "legionella_natural_completion_temp_c": {
+                    "type": "number",
+                    "minimum": 45,
+                    "maximum": 65,
+                },
                 "max_prediction_age_hours": {
                     "type": "number",
                     "minimum": 0.5,
