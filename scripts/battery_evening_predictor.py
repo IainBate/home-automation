@@ -111,24 +111,6 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def load_historical_records() -> list[dict[str, Any]] | None:
-    """Load the "data" list from solax_historical_data.json, or None on failure."""
-    path = Path(get_solax_historical_data_path())
-    if not path.exists():
-        logger.error(
-            "Historical data file not found at %s - run scripts/solax_cloud_data_logger.py "
-            "first",
-            path,
-        )
-        return None
-    try:
-        content = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        logger.exception("Failed to read/parse historical data file at %s", path)
-        return None
-    return content.get("data", [])
-
-
 def write_prediction(prediction_record: dict[str, Any]) -> None:
     """Write the prediction status file atomically (same pattern as hotwater state)."""
     path = Path(get_battery_evening_prediction_path())
