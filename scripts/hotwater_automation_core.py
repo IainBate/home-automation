@@ -111,6 +111,16 @@ DEFAULT_TIMEZONE = "Europe/London"
 DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
 DEFAULT_LEGIONELLA_TARGET_TEMP_C = 60.0
 DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 6.0
+# The tank's below-threshold state is snapshotted once a day at this hour to
+# decide whether a legionella cycle is due - see
+# _update_legionella_eligibility_snapshot's docstring for why this is
+# decoupled from whenever the force-heat trigger itself actually fires.
+DEFAULT_LEGIONELLA_CHECK_HOUR = 18.0
+# A tank reading at/above this, at any time and regardless of what put the
+# heat there (the ASHP, an immersion, or an off-grid solar diverter this
+# project can't otherwise see), counts as satisfying the current legionella
+# interval - see run_legionella_natural_completion_check's docstring.
+DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C = 55.0
 DEFAULT_MAX_PREDICTION_AGE_HOURS = 3.0
 # How long run_force_heat_check will wait to acquire the state file lock
 # before giving up. It holds the lock across its whole MELCloud
