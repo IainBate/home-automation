@@ -307,6 +307,7 @@ CONFIG_SCHEMA = {
                     "minimum": 1,
                     "maximum": 24,
                 },
+                "legionella_due_warning_days": {"type": "integer", "minimum": 1, "maximum": 30},
                 "daily_check_hour": {"type": "number", "minimum": 0, "maximum": 23.99},
                 "legionella_natural_completion_temp_c": {
                     "type": "number",
@@ -317,6 +318,21 @@ CONFIG_SCHEMA = {
                     "type": "number",
                     "minimum": 0.5,
                     "maximum": 24,
+                },
+                "battery_prediction_window_start_hour": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 23.99,
+                },
+                "battery_prediction_deadline_hour": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 23.99,
+                },
+                "battery_prediction_min_sample_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 60,
                 },
             },
         },
