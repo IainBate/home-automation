@@ -166,13 +166,33 @@ hotwater_automation:
                                             # ohme_charging_threshold_watts - kept as a separate value
                                             # here since this lives in config.yaml, not that JSON file.
   tank_temp_threshold_c: 45                # Force-heat only if the tank is below this
-  battery_soc_min_percent: 50              # Battery counts as having surplus if SoC >= this
+  battery_soc_min_percent: 20              # Both batteries (the lower of master/slave, not their
+                                            # average - see hotwater_automation_core.py's
+                                            # get_battery_soc_percent) must be at/above this. Used by
+                                            # both the evening/off-peak live-SoC check below AND the
+                                            # battery-prediction path further down.
   offpeak_start: "23:30"                   # Octopus Intelligent Go whole-home off-peak window
-  offpeak_end: "05:30"                     # (fixed daily window, crosses midnight)
-  force_heat_max_duration_hours: 3         # Safety net only - the revert check normally reverts
+  offpeak_end: "05:30"                     # (fixed daily window, crosses midnight). Also the hard
+                                            # completion deadline for an overnight force-heat/legionella
+                                            # cycle - see _overnight_deadline_passed.
+  force_heat_max_duration_hours: 1         # Safety net only - the revert check normally reverts
                                             # as soon as the tank reaches its own target
                                             # temperature; this is a backstop in case MELCloud
-                                            # never reports that (e.g. a stuck sensor reading)
+                                            # never reports that (e.g. a stuck sensor reading).
+                                            # Kept short (1h) - a heating run isn't expected to run
+                                            # long; a run that's still going after this is stopped
+                                            # and retried at the next due trigger instead.
+  battery_prediction_window_start_hour: 15 # 3pm - see the battery-prediction path below
+  battery_prediction_deadline_hour: 23.5   # 11:30pm - defaults to offpeak_start above (the moment
+                                            # cheap grid import opens anyway). An independent trigger
+                                            # path, alongside car charging and the evening/off-peak
+                                            # window: if it's currently within
+                                            # [battery_prediction_window_start_hour, this), and both
+                                            # batteries (min, not average) are predicted to still be
+                                            # >= battery_soc_min_percent by this deadline (see
+                                            # hotwater_automation_core.py's
+                                            # get_battery_prediction_to_deadline), heat now from
+                                            # stored solar rather than waiting for trigger_hour.
   poll_interval_seconds: 600               # hotwater_mode_daemon.py: how often to run the
                                             # force-heat check (10 min - frequent enough to catch
                                             # EV charging starting)
