@@ -73,6 +73,7 @@ def test_disabled_automation_skips_all_checks_but_still_reloads_config(tmp_path,
     assert daemon.force_heat_calls == []
     assert daemon.revert_calls == []
     assert daemon.legionella_progress_calls == []
+    assert daemon.legionella_natural_completion_calls == []
 
 
 def test_misconfigured_automation_skips_all_checks(tmp_path, monkeypatch):
