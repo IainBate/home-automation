@@ -160,7 +160,11 @@ DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5  # 11:30pm
 # wanted then.
 DEFAULT_CAR_CHARGING_TRIGGER_START_HOUR = 15.0  # 3pm
 DEFAULT_OHME_CHARGING_THRESHOLD_WATTS = 500.0
-DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 3.0
+# Hard safety-net cap on a single heating run, whatever triggered it. Kept
+# deliberately short - if the tank isn't reaching target/disinfection
+# temperature within this, run_revert_check/run_legionella_progress_check
+# stop it and let the next due trigger retry, rather than running long.
+DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 1.0
 DEFAULT_TIMEZONE = "Europe/London"
 DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
 # What a legionella cycle asks MELCloud to heat the tank to. Deliberately not
