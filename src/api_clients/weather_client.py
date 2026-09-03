@@ -20,7 +20,16 @@ logger = logging.getLogger(__name__)
 
 _ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
-_HOURLY_FIELDS = "shortwave_radiation,cloud_cover,temperature_2m"
+_HOURLY_FIELDS = ",".join([
+    "shortwave_radiation",
+    "direct_radiation",
+    "diffuse_radiation",
+    "cloud_cover",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "cloud_cover_high",
+    "temperature_2m",
+])
 
 
 def fetch_historical_weather_hourly(
