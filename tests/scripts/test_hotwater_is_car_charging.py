@@ -91,13 +91,36 @@ def test_returns_power_watts_from_charger_status():
 # --- is_car_charging_confirmed ----------------------------------------------
 
 
+WINDOW_START = time(15, 0)  # matches DEFAULT_CAR_CHARGING_TRIGGER_START_HOUR (3pm)
+
+
 def test_at_or_after_trigger_time_returns_false_without_checking_ohme():
     state = {"ohme_charging_confirm_cycles": 5}
 
     with mock.patch.object(core, "_get_ohme_charging_power_watts") as fake_get_power:
         result = asyncio.run(
             core.is_car_charging_confirmed(
-                {}, {}, state, _now(21, 30), trigger_time=time(21, 30)
+                {}, {}, state, _now(21, 30), trigger_time=time(21, 30),
+                window_start_time=WINDOW_START,
+            )
+        )
+
+    fake_get_power.assert_not_called()
+    assert result is False
+    assert state["ohme_charging_confirm_cycles"] == 0
+
+
+def test_before_window_start_returns_false_without_checking_ohme():
+    """The scenario this window exists for: car charging in the morning must
+    not force-heat the ASHP - solar water heating is still effective then.
+    """
+    state = {"ohme_charging_confirm_cycles": 5}
+
+    with mock.patch.object(core, "_get_ohme_charging_power_watts") as fake_get_power:
+        result = asyncio.run(
+            core.is_car_charging_confirmed(
+                {}, {}, state, _now(9, 0), trigger_time=time(21, 30),
+                window_start_time=WINDOW_START,
             )
         )
 
@@ -114,7 +137,8 @@ def test_first_cycle_above_threshold_is_not_yet_confirmed():
     ):
         result = asyncio.run(
             core.is_car_charging_confirmed(
-                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 0), time(21, 30)
+                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 0), time(21, 30),
+                WINDOW_START,
             )
         )
 
@@ -130,7 +154,8 @@ def test_second_consecutive_cycle_above_threshold_confirms():
     ):
         result = asyncio.run(
             core.is_car_charging_confirmed(
-                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 10), time(21, 30)
+                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 10), time(21, 30),
+                WINDOW_START,
             )
         )
 
@@ -146,7 +171,8 @@ def test_below_threshold_resets_the_confirmation_count():
     ):
         result = asyncio.run(
             core.is_car_charging_confirmed(
-                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 10), time(21, 30)
+                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 10), time(21, 30),
+                WINDOW_START,
             )
         )
 
@@ -162,7 +188,8 @@ def test_unavailable_power_reading_is_treated_as_not_charging():
     ):
         result = asyncio.run(
             core.is_car_charging_confirmed(
-                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 10), time(21, 30)
+                {}, {"ohme_charging_threshold_watts": 500}, state, _now(19, 10), time(21, 30),
+                WINDOW_START,
             )
         )
 
@@ -177,7 +204,7 @@ def test_uses_default_threshold_when_not_configured():
         core, "_get_ohme_charging_power_watts", mock.AsyncMock(return_value=501)
     ):
         asyncio.run(
-            core.is_car_charging_confirmed({}, {}, state, _now(19, 0), time(21, 30))
+            core.is_car_charging_confirmed({}, {}, state, _now(19, 0), time(21, 30), WINDOW_START)
         )
 
     assert state["ohme_charging_confirm_cycles"] == 1
