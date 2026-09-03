@@ -39,6 +39,7 @@ import asyncio
 from typing import Any
 
 from hotwater_automation_core import (
+    check_legionella_due_warning,
     get_config_path,
     get_hotwater_automation_config_error,
     run_force_heat_check,
