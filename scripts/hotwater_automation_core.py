@@ -136,10 +136,22 @@ from src.utils.state_store import locked_json_state, read_json_state
 logger = logging.getLogger("hotwater_mode_daemon.hotwater_automation_core")
 
 DEFAULT_TANK_TEMP_THRESHOLD_C = 45.0
-DEFAULT_BATTERY_SOC_MIN_PERCENT = 50.0
+# Minimum charge BOTH batteries (not their average) must independently clear
+# - see get_battery_soc_percent's docstring for why this is a minimum, not an
+# average.
+DEFAULT_BATTERY_SOC_MIN_PERCENT = 20.0
 DEFAULT_OFFPEAK_START = "23:30"
 DEFAULT_OFFPEAK_END = "05:30"
 DEFAULT_TRIGGER_HOUR = 21.5  # 9:30pm - fractional hours are supported (e.g. 21.5 = 21:30)
+# Battery-prediction trigger path (get_battery_prediction_to_deadline) - an
+# independent alternative to trigger_hour/car-charging, active across this
+# wider afternoon-through-evening span. Deadline defaults to offpeak_start
+# (23:30/11:30pm): the moment the grid's off-peak window opens anyway, so a
+# prediction that both batteries will still clear battery_soc_min_percent by
+# then means it's safe to heat from stored solar any time before that,
+# without waiting on trigger_hour first.
+DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR = 15.0  # 3pm
+DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5  # 11:30pm
 # Car charging only counts as a force-heat trigger from this hour up to
 # trigger_hour - see is_car_charging_confirmed's docstring. Excludes the
 # morning/midday specifically (not just "before this hour is fine too") -
