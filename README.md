@@ -16,6 +16,7 @@ Standalone package for controlling SolaX inverters and Ohme EV chargers. Provide
 - **mg_saic_poller.py** - Cached MG SAIC (MG iSmart) EV battery/range fetch, run hourly via cron
 - **claude_usage_poller.py** / **claude_usage_token_extract.py** - Cached Claude Code usage fetch (cron) and its macOS Keychain token extraction helper
 - **holiday_mode.py** - `--start-days N` / `--cancel` / `--status`: pause ASHP hot water force-heating for N days (hot water only for now - see its module docstring)
+- **service_mode.py** - `--start` / `--cancel` / `--status`: pause ALL hot water automation (force-heat, revert, legionella) indefinitely for an engineer/installer visit, unlike holiday mode's fixed N-day duration
 - **weekly_health_check.py** - Scans logs/ and systemd services for the past week's errors/outages and emails a summary if it finds any, run weekly via cron
 
 ### API Clients
