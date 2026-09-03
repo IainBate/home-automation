@@ -641,6 +641,58 @@ async def _run_force_heat_check_locked(
     return 1
 
 
+def _update_legionella_eligibility_snapshot(
+    hw_config: dict[str, Any],
+    state: dict[str, Any],
+    tank_temperature: float | None,
+    now_local: datetime,
+) -> None:
+    """Once a day, at legionella_check_hour, record whether the tank is cold.
+
+    A legionella cycle rides the same force-heat trigger as a normal heat -
+    but that trigger's own timing (car charging, or the evening/battery/
+    off-peak check) can land at any hour, including the middle of the night.
+    Deciding "is a legionella cycle due today" from whatever the tank
+    happens to read at that moment made the decision depend on incidental
+    timing rather than the tank's actual state early in the day. This
+    snapshots the below-threshold reading once, at a fixed hour
+    (legionella_check_hour, default 18:00) - run_force_heat_check's
+    legionella_due check then only fires if *that* snapshot found the tank
+    cold, leaving the actual heating still timed by the normal trigger
+    exactly as before.
+
+    A no-op once already recorded for today (threshold_check_date matches),
+    or if it's not yet check_hour - so this only ever writes once per day,
+    on whichever force-heat tick (poll_interval_seconds, e.g. every 10
+    minutes) first lands at or after it.
+    """
+    check_hour = hw_config.get("legionella_check_hour", DEFAULT_LEGIONELLA_CHECK_HOUR)
+    check_time = hour_float_to_time(check_hour)
+    today_str = now_local.date().isoformat()
+
+    legionella_state = state.get("legionella", {})
+    if legionella_state.get("threshold_check_date") == today_str:
+        return
+    if now_local.time() < check_time:
+        return
+
+    threshold = hw_config.get("tank_temp_threshold_c", DEFAULT_TANK_TEMP_THRESHOLD_C)
+    below_threshold = tank_temperature is not None and tank_temperature < threshold
+
+    state["legionella"] = {
+        **legionella_state,
+        "threshold_check_date": today_str,
+        "threshold_met_at_check": below_threshold,
+    }
+    logger.info(
+        "Legionella eligibility check at %s: tank %sC (threshold %sC) -> %s",
+        check_time.strftime("%H:%M"),
+        tank_temperature,
+        threshold,
+        "eligible for a legionella cycle today" if below_threshold else "not eligible today",
+    )
+
+
 def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, Any]) -> bool:
     """Return True if legionella_interval_days have passed since the last completed cycle.
 
