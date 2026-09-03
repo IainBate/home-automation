@@ -1317,7 +1317,15 @@ async def _run_legionella_progress_check_locked(
     max_duration_hours = hw_config.get(
         "legionella_max_cycle_duration_hours", DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS
     )
-    elapsed_hours = (datetime.now(tz=UTC) - started_at).total_seconds() / 3600.0
+    now = datetime.now(tz=UTC)
+    elapsed_hours = (now - started_at).total_seconds() / 3600.0
+
+    tz_name = config.get("location", {}).get("default_timezone_str", DEFAULT_TIMEZONE)
+    tz = pytz.timezone(tz_name)
+    offpeak_end_time = datetime.strptime(
+        hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
+    ).time()
+    deadline_passed = _overnight_deadline_passed(started_at.astimezone(tz), now.astimezone(tz), offpeak_end_time)
 
     client = MelCloudClient(config_path=get_config_path())
     try:
@@ -1335,7 +1343,7 @@ async def _run_legionella_progress_check_locked(
             "legionella_natural_completion_temp_c", DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C
         )
         reached_target = tank_temperature is not None and tank_temperature >= completion_temp
-        timed_out = elapsed_hours >= max_duration_hours
+        timed_out = elapsed_hours >= max_duration_hours or deadline_passed
 
         if not reached_target and not timed_out:
             if not quiet:
@@ -1348,10 +1356,11 @@ async def _run_legionella_progress_check_locked(
 
         if timed_out and not reached_target:
             logger.warning(
-                "Legionella cycle timed out after %.1fh without reaching the %sC "
-                "disinfection threshold (currently %sC, %sC requested target) - "
+                "Legionella cycle timed out after %.1fh (deadline_passed=%s) without reaching "
+                "the %sC disinfection threshold (currently %sC, %sC requested target) - "
                 "reverting without marking complete, will retry next due check",
                 elapsed_hours,
+                deadline_passed,
                 completion_temp,
                 tank_temperature,
                 target_temp,
