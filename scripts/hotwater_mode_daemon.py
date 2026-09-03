@@ -41,6 +41,7 @@ from hotwater_automation_core import (
     get_config_path,
     get_hotwater_automation_config_error,
     run_force_heat_check,
+    run_legionella_natural_completion_check,
     run_legionella_progress_check,
     run_revert_check,
 )
