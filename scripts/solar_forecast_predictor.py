@@ -135,23 +135,31 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
             print(msg)
         return 1
 
-    forecast_rows = build_forecast_rows(weather_records)
-    predicted_kw = predict_hourly_kw(model, forecast_rows)
+    forecast_rows = build_daily_forecast_rows(weather_records, latitude, longitude, timezone_name)
+    predicted_kwh = predict_daily_kwh(model, forecast_rows)
+    daily_predictions = {row["date"]: kwh for row, kwh in zip(forecast_rows, predicted_kwh)}
 
     now_local = datetime.now(tz=UTC).astimezone(pytz.timezone(timezone_name))
     today_str = now_local.strftime("%Y-%m-%d")
     tomorrow_str = (now_local + timedelta(days=1)).strftime("%Y-%m-%d")
     yesterday_str = (now_local - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    hourly = [
-        {"timestamp": row["timestamp"], "predicted_kw": round(kw, 3)}
-        for row, kw in zip(forecast_rows, predicted_kw)
-    ]
-    today_kwh = sum(h["predicted_kw"] for h in hourly if h["timestamp"].startswith(today_str))
-    tomorrow_kwh = sum(h["predicted_kw"] for h in hourly if h["timestamp"].startswith(tomorrow_str))
+    today_kwh = daily_predictions.get(today_str, 0.0)
+    tomorrow_kwh = daily_predictions.get(tomorrow_str, 0.0)
 
-    current_hour_key = now_local.strftime("%Y-%m-%d %H:00")
-    current_weather_row = next((r for r in forecast_rows if r["timestamp"] == current_hour_key), None)
+    # scripts/battery_evening_predictor.py and the dashboard still want an
+    # hourly breakdown - distribute_daily_kwh_to_hourly() shapes each day's
+    # accuracy-checked total across its hours using the forecast's own
+    # radiation curve (see that function's docstring for why).
+    hourly: list[dict[str, Any]] = []
+    for date_str, day_kwh in sorted(daily_predictions.items()):
+        day_weather_rows = [r for r in weather_records if (r.get("timestamp") or "").startswith(date_str)]
+        hourly.extend(distribute_daily_kwh_to_hourly(day_kwh, day_weather_rows))
+
+    current_hour_key = now_local.strftime("%Y-%m-%dT%H:00")
+    current_weather_row = next(
+        (r for r in weather_records if r.get("timestamp") == current_hour_key), None
+    )
     current_weather = None
     if current_weather_row is not None:
         current_weather = {
