@@ -271,6 +271,25 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
         >>> determine_hotwater_decision(context).should_force_heat
         False
 
+        >>> # Service mode dominates even car charging, same as holiday mode
+        >>> context = HotWaterDecisionContext(
+        ...     tank_temperature_c=30.0, tank_temp_threshold_c=45.0, car_is_charging=True,
+        ...     battery_soc_percent=90.0, battery_soc_min_percent=50.0, grid_is_cheap=True,
+        ...     in_evening_window=True, service_mode_active=True,
+        ... )
+        >>> determine_hotwater_decision(context).should_force_heat
+        False
+
+        >>> # Afternoon, tank cold, battery-prediction path active - heat now,
+        >>> # without waiting for the evening window
+        >>> context = HotWaterDecisionContext(
+        ...     tank_temperature_c=30.0, tank_temp_threshold_c=45.0, car_is_charging=False,
+        ...     battery_soc_percent=None, battery_soc_min_percent=20.0, grid_is_cheap=False,
+        ...     in_evening_window=False, battery_prediction_trigger_active=True,
+        ... )
+        >>> determine_hotwater_decision(context).should_force_heat
+        True
+
     """
     if context.tank_temperature_c is None:
         return HotWaterDecision(
