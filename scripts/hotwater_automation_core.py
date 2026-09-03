@@ -939,6 +939,96 @@ def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, An
     return days_since >= interval_days
 
 
+def check_legionella_due_warning(
+    config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool = False, quiet: bool = False
+) -> int:
+    """Send a warning email once a legionella cycle is within legionella_due_warning_days of due.
+
+    Purely a heads-up, sent well before _is_legionella_due would actually
+    start upgrading a force-heat to a legionella cycle - no MELCloud call, no
+    effect on the automation itself. Sends at most once per interval: stamps
+    state["legionella"]["due_warning_sent_for"] with the last_completed_at
+    value the warning was raised against, so a re-run later in the same
+    interval (e.g. every poll_interval_seconds) doesn't spam the same email
+    repeatedly. That stamp is naturally invalidated the next time a cycle
+    actually completes (last_completed_at changes), so the next interval's
+    approaching-due warning fires normally.
+
+    A never-yet-completed cycle (legionella_state has no last_completed_at)
+    is skipped rather than warned about - _is_legionella_due already treats
+    that as immediately due, so there's no "coming due in N days" state to
+    warn about; it'll simply run at the next opportunity.
+
+    Returns:
+        0 always - a failed/skipped/disabled email must never be treated as
+        an error by a caller (e.g. the daemon's own "never raises" checks).
+
+    """
+    email_config = config.get("email", {})
+    if not email_config.get("enabled", False):
+        if not quiet:
+            print("Email is disabled (email.enabled: false), skipping legionella-due warning")
+        return 0
+
+    with locked_state(timeout=DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS) as state:
+        legionella_state = state.get("legionella", {})
+        last_completed_str = legionella_state.get("last_completed_at")
+        if not last_completed_str:
+            if not quiet:
+                print("No legionella cycle ever completed yet - nothing to warn about")
+            return 0
+
+        try:
+            last_completed = datetime.fromisoformat(last_completed_str)
+        except ValueError:
+            if not quiet:
+                print("legionella.last_completed_at is malformed - skipping due warning")
+            return 0
+
+        interval_days = hw_config.get(
+            "legionella_interval_days", DEFAULT_LEGIONELLA_INTERVAL_DAYS
+        )
+        warning_days = hw_config.get(
+            "legionella_due_warning_days", DEFAULT_LEGIONELLA_DUE_WARNING_DAYS
+        )
+        days_since = (datetime.now(tz=UTC) - last_completed).days
+        days_until_due = interval_days - days_since
+
+        if not (0 < days_until_due <= warning_days):
+            if not quiet:
+                print(f"Legionella cycle due in {days_until_due} day(s) - not yet within warning window")
+            return 0
+
+        if legionella_state.get("due_warning_sent_for") == last_completed_str:
+            if not quiet:
+                print("Legionella due-soon warning already sent for this interval")
+            return 0
+
+        subject = "Hot water: legionella cycle due soon"
+        body = (
+            f"A legionella disinfection cycle will become due in approximately "
+            f"{days_until_due} day(s) (last completed {last_completed_str}, "
+            f"{interval_days}-day interval).\n\n"
+            "It will run automatically the next time the usual force-heat "
+            "conditions are met, unless holiday mode or service mode is active."
+        )
+
+        if dry_run:
+            if not quiet:
+                print(f"(dry run) would send: {subject}")
+            return 0
+
+        if send_email(config, subject, body):
+            state["legionella"] = {**legionella_state, "due_warning_sent_for": last_completed_str}
+            logger.info("Sent legionella-due-soon warning email (%s day(s) until due)", days_until_due)
+            if not quiet:
+                print(f"Sent legionella-due-soon warning email ({days_until_due} day(s) until due)")
+        elif not quiet:
+            print("Failed to send legionella-due-soon warning email (see logs above)")
+
+    return 0
+
+
 async def _start_legionella_cycle(
     client: MelCloudClient,
     state: dict[str, Any],
