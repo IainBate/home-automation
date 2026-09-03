@@ -102,6 +102,7 @@ from src.api_clients.ohme_ev_client import OhmeEVClient
 from src.api_clients.ohme_status_cache import read_fresh_status
 from src.api_clients.solax_modbus_client import solax_modbus_soc
 from src.config_manager.config_manager import get_hotwater_melcloud_config_error
+from src.core_logic.battery_evening_prediction_logic import predict_evening_soc
 from src.core_logic.hotwater_decision_logic import (
     HotWaterDecisionContext,
     determine_hotwater_decision,
@@ -113,6 +114,8 @@ from src.core_logic.ohme_charging_logic import (
     confirm_charging_over_consecutive_cycles,
     is_charging_above_threshold,
 )
+from src.utils.emailer import send_email
+from src.utils.historical_data import load_historical_records
 from src.utils.paths import (
     get_battery_evening_prediction_path,
     get_hotwater_automation_state_path,
