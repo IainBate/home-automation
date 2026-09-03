@@ -52,6 +52,27 @@ instead of a normal one. This means a cycle never runs sooner than
 legionella_interval_days, but can run later than that if the normal trigger
 conditions simply don't occur for a while - it rides on the same "is it worth
 heating right now" decision rather than firing on its own clock.
+
+Whether *today* is even a legionella candidate is decided separately from
+when the force-heat trigger fires: once a day, at hotwater_automation.
+legionella_check_hour (default 18:00), the tank's below-threshold state is
+snapshotted (_update_legionella_eligibility_snapshot). Only if that snapshot
+found the tank cold does a later trigger (whenever it actually fires -
+overnight, timed by battery/off-peak as usual) get upgraded to a legionella
+cycle. This keeps the trigger's own timing untouched while pinning the
+legionella decision itself to a predictable point in the day, rather than
+whatever moment the tank happened to be read at (e.g. the middle of the
+night).
+
+A legionella cycle - or indeed any day's heating, forced or not - is also
+considered complete the moment the tank is observed at or above
+hotwater_automation.legionella_natural_completion_temp_c (default 55C),
+regardless of what put the heat there. run_legionella_progress_check applies
+this to an active cycle instead of insisting on the full elevated target;
+run_legionella_natural_completion_check applies it independently, on a plain
+quiet day with no automation activity at all (e.g. an off-grid solar
+diverter this project can't otherwise see). Either way, that resets the
+legionella_interval_days clock from the moment of that reading.
 """
 
 from __future__ import annotations
