@@ -102,6 +102,7 @@ DASHBOARD_HTML = """<!doctype html>
   .row + .row { border-top: 1px solid var(--border); }
   .row .label { color: var(--muted); font-size: 15px; }
   .row .value { font-weight: 600; text-align: right; }
+  .subtext { color: var(--muted); font-size: 13px; font-weight: 400; margin-right: 8px; }
   .badge {
     display: inline-block;
     padding: 3px 10px;
