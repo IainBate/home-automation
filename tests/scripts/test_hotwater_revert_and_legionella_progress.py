@@ -364,6 +364,69 @@ def test_legionella_progress_times_out_without_marking_completed(tmp_path):
     assert final_state["legionella"]["last_completed_at"] is None  # not marked complete
 
 
+def test_legionella_progress_sends_insufficient_duration_alert_when_timed_out(tmp_path):
+    started_at = datetime.now(tz=UTC) - timedelta(hours=10)
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": True,
+                "cycle_started_at": started_at.isoformat(),
+                "target_temp_c": 55.0,
+                "original_target_temp_c": 45.0,
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=40.0, target_temp=55.0)  # never reached
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        exit_code, _final_state = _run(
+            lambda: core.run_legionella_progress_check(
+                {"email": {"enabled": True}},
+                {"legionella_max_cycle_duration_hours": 6.0},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert exit_code == 0
+    assert len(sent_calls) == 1
+    subject, body = sent_calls[0]
+    assert "legionella" in subject.lower()
+    assert "legionella_max_cycle_duration_hours" in body
+
+
+def test_legionella_progress_does_not_alert_when_target_reached(tmp_path):
+    started_at = datetime.now(tz=UTC) - timedelta(hours=1)
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": True,
+                "cycle_started_at": started_at.isoformat(),
+                "target_temp_c": 55.0,
+                "original_target_temp_c": 45.0,
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=56.0, target_temp=55.0)  # reached
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        _run(
+            lambda: core.run_legionella_progress_check(
+                {"email": {"enabled": True}}, {}, dry_run=False, quiet=True
+            ),
+            state_path,
+            client,
+        )
+
+    assert sent_calls == []
+
+
 def test_legionella_progress_reverts_at_the_natural_completion_temp_even_below_the_requested_target(
     tmp_path,
 ):
