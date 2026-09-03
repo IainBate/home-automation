@@ -400,10 +400,10 @@ function serviceHealthCard(d) {
     const detailNote = stateDetail
       ? `<div class="row"><span class="label">Detail</span><span class="value">${stateDetail}</span></div>`
       : "";
-    const logNote = s.log_age_seconds !== null && s.log_age_seconds !== undefined
-      ? `<div class="row"><span class="label">Last log activity</span><span class="value">${fmtAge(s.log_age_seconds)}</span></div>`
+    const logAge = s.log_age_seconds !== null && s.log_age_seconds !== undefined
+      ? `<span class="subtext">${fmtAge(s.log_age_seconds)}</span>`
       : "";
-    return `<div class="row"><span class="label">${escapeHtml(s.label)}</span><span class="value"><span class="badge ${badgeClass}">${escapeHtml(badgeLabel)}</span></span></div>${detailNote}${logNote}`;
+    return `<div class="row"><span class="label">${escapeHtml(s.label)}</span><span class="value">${logAge}<span class="badge ${badgeClass}">${escapeHtml(badgeLabel)}</span></span></div>${detailNote}`;
   }).join("");
   return card("Service Health", rows, "");
 }
