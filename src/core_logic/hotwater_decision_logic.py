@@ -45,7 +45,22 @@ class HotWaterDecisionContext:
             as the window start). The whole point is to defer heating until
             evening so the day's solar/battery can cover it, so this is
             checked even on an out-of-schedule (e.g. manual) run. Not checked
-            if car_is_charging.
+            if car_is_charging or battery_prediction_trigger_active.
+        battery_prediction_trigger_active: True if it's currently within
+            hotwater_automation.battery_prediction_window_start_hour to
+            battery_prediction_deadline_hour (3pm-11:30pm by default) AND
+            both batteries are predicted to still be at/above
+            battery_soc_min_percent at battery_prediction_deadline_hour (see
+            hotwater_automation_core.py's get_battery_prediction_to_deadline).
+            An independent trigger path alongside car_is_charging and
+            in_evening_window/battery_soc_percent - it exists precisely to
+            allow heating earlier than trigger_hour when there's forecast to
+            be plenty of stored solar left by the time the grid's off-peak
+            window opens anyway, without waiting for trigger_hour to arrive
+            first. Computed by the caller (not derived from
+            battery_soc_percent/battery_soc_min_percent here), since it needs
+            its own forward-looking prediction rather than the live/current
+            SoC in_evening_window's own battery_has_surplus check uses.
         holiday_mode_active: True if scripts/holiday_mode.py has an active
             holiday period recorded (see hotwater_automation_core.py's
             is_holiday_active). Dominates every other condition, including
