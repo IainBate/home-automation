@@ -1097,3 +1097,90 @@ async def _run_legionella_progress_check_locked(
     if not quiet:
         print("Reverted after legionella cycle")
     return 0
+
+
+async def run_legionella_natural_completion_check(
+    hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
+) -> int:
+    """Mark the legionella interval satisfied if the tank is hot enough on its own.
+
+    The tank's MELCloud sensor reads the same physical water no matter what
+    put the heat there - the ASHP, an immersion, or (not otherwise visible to
+    this project) an off-grid solar diverter. A reading at or above
+    legionella_natural_completion_temp_c on any day satisfies that day's
+    disinfection requirement exactly as a completed forced cycle would,
+    resetting the legionella_interval_days clock from the moment of that
+    reading.
+
+    Unlike run_revert_check and run_legionella_progress_check, this doesn't
+    gate on any prior state (an active force-heat window, a cycle already in
+    progress) - a quiet day with no automation activity at all is exactly
+    the case (solar-heated tank) this exists to catch, so it always takes
+    its own live reading.
+
+    Returns:
+        0 always - there's nothing here that can fail to "confirm", just a
+        temperature reading and, at most, a state write.
+
+    """
+    with locked_state(timeout=DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS) as state:
+        return await _run_legionella_natural_completion_check_locked(
+            hw_config, state, dry_run=dry_run, quiet=quiet
+        )
+
+
+async def _run_legionella_natural_completion_check_locked(
+    hw_config: dict[str, Any], state: dict[str, Any], *, dry_run: bool, quiet: bool
+) -> int:
+    """Body of run_legionella_natural_completion_check() inside its locked_state() block."""
+    completion_temp = hw_config.get(
+        "legionella_natural_completion_temp_c", DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C
+    )
+
+    client = MelCloudClient(config_path=get_config_path())
+    try:
+        await client.connect()
+        status = await client.get_tank_status()
+    finally:
+        await client.close()
+
+    tank_temperature = status["tank_temperature"]
+    if tank_temperature is None or tank_temperature < completion_temp:
+        if not quiet:
+            print(f"Tank at {tank_temperature}C, below {completion_temp}C - nothing to record")
+        return 0
+
+    legionella_state = state.get("legionella", {})
+    last_completed_str = legionella_state.get("last_completed_at")
+    today = datetime.now(tz=UTC).date()
+    if last_completed_str:
+        try:
+            if datetime.fromisoformat(last_completed_str).date() == today:
+                # Already recorded today - avoid a redundant write/log every
+                # time this runs while the tank happens to stay hot.
+                return 0
+        except ValueError:
+            pass  # Malformed - fall through and overwrite with a good value.
+
+    if dry_run:
+        if not quiet:
+            print(
+                f"Tank at {tank_temperature}C >= {completion_temp}C - would mark legionella "
+                "satisfied (dry run)"
+            )
+        return 0
+
+    state["legionella"] = {
+        **legionella_state,
+        "last_completed_at": datetime.now(tz=UTC).isoformat(),
+    }
+    logger.info(
+        "Tank observed at %sC (>= %sC disinfection threshold) with no legionella cycle "
+        "necessarily involved - marking the legionella requirement satisfied, resetting "
+        "the interval",
+        tank_temperature,
+        completion_temp,
+    )
+    if not quiet:
+        print(f"Tank at {tank_temperature}C - legionella satisfied naturally, interval reset")
+    return 0
