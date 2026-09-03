@@ -1533,6 +1533,17 @@ async def _run_legionella_progress_check_locked(
                     f"Legionella cycle timed out at {tank_temperature}C "
                     f"(disinfection threshold {completion_temp}C) - reverting, will retry later"
                 )
+            _alert_insufficient_duration(
+                config,
+                kind="legionella cycle",
+                tank_temperature=tank_temperature,
+                target_temperature=completion_temp,
+                elapsed_hours=elapsed_hours,
+                max_duration_hours=max_duration_hours,
+                config_key="legionella_max_cycle_duration_hours",
+                dry_run=dry_run,
+                quiet=quiet,
+            )
         else:
             logger.info(
                 "Legionella cycle: tank at %sC reached the %sC disinfection threshold "
