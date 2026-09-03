@@ -160,11 +160,11 @@ def test_legionella_due_but_unit_cannot_reach_target_falls_back_to_normal_heat(t
 def test_legionella_due_without_todays_eligibility_snapshot_does_a_normal_heat(tmp_path):
     """Interval-due alone isn't enough - see test_hotwater_legionella_eligibility_snapshot.py.
 
-    A legionella cycle also needs today's threshold_check_date/
-    threshold_met_at_check snapshot (normally written once a day at
-    legionella_check_hour) to already say the tank was cold - without it
-    (e.g. the very first tick of a brand new day, before that check has
-    run), a due-by-interval cycle still just does a normal force-heat.
+    A legionella cycle also needs today's daily_check snapshot (normally
+    written once a day at daily_check_hour) to already say the tank was
+    cold - without it (e.g. the very first tick of a brand new day, before
+    that check has run), a due-by-interval cycle still just does a normal
+    force-heat.
     """
     state_path = tmp_path / "hotwater_automation_state.json"
     state_path.write_text(json.dumps({}), encoding="utf-8")
@@ -174,7 +174,7 @@ def test_legionella_due_without_todays_eligibility_snapshot_does_a_normal_heat(t
         "tank_temp_threshold_c": 45.0,
         "legionella_interval_days": 90,
         "legionella_target_temp_c": 60.0,
-        "legionella_check_hour": 23.99,  # Not reached yet at whatever time this test runs.
+        "daily_check_hour": 23.99,  # Not reached yet at whatever time this test runs.
     }
     config = {"location": {"default_timezone_str": "Europe/London"}}
 
