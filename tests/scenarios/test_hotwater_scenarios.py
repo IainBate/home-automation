@@ -265,13 +265,14 @@ async def test_legionella_cycle_raises_the_target_then_restores_it(hotwater_env)
     assert melcloud.state["SetTankWaterTemperature"] == 60.0
     assert melcloud.state["ForcedHotWaterMode"] is True
 
-    # Not there yet.
-    melcloud.state["TankWaterTemperature"] = 55.0
+    # Not there yet - still below the (default 55C) disinfection threshold.
+    melcloud.state["TankWaterTemperature"] = 50.0
     await _legionella_progress(env, melcloud, at=BEFORE_TRIGGER + timedelta(hours=1))
     assert melcloud.state["ForcedHotWaterMode"] is True
 
-    # Reaches the legionella target - reverts, and restores the 45C target.
-    melcloud.state["TankWaterTemperature"] = 60.5
+    # Reaches the disinfection threshold (55C) - reverts and restores the 45C
+    # target, even though the 60C requested target was never reached.
+    melcloud.state["TankWaterTemperature"] = 56.0
     await _legionella_progress(env, melcloud, at=BEFORE_TRIGGER + timedelta(hours=2))
     assert melcloud.state["SetTankWaterTemperature"] == 45.0
     assert melcloud.state["ForcedHotWaterMode"] is False
