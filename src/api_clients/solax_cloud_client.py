@@ -408,10 +408,10 @@ def solax_cloud_get_realtime_snapshot(config: dict[str, Any]) -> dict[str, Any] 
 
         return {
             "timestamp": timestamp_str,
-            # The API's own unambiguous instant, alongside the local-clock
-            # uploadTime above. Only used to tell two readings apart across a
-            # DST fall-back, where the local strings collide - see
-            # _is_same_reading(). None if this account's response omits it.
+            # Recorded alongside the local-clock uploadTime purely as a
+            # per-reading identity for dedup - NOT as a trustworthy UTC
+            # instant; measured against this account it sits 8 hours behind
+            # local where UK is UTC+1. See _is_same_reading().
             "timestamp_utc": result.get("utcDateTime") or None,
             "pv_power_kw": pv_power_w / 1000,
             "battery_power_kw": _safe_float(result.get("batPower"), 0) / 1000,
@@ -509,12 +509,23 @@ def _is_same_reading(previous: dict[str, Any], snapshot: dict[str, Any]) -> bool
     The inverter only uploads every few minutes, so a more frequent poll
     legitimately sees the same reading twice and must not store it twice.
 
-    Prefers timestamp_utc (the API's own unambiguous utcDateTime) when both
-    rows have it: during a DST fall-back, two genuinely different readings an
-    hour apart share the same LOCAL clock-face string, and comparing on that
-    alone would silently discard the second one as a duplicate. Falls back to
-    the local timestamp for rows written before timestamp_utc was recorded,
-    which is every row in the existing history.
+    Prefers timestamp_utc when both rows have it, since two genuinely
+    different readings an hour apart share the same LOCAL clock-face string
+    across a DST fall-back, and comparing on that alone would silently
+    discard the second as a duplicate.
+
+    Do NOT treat timestamp_utc as a true UTC instant, though. Measured
+    against this account on 2026-09-03: uploadTime read 01:02:53 (correct UK
+    wall clock - the historical PV profile peaks at 13:00, confirming
+    uploadTime really is UK local) while utcDateTime read 17:02:53Z the
+    previous day, i.e. local MINUS 8 hours, where UK is UTC+1. That offset is
+    consistent with a hard-coded UTC+8 assumption on SolaX's side rather than
+    a real UTC conversion. It is therefore only used here as an opaque
+    per-reading identity, never for ordering, day bucketing or arithmetic -
+    all of which use the local timestamp (see merge_realtime_snapshot's sort,
+    and aggregate_pv_to_hourly). If it turns out to be derived by subtracting
+    a fixed offset from local time, this dedup is simply no better than the
+    local-string comparison it falls back to - and no worse.
     """
     previous_utc = previous.get("timestamp_utc")
     snapshot_utc = snapshot.get("timestamp_utc")

@@ -11,6 +11,7 @@ BACKUP_DIR="/tmp/home_automation_backup_$(date +%Y%m%d_%H%M%S)"
 SERVICE_NAME="home_automation.service"
 HOTWATER_SERVICE_NAME="home_automation_hotwater.service"
 DASHBOARD_SERVICE_NAME="home_automation_dashboard.service"
+OHME_SERVICE_NAME="home_automation_ohme.service"
 LOG_DIR="/var/log/home_automation"
 
 echo "=== Home Automation Pi Setup ==="
@@ -25,6 +26,11 @@ if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
 else
     echo "  $SERVICE_NAME not running (skipping)."
 fi
+if systemctl is-active --quiet "$OHME_SERVICE_NAME" 2>/dev/null; then
+    echo "  Stopping $OHME_SERVICE_NAME..."
+    sudo systemctl stop "$OHME_SERVICE_NAME"
+fi
+
 if systemctl is-active --quiet "$HOTWATER_SERVICE_NAME" 2>/dev/null; then
     echo "  Stopping $HOTWATER_SERVICE_NAME..."
     sudo systemctl stop "$HOTWATER_SERVICE_NAME"
@@ -222,6 +228,28 @@ sudo systemctl start "$DASHBOARD_SERVICE_NAME"
 echo "  Dashboard service installed, enabled, and started."
 echo ""
 
+# Step 11: Install and enable the Ohme status poller. Holds ONE Ohme session
+# and caches the charger status for the battery daemon, hot water automation
+# and dashboard to read (src/api_clients/ohme_status_cache.py). Without it
+# each of those three opens its own session and performs a full Firebase
+# login on every poll - roughly 3,000 logins a day between them. Nothing
+# breaks if it's down: every reader falls back to its own direct call.
+echo "Step 11: Installing Ohme status poller service..."
+sudo cp scripts/home_automation_ohme.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable "$OHME_SERVICE_NAME"
+sudo systemctl start "$OHME_SERVICE_NAME"
+echo "  Ohme status poller installed, enabled, and started."
+echo ""
+
+# Step 12: Install the repo's git hooks - a pre-push test gate. Deliberately
+# pre-push, not pre-commit: this setup auto-commits after every file edit
+# with `git commit --no-verify`, which skips pre-commit hooks entirely, and
+# push is what actually matters anyway (this Pi pulls from that remote).
+echo "Step 12: Installing git hooks (pre-push test gate)..."
+bash scripts/install_git_hooks.sh || echo "  (hook install skipped - non-fatal)"
+echo ""
+
 # Done
 echo "=== Setup complete ==="
 echo ""
@@ -232,6 +260,8 @@ echo "  systemctl status $HOTWATER_SERVICE_NAME"
 echo "  journalctl -u $HOTWATER_SERVICE_NAME -f"
 echo "  systemctl status $DASHBOARD_SERVICE_NAME"
 echo "  journalctl -u $DASHBOARD_SERVICE_NAME -f"
+echo "  systemctl status $OHME_SERVICE_NAME"
+echo "  journalctl -u $OHME_SERVICE_NAME -f"
 echo "  Dashboard: http://<this Pi's IP>:8000/ from any device on your home WiFi"
 echo ""
 if [ -d "$BACKUP_DIR" ]; then

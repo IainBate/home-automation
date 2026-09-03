@@ -3,6 +3,12 @@
 # Run the suite from the project root with: pytest
 pytest>=7.0
 
+# Coverage reporting. Not installed before 2026-09-03, which meant nobody
+# could see that the Modbus read layer - the code underneath every battery
+# safety decision - sat at 23% while the suite looked healthy at 587 passing
+# tests. Run: pytest --cov=src --cov=scripts --cov-report=term-missing
+pytest-cov>=5.0
+
 # Async test support (OhmeEVClient/MelCloudClient are async) and HTTP-layer
 # mocking (intercepts aiohttp requests by URL so the real client/library
 # request-building and parsing code runs against scripted fake responses,
