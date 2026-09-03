@@ -275,6 +275,11 @@ CONFIG_SCHEMA = {
             "properties": {
                 "enabled": {"type": "boolean"},
                 "trigger_hour": {"type": "number", "minimum": 0, "maximum": 23.99},
+                "car_charging_trigger_start_hour": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 23.99,
+                },
                 "ohme_charging_threshold_watts": {
                     "type": "number",
                     "minimum": 0,
