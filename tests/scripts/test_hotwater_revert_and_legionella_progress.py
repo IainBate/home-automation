@@ -282,7 +282,9 @@ def test_legionella_progress_times_out_without_marking_completed(tmp_path):
             }
         },
     )
-    client = FakeMelCloudClient(tank_temp=55.0, target_temp=60.0)  # never reached
+    # Below the (default 55C) disinfection threshold too, not just the 60C
+    # requested target - genuinely never reached, not just short of target.
+    client = FakeMelCloudClient(tank_temp=40.0, target_temp=60.0)
 
     exit_code, final_state = _run(
         lambda: core.run_legionella_progress_check(
@@ -295,6 +297,74 @@ def test_legionella_progress_times_out_without_marking_completed(tmp_path):
     assert exit_code == 0
     assert final_state["legionella"]["cycle_in_progress"] is False
     assert final_state["legionella"]["last_completed_at"] is None  # not marked complete
+
+
+def test_legionella_progress_reverts_at_the_natural_completion_temp_even_below_the_requested_target(
+    tmp_path,
+):
+    """The scenario this exists for: an ASHP that can't reliably reach the
+    full requested target (60C here) shouldn't run the full
+    legionella_max_cycle_duration_hours every time - once the tank is
+    genuinely hot enough to have been disinfected (legionella_natural_
+    completion_temp_c, default 55C), the cycle is done, not merely timed out.
+    """
+    started_at = datetime.now(tz=UTC) - timedelta(hours=1)  # nowhere near timed out
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": True,
+                "cycle_started_at": started_at.isoformat(),
+                "target_temp_c": 60.0,
+                "original_target_temp_c": 45.0,
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=56.0, target_temp=60.0)  # >= 55C, < 60C requested
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_progress_check(
+            {"legionella_max_cycle_duration_hours": 6.0}, dry_run=False, quiet=True
+        ),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert client.force_calls == [False]
+    assert client.target_temp_calls == [45.0]
+    assert final_state["legionella"]["cycle_in_progress"] is False
+    assert final_state["legionella"]["last_completed_at"] is not None  # marked complete
+
+
+def test_legionella_progress_natural_completion_temp_is_configurable(tmp_path):
+    started_at = datetime.now(tz=UTC) - timedelta(hours=1)
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": True,
+                "cycle_started_at": started_at.isoformat(),
+                "target_temp_c": 60.0,
+                "original_target_temp_c": 45.0,
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=52.0, target_temp=60.0)
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_progress_check(
+            {"legionella_max_cycle_duration_hours": 6.0, "legionella_natural_completion_temp_c": 50.0},
+            dry_run=False,
+            quiet=True,
+        ),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state["legionella"]["cycle_in_progress"] is False
+    assert final_state["legionella"]["last_completed_at"] is not None
 
 
 # --- locking discipline (finding 1) --------------------------------------
