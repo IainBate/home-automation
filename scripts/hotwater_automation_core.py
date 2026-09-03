@@ -1007,7 +1007,7 @@ def check_legionella_due_warning(
         subject = "Hot water: legionella cycle due soon"
         body = (
             f"A legionella disinfection cycle will become due in approximately "
-            f"{days_until_due} day(s) (last completed {last_completed_str}, "
+            f"{days_until_due} day(s) (last completed {last_completed:%d %B %Y}, "
             f"{interval_days}-day interval).\n\n"
             "It will run automatically the next time the usual force-heat "
             "conditions are met, unless holiday mode or service mode is active."
