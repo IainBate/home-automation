@@ -158,6 +158,71 @@ def test_revert_check_reverts_anyway_once_timed_out(tmp_path):
     assert "force_heat_activated_at" not in final_state
 
 
+def test_revert_check_sends_insufficient_duration_alert_when_timed_out(tmp_path):
+    activated_at = datetime.now(tz=UTC) - timedelta(hours=5)
+    state_path = _write_state(tmp_path, {"force_heat_activated_at": activated_at.isoformat()})
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)  # never reached
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        exit_code, final_state = _run(
+            lambda: core.run_revert_check(
+                {"email": {"enabled": True}},
+                {"force_heat_max_duration_hours": 3.0},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert exit_code == 0
+    assert len(sent_calls) == 1
+    subject, body = sent_calls[0]
+    assert "force-heat" in subject
+    assert "30.0" in body and "45.0" in body
+    assert "force_heat_max_duration_hours" in body
+
+
+def test_revert_check_does_not_alert_when_target_reached(tmp_path):
+    state_path = _write_state(
+        tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()}
+    )
+    client = FakeMelCloudClient(tank_temp=50.0, target_temp=45.0)  # reached
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        _run(
+            lambda: core.run_revert_check({"email": {"enabled": True}}, {}, dry_run=False, quiet=True),
+            state_path,
+            client,
+        )
+
+    assert sent_calls == []
+
+
+def test_revert_check_dry_run_does_not_send_alert_email(tmp_path):
+    activated_at = datetime.now(tz=UTC) - timedelta(hours=5)
+    state_path = _write_state(tmp_path, {"force_heat_activated_at": activated_at.isoformat()})
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        exit_code, _final_state = _run(
+            lambda: core.run_revert_check(
+                {"email": {"enabled": True}},
+                {"force_heat_max_duration_hours": 3.0},
+                dry_run=True,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert exit_code == 0
+    assert sent_calls == []
+
+
 def test_revert_check_clears_malformed_timestamp(tmp_path):
     state_path = _write_state(tmp_path, {"force_heat_activated_at": "not-a-timestamp"})
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)
