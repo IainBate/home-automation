@@ -58,13 +58,20 @@ class FakeMelCloudClient:
 
 def _run_force_heat_check(tmp_path: Path, *, legionella_last_completed_days_ago: float | None, max_temp: float = 65.0):
     state_path = tmp_path / "hotwater_automation_state.json"
-    if legionella_last_completed_days_ago is None:
-        initial_state = {}
-    else:
+    # These tests are about the interval-due coupling, not the time-of-day
+    # eligibility gate (see test_hotwater_legionella_eligibility_snapshot.py
+    # for that) - seed today's snapshot as already having found the tank
+    # cold, so it doesn't also depend on what time these tests happen to run.
+    today_str = datetime.now(tz=UTC).astimezone().date().isoformat()
+    legionella_state: dict = {
+        "cycle_in_progress": False,
+        "threshold_check_date": today_str,
+        "threshold_met_at_check": True,
+    }
+    if legionella_last_completed_days_ago is not None:
         completed_at = datetime.now(tz=UTC) - timedelta(days=legionella_last_completed_days_ago)
-        initial_state = {
-            "legionella": {"cycle_in_progress": False, "last_completed_at": completed_at.isoformat()}
-        }
+        legionella_state["last_completed_at"] = completed_at.isoformat()
+    initial_state = {"legionella": legionella_state}
     state_path.write_text(json.dumps(initial_state), encoding="utf-8")
 
     client = FakeMelCloudClient(target_temp=45.0, tank_temp=30.0, max_temp=max_temp)
