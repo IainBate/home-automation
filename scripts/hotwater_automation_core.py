@@ -528,7 +528,7 @@ async def _run_force_heat_check_locked(
         tz_name = config.get("location", {}).get("default_timezone_str", DEFAULT_TIMEZONE)
         now_local = datetime.now(tz=UTC).astimezone(pytz.timezone(tz_name))
 
-        _update_legionella_eligibility_snapshot(hw_config, state, tank_temperature, now_local)
+        _update_daily_threshold_snapshot(hw_config, state, tank_temperature, now_local)
 
         # "Evening" spans from trigger_hour through midnight to offpeak_end.
         # Deliberately NOT is_in_offpeak_window() here: that function infers
@@ -542,11 +542,17 @@ async def _run_force_heat_check_locked(
         trigger_hour = hw_config.get("trigger_hour", DEFAULT_TRIGGER_HOUR)
         trigger_time = hour_float_to_time(trigger_hour)
 
-        # Car charging is only a trigger before trigger_time - see this
-        # module's docstring. At/after trigger_time the decision switches
-        # over entirely to the battery/off-peak check below.
+        # Car charging is only a trigger within its own window - see this
+        # module's docstring. Outside it (including at/after trigger_time)
+        # the decision switches over entirely to the battery/off-peak check
+        # below.
+        car_charging_window_start_time = hour_float_to_time(
+            hw_config.get(
+                "car_charging_trigger_start_hour", DEFAULT_CAR_CHARGING_TRIGGER_START_HOUR
+            )
+        )
         car_is_charging = await is_car_charging_confirmed(
-            config, hw_config, state, now_local, trigger_time
+            config, hw_config, state, now_local, trigger_time, car_charging_window_start_time
         )
 
         battery_soc, battery_soc_source = get_effective_battery_soc_percent(
@@ -565,8 +571,23 @@ async def _run_force_heat_check_locked(
 
         holiday_mode_active = is_holiday_active(state)
 
+        # Car charging is immediate/responsive and stays on a live reading;
+        # every other path (evening/battery/off-peak) is pinned to the daily
+        # snapshot instead - see _update_daily_threshold_snapshot's
+        # docstring. No snapshot yet for today (e.g. it's not daily_check_hour
+        # yet) reads as "not below threshold" - the same safe default as an
+        # unavailable live reading gets.
+        daily_check = state.get("daily_check", {})
+        today_str = now_local.date().isoformat()
+        if car_is_charging:
+            decision_tank_temperature = tank_temperature
+        elif daily_check.get("date") == today_str:
+            decision_tank_temperature = daily_check.get("tank_temperature_c")
+        else:
+            decision_tank_temperature = None
+
         context = HotWaterDecisionContext(
-            tank_temperature_c=tank_temperature,
+            tank_temperature_c=decision_tank_temperature,
             tank_temp_threshold_c=hw_config.get(
                 "tank_temp_threshold_c", DEFAULT_TANK_TEMP_THRESHOLD_C
             ),
