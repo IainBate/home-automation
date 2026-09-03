@@ -117,10 +117,12 @@ async def main_async() -> None:
 
     try:
         if args.revert_if_due:
-            exit_code = await run_revert_check(hw_config, dry_run=args.dry_run, quiet=args.quiet)
+            exit_code = await run_revert_check(
+                config, hw_config, dry_run=args.dry_run, quiet=args.quiet
+            )
         elif args.legionella_progress:
             exit_code = await run_legionella_progress_check(
-                hw_config, dry_run=args.dry_run, quiet=args.quiet
+                config, hw_config, dry_run=args.dry_run, quiet=args.quiet
             )
         else:
             exit_code = await run_force_heat_check(
