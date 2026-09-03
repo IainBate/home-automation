@@ -138,6 +138,7 @@ def test_checks_do_not_rerun_before_their_interval_elapses(tmp_path, monkeypatch
     assert len(daemon.force_heat_calls) == 1
     assert len(daemon.revert_calls) == 1
     assert len(daemon.legionella_progress_calls) == 1
+    assert len(daemon.legionella_natural_completion_calls) == 1
 
 
 def test_reenabling_after_disabled_does_not_cause_a_catch_up_burst(tmp_path, monkeypatch):
