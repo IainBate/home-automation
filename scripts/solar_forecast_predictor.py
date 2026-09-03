@@ -4,8 +4,12 @@
 
 Loads the model trained by scripts/solar_forecast_trainer.py, fetches
 today/tomorrow's weather forecast, and writes a cached prediction for the
-dashboard (src/dashboard/status_collector.py) to display. Display-only -
-nothing reads this to make automation decisions.
+dashboard (src/dashboard/status_collector.py) to display. Not read by
+battery_mode_daemon.py or hotwater_mode_daemon.py, but scripts/
+battery_evening_predictor.py does read this record's "hourly_kw" as an
+optional correction input to its own evening SoC prediction (see
+solar_forecast_logic.distribute_daily_kwh_to_hourly()) - not a hardware
+safety path, but not purely cosmetic either.
 
 Meant to run periodically via cron (e.g. hourly - weather forecasts don't
 change fast enough to justify more often than that):
