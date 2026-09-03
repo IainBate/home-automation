@@ -642,8 +642,8 @@ async def _run_force_heat_check_locked(
         legionella_state = state.get("legionella", {})
         legionella_due = (
             _is_legionella_due(hw_config, legionella_state)
-            and legionella_state.get("threshold_check_date") == now_local.date().isoformat()
-            and legionella_state.get("threshold_met_at_check") is True
+            and daily_check.get("date") == today_str
+            and daily_check.get("below_threshold") is True
         )
 
         if legionella_due:
