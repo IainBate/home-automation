@@ -828,11 +828,9 @@ async def _start_legionella_cycle(
             await client.set_target_tank_temperature(original_target_temp)
         return 1
 
-    # Merge rather than replace - keeps threshold_check_date/
-    # threshold_met_at_check (today's eligibility snapshot, just written by
-    # _update_legionella_eligibility_snapshot earlier in this same call) and
-    # any other field a future code version adds, rather than silently
-    # discarding them - see run_legionella_progress_check's identical note.
+    # Merge rather than replace - keeps last_completed_at and any other field
+    # a future code version adds, rather than silently discarding them - see
+    # run_legionella_progress_check's identical note.
     state["legionella"] = {
         **legionella_state,
         "cycle_in_progress": True,
