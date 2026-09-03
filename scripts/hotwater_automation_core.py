@@ -775,12 +775,17 @@ async def _start_legionella_cycle(
             await client.set_target_tank_temperature(original_target_temp)
         return 1
 
+    # Merge rather than replace - keeps threshold_check_date/
+    # threshold_met_at_check (today's eligibility snapshot, just written by
+    # _update_legionella_eligibility_snapshot earlier in this same call) and
+    # any other field a future code version adds, rather than silently
+    # discarding them - see run_legionella_progress_check's identical note.
     state["legionella"] = {
+        **legionella_state,
         "cycle_in_progress": True,
         "cycle_started_at": datetime.now(tz=UTC).isoformat(),
         "original_target_temp_c": original_target_temp,
         "target_temp_c": target_temp,
-        "last_completed_at": legionella_state.get("last_completed_at"),
     }
     logger.info("Legionella cycle started (target %sC)", target_temp)
     if not quiet:
