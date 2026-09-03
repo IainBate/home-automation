@@ -170,6 +170,15 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
         except Exception:
             self.logger.exception("Legionella progress check cycle failed")
 
+    def _run_legionella_natural_completion_cycle(self, hw_config: dict[str, Any]) -> None:
+        """Run one legionella-natural-completion check. Never raises."""
+        try:
+            asyncio.run(
+                run_legionella_natural_completion_check(hw_config, dry_run=False, quiet=True)
+            )
+        except Exception:
+            self.logger.exception("Legionella natural-completion check cycle failed")
+
     def _hw_config(self) -> dict[str, Any]:
         return self.config.get("hotwater_automation", {})
 
