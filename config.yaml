@@ -179,18 +179,38 @@ hotwater_automation:
   # Legionella high-temperature cycle (DIY - MELCloud has no dedicated trigger for
   # this). Rides on the exact same trigger as a normal force-heat above (car
   # charging, or evening window + battery/off-peak) - there is no separate
-  # schedule. The only difference is a minimum-interval gate: the first time
-  # that trigger fires at least legionella_interval_days after the last
-  # completed cycle, it raises the tank's target temperature and force-heats
-  # to that instead of the normal target, then restores the original target
-  # once reached. This means a cycle never runs sooner than
+  # schedule for *when* it fires. Whether a cycle is due at all is instead
+  # decided once a day, at legionella_check_hour: if the tank is below
+  # tank_temp_threshold_c at that fixed time, and legionella_interval_days
+  # have passed since the last completed cycle, the next time the normal
+  # trigger fires (whenever that ends up being overnight, per the usual
+  # battery/off-peak timing) it raises the tank's target temperature and
+  # force-heats to that instead of the normal target, then restores the
+  # original target once done. This means a cycle never runs sooner than
   # legionella_interval_days, but can run later if the normal trigger
   # conditions don't occur for a while. Confirm your hot water outlets have a
   # thermostatic mixing valve (standard on UK systems) before relying on
   # this, since it's a real temperature spike at the tank.
   legionella_interval_days: 90             # Minimum days between cycles (~3 months)
-  legionella_target_temp_c: 60             # Target temperature for the cycle
-  legionella_max_cycle_duration_hours: 6   # Safety timeout: revert even if target not reached
+  legionella_check_hour: 18                # Fixed local hour (24h, fractional) at which the
+                                            # tank's below-threshold state is snapshotted to
+                                            # decide if today is a legionella-due day - decoupled
+                                            # from whenever the heating trigger itself actually
+                                            # fires, which can be much later overnight.
+  legionella_target_temp_c: 55             # Target temperature requested from MELCloud for the
+                                            # cycle. Kept at the disinfection-sufficient temperature
+                                            # below (not higher, e.g. 60) since some ASHPs can't
+                                            # reliably reach the top of their nominal range,
+                                            # especially in cold weather - asking for more than the
+                                            # tank needs just means the cycle runs the full
+                                            # legionella_max_cycle_duration_hours every time chasing
+                                            # a target it may never reach.
+  legionella_max_cycle_duration_hours: 6   # Safety timeout: revert even if not disinfected yet
+  legionella_natural_completion_temp_c: 55 # A tank reading at/above this, at ANY time and
+                                            # regardless of what heated it (this cycle, or e.g. an
+                                            # off-grid solar diverter this project can't otherwise
+                                            # see), counts as satisfying the current interval -
+                                            # resets legionella_interval_days from that moment.
 
   max_prediction_age_hours: 3              # How old battery_evening_prediction.json (below) may
                                             # be before the force-heat check ignores it and falls
