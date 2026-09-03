@@ -408,6 +408,19 @@ def is_holiday_active(state: dict[str, Any]) -> bool:
     return until is not None and datetime.now(tz=UTC) < until
 
 
+def is_service_mode_active(state: dict[str, Any]) -> bool:
+    """Whether scripts/service_mode.py's engineer-control pause is currently active.
+
+    Unlike holiday mode, service mode has no expiry timestamp to check - it's
+    a plain boolean written by --start and cleared by --cancel, since there's
+    no equivalent of holiday_mode.py's --start-days N (an engineer visit
+    doesn't have a predictable duration to count down). A missing/falsy
+    state["service_mode"]["active"] means service mode has no effect, the
+    safe default.
+    """
+    return bool(state.get("service_mode", {}).get("active", False))
+
+
 def get_effective_battery_soc_percent(
     config: dict[str, Any], hw_config: dict[str, Any], now_local: datetime
 ) -> tuple[float | None, str]:
