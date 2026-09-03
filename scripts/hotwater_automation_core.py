@@ -1235,7 +1235,7 @@ async def _run_revert_check_locked(
 
 
 async def run_legionella_progress_check(
-    hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
+    config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
     """Check an in-progress legionella cycle and revert once done or overdue.
 
@@ -1246,17 +1246,22 @@ async def run_legionella_progress_check(
     of those two could act on (or start) a cycle this function doesn't know
     about yet, and this function's final write would then clobber it.
 
+    Not gated on holiday_mode_active/service_mode_active - same rationale as
+    run_revert_check.
+
     Returns:
         0 on success (including "no cycle in progress" / "still in progress"),
         1 if a requested revert couldn't be confirmed.
 
     """
     with locked_state(timeout=DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS) as state:
-        return await _run_legionella_progress_check_locked(hw_config, state, dry_run=dry_run, quiet=quiet)
+        return await _run_legionella_progress_check_locked(
+            config, hw_config, state, dry_run=dry_run, quiet=quiet
+        )
 
 
 async def _run_legionella_progress_check_locked(
-    hw_config: dict[str, Any], state: dict[str, Any], *, dry_run: bool, quiet: bool
+    config: dict[str, Any], hw_config: dict[str, Any], state: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
     """Body of run_legionella_progress_check() that runs inside its locked_state() block."""
     legionella_state = state.get("legionella", {})
