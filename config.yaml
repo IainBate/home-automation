@@ -157,6 +157,11 @@ hotwater_automation:
   trigger_hour: 21.5                       # Local hour (24h, fractional - 21.5 = 9:30pm) at which
                                             # car-charging monitoring stops and the battery/off-peak
                                             # conditions take over (see above).
+  car_charging_trigger_start_hour: 15      # Car charging only counts as a force-heat trigger from
+                                            # this hour (3pm) up to trigger_hour - excludes the
+                                            # morning/midday specifically, since solar water heating
+                                            # is still effective then and an unrelated EV charging
+                                            # session shouldn't force-heat the ASHP in that window.
   ohme_charging_threshold_watts: 500       # Same threshold/meaning as battery_mode_daemon_config.json's
                                             # ohme_charging_threshold_watts - kept as a separate value
                                             # here since this lives in config.yaml, not that JSON file.
@@ -175,28 +180,33 @@ hotwater_automation:
                                             # revert-if-due check (which also reverts on reaching
                                             # target temperature), and the legionella progress
                                             # check (1 hour)
+  daily_check_hour: 18                     # Fixed local hour (24h, fractional - 6pm) at which the
+                                            # tank's below-threshold state is snapshotted once a day.
+                                            # Every force-heat path EXCEPT car charging (which stays
+                                            # on a live reading - see car_charging_trigger_start_hour
+                                            # above) is decided from THIS one reading, not whatever
+                                            # the tank happens to read whenever the evening/battery/
+                                            # off-peak trigger actually fires later that night - so is
+                                            # the legionella-due decision below.
 
   # Legionella high-temperature cycle (DIY - MELCloud has no dedicated trigger for
   # this). Rides on the exact same trigger as a normal force-heat above (car
   # charging, or evening window + battery/off-peak) - there is no separate
-  # schedule for *when* it fires. Whether a cycle is due at all is instead
-  # decided once a day, at legionella_check_hour: if the tank is below
-  # tank_temp_threshold_c at that fixed time, and legionella_interval_days
-  # have passed since the last completed cycle, the next time the normal
-  # trigger fires (whenever that ends up being overnight, per the usual
-  # battery/off-peak timing) it raises the tank's target temperature and
-  # force-heats to that instead of the normal target, then restores the
-  # original target once done. This means a cycle never runs sooner than
-  # legionella_interval_days, but can run later if the normal trigger
-  # conditions don't occur for a while. Confirm your hot water outlets have a
+  # schedule for *when* it fires. Whether a cycle is due at all uses the same
+  # daily_check_hour snapshot as the normal (non-car-charging) heat decision
+  # above: if the tank was below tank_temp_threshold_c at that fixed time,
+  # and legionella_interval_days have passed since the last completed cycle,
+  # the next time the normal trigger fires (whenever that ends up being
+  # overnight, per the usual battery/off-peak timing) it raises the tank's
+  # target temperature and force-heats to that instead of the normal target,
+  # then restores the original target once done. This means a cycle never
+  # runs sooner than legionella_interval_days, but can run later if the
+  # normal trigger conditions don't occur for a while. A car-charging-
+  # triggered heat is never upgraded to legionella, since it's decided from
+  # a live reading, not this snapshot. Confirm your hot water outlets have a
   # thermostatic mixing valve (standard on UK systems) before relying on
   # this, since it's a real temperature spike at the tank.
   legionella_interval_days: 90             # Minimum days between cycles (~3 months)
-  legionella_check_hour: 18                # Fixed local hour (24h, fractional) at which the
-                                            # tank's below-threshold state is snapshotted to
-                                            # decide if today is a legionella-due day - decoupled
-                                            # from whenever the heating trigger itself actually
-                                            # fires, which can be much later overnight.
   legionella_target_temp_c: 55             # Target temperature requested from MELCloud for the
                                             # cycle. Kept at the disinfection-sufficient temperature
                                             # below (not higher, e.g. 60) since some ASHPs can't
