@@ -497,6 +497,8 @@ async def _run_force_heat_check_locked(
         tz_name = config.get("location", {}).get("default_timezone_str", DEFAULT_TIMEZONE)
         now_local = datetime.now(tz=UTC).astimezone(pytz.timezone(tz_name))
 
+        _update_legionella_eligibility_snapshot(hw_config, state, tank_temperature, now_local)
+
         # "Evening" spans from trigger_hour through midnight to offpeak_end.
         # Deliberately NOT is_in_offpeak_window() here: that function infers
         # whether a window wraps midnight by comparing start <= end, which is
