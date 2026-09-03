@@ -116,18 +116,21 @@ def _fetch_hourly(
         return None
 
     times = hourly["time"]
-    radiation = hourly.get("shortwave_radiation", [])
-    cloud_cover = hourly.get("cloud_cover", [])
-    temperature = hourly.get("temperature_2m", [])
+    fields = {
+        "shortwave_radiation": hourly.get("shortwave_radiation", []),
+        "direct_radiation": hourly.get("direct_radiation", []),
+        "diffuse_radiation": hourly.get("diffuse_radiation", []),
+        "cloud_cover": hourly.get("cloud_cover", []),
+        "cloud_cover_low": hourly.get("cloud_cover_low", []),
+        "cloud_cover_mid": hourly.get("cloud_cover_mid", []),
+        "cloud_cover_high": hourly.get("cloud_cover_high", []),
+        "temperature_2m": hourly.get("temperature_2m", []),
+    }
 
     records = []
     for i, timestamp in enumerate(times):
-        records.append(
-            {
-                "timestamp": timestamp,
-                "shortwave_radiation": radiation[i] if i < len(radiation) else None,
-                "cloud_cover": cloud_cover[i] if i < len(cloud_cover) else None,
-                "temperature_2m": temperature[i] if i < len(temperature) else None,
-            }
-        )
+        record = {"timestamp": timestamp}
+        for name, values in fields.items():
+            record[name] = values[i] if i < len(values) else None
+        records.append(record)
     return records
