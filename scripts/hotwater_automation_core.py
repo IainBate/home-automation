@@ -175,7 +175,14 @@ DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
 # legionella_max_cycle_duration_hours every time chasing a target it may
 # never reach, without the tank actually being any less disinfected for it.
 DEFAULT_LEGIONELLA_TARGET_TEMP_C = 55.0
-DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 6.0
+# Same hard safety-net cap as DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS, applied
+# to a legionella cycle instead of a normal force-heat - see that constant's
+# docstring.
+DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 1.0
+# How many days before a legionella cycle becomes due (legionella_interval_days
+# since the last completed one) to send a warning email - see
+# check_legionella_due_warning.
+DEFAULT_LEGIONELLA_DUE_WARNING_DAYS = 7
 # The tank's below-threshold state is snapshotted once a day at this hour -
 # both the normal force-heat decision (outside the car-charging window - see
 # DEFAULT_CAR_CHARGING_TRIGGER_START_HOUR) and the legionella-due decision
