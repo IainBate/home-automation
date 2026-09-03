@@ -304,6 +304,11 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
             "automation_holiday_until": (
                 automation_holiday_until.isoformat() if automation_holiday_until else None
             ),
+            # scripts/service_mode.py's pause - unlike holiday, no expiry
+            # timestamp, just a plain flag (see is_service_mode_active).
+            "automation_service_mode_active": bool(
+                automation_state.get("service_mode", {}).get("active", False)
+            ),
         }
     except (MelCloudAuthenticationError, MelCloudConnectionError) as e:
         logger.warning("Failed to fetch MELCloud tank status: %s", e)
