@@ -344,7 +344,7 @@ def get_battery_prediction_to_deadline(
         predicted_min_percent,
         (
             f"Predicted {predicted_min_label} battery at {predicted_min_percent:.1f}% "
-            f"by {deadline_hour}:00 (lower of master/slave predictions)"
+            f"by {deadline_str} (lower of master/slave predictions)"
         ),
     )
 
