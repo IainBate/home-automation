@@ -235,7 +235,13 @@ hotwater_automation:
                                             # tank needs just means the cycle runs the full
                                             # legionella_max_cycle_duration_hours every time chasing
                                             # a target it may never reach.
-  legionella_max_cycle_duration_hours: 6   # Safety timeout: revert even if not disinfected yet
+  legionella_max_cycle_duration_hours: 1   # Safety timeout: revert even if not disinfected yet
+                                            # (kept in step with force_heat_max_duration_hours above -
+                                            # see its comment)
+  legionella_due_warning_days: 7           # Send a warning email (email: section below) this many
+                                            # days before a legionella cycle becomes due, so there's
+                                            # notice before the tank starts running hotter than usual -
+                                            # see check_legionella_due_warning
   legionella_natural_completion_temp_c: 55 # A tank reading at/above this, at ANY time and
                                             # regardless of what heated it (this cycle, or e.g. an
                                             # off-grid solar diverter this project can't otherwise
