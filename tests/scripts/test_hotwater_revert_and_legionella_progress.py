@@ -367,6 +367,126 @@ def test_legionella_progress_natural_completion_temp_is_configurable(tmp_path):
     assert final_state["legionella"]["last_completed_at"] is not None
 
 
+# --- run_legionella_natural_completion_check -----------------------------
+
+
+def test_natural_completion_below_threshold_is_a_noop(tmp_path):
+    state_path = _write_state(tmp_path, {})
+    client = FakeMelCloudClient(tank_temp=50.0, target_temp=45.0)  # < 55C default
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state == {}
+
+
+def test_natural_completion_marks_the_interval_satisfied_with_no_cycle_involved(tmp_path):
+    """The scenario this exists for: a tank that reaches disinfection
+    temperature entirely on its own (e.g. an off-grid solar diverter this
+    project can't otherwise see) - not a legionella cycle in progress at all.
+    """
+    state_path = _write_state(tmp_path, {"some_unrelated_top_level_key": "must survive"})
+    client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state["legionella"]["last_completed_at"] is not None
+    assert final_state["some_unrelated_top_level_key"] == "must survive"
+
+
+def test_natural_completion_does_not_rewrite_an_already_recorded_today(tmp_path):
+    already_recorded_at = datetime.now(tz=UTC).isoformat()
+    state_path = _write_state(
+        tmp_path, {"legionella": {"last_completed_at": already_recorded_at}}
+    )
+    client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state["legionella"]["last_completed_at"] == already_recorded_at  # untouched
+
+
+def test_natural_completion_rewrites_a_stale_previous_day_record(tmp_path):
+    stale = (datetime.now(tz=UTC) - timedelta(days=3)).isoformat()
+    state_path = _write_state(tmp_path, {"legionella": {"last_completed_at": stale}})
+    client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state["legionella"]["last_completed_at"] != stale
+
+
+def test_natural_completion_runs_regardless_of_an_in_progress_cycle(tmp_path):
+    """No prior-state gate (unlike run_revert_check/run_legionella_progress_check)
+    - a quiet day with no automation activity at all is exactly the case
+    this exists to catch, so it always takes its own live reading.
+    """
+    state_path = _write_state(
+        tmp_path, {"legionella": {"cycle_in_progress": True, "some_future_field": "must survive"}}
+    )
+    client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state["legionella"]["last_completed_at"] is not None
+    assert final_state["legionella"]["cycle_in_progress"] is True  # untouched
+    assert final_state["legionella"]["some_future_field"] == "must survive"
+
+
+def test_natural_completion_temp_is_configurable(tmp_path):
+    state_path = _write_state(tmp_path, {})
+    client = FakeMelCloudClient(tank_temp=52.0, target_temp=45.0)
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_natural_completion_check(
+            {"legionella_natural_completion_temp_c": 50.0}, dry_run=False, quiet=True
+        ),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state["legionella"]["last_completed_at"] is not None
+
+
+def test_natural_completion_dry_run_does_not_write(tmp_path):
+    state_path = _write_state(tmp_path, {})
+    client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
+
+    exit_code, final_state = _run(
+        lambda: core.run_legionella_natural_completion_check({}, dry_run=True, quiet=True),
+        state_path,
+        client,
+    )
+
+    assert exit_code == 0
+    assert final_state == {}
+
+
 # --- locking discipline (finding 1) --------------------------------------
 
 
