@@ -155,6 +155,125 @@ def test_car_charging_before_trigger_hour_heats_even_with_no_battery_surplus(
     assert client.force_calls == [True]
 
 
+def test_car_charging_in_the_morning_does_not_heat(tmp_path, monkeypatch):
+    """The concrete scenario car_charging_trigger_start_hour exists for: an
+    EV charging session before the window (default 3pm) must not force-heat
+    the ASHP, even though the same confirmed-charging state would trigger a
+    heat later that afternoon/evening - solar water heating is still
+    effective in the morning.
+    """
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(json.dumps({"ohme_charging_confirm_cycles": 1}), encoding="utf-8")
+    _freeze_time_of_day(monkeypatch, 9, 0)
+    client = FakeMelCloudClient()
+    hw_config = {"tank_temp_threshold_c": 45.0, "trigger_hour": 21.5, "battery_soc_min_percent": 50.0}
+    config = {"location": {"default_timezone_str": "UTC"}}
+
+    with (
+        mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)),
+        mock.patch.object(core, "MelCloudClient", lambda config_path=None: client),
+        mock.patch.object(
+            core, "_get_ohme_charging_power_watts", mock.AsyncMock(return_value=600.0)
+        ),
+        mock.patch.object(core, "get_battery_soc_percent", lambda cfg: 10.0),
+    ):
+        exit_code = asyncio.run(
+            core.run_force_heat_check(config, hw_config, dry_run=False, quiet=True)
+        )
+
+    final_state = json.loads(state_path.read_text())
+    assert exit_code == 0
+    assert client.force_calls == []
+    assert final_state["ohme_charging_confirm_cycles"] == 0  # reset, outside the window
+
+
+def test_car_charging_just_before_the_window_does_not_heat(tmp_path, monkeypatch):
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(json.dumps({"ohme_charging_confirm_cycles": 1}), encoding="utf-8")
+    _freeze_time_of_day(monkeypatch, 14, 59)
+    client = FakeMelCloudClient()
+    hw_config = {
+        "tank_temp_threshold_c": 45.0,
+        "trigger_hour": 21.5,
+        "battery_soc_min_percent": 50.0,
+        "car_charging_trigger_start_hour": 15.0,
+    }
+    config = {"location": {"default_timezone_str": "UTC"}}
+
+    with (
+        mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)),
+        mock.patch.object(core, "MelCloudClient", lambda config_path=None: client),
+        mock.patch.object(
+            core, "_get_ohme_charging_power_watts", mock.AsyncMock(return_value=600.0)
+        ),
+        mock.patch.object(core, "get_battery_soc_percent", lambda cfg: 10.0),
+    ):
+        exit_code = asyncio.run(
+            core.run_force_heat_check(config, hw_config, dry_run=False, quiet=True)
+        )
+
+    assert exit_code == 0
+    assert client.force_calls == []
+
+
+def test_car_charging_right_at_the_window_start_heats(tmp_path, monkeypatch):
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(json.dumps({"ohme_charging_confirm_cycles": 1}), encoding="utf-8")
+    _freeze_time_of_day(monkeypatch, 15, 0)
+    client = FakeMelCloudClient()
+    hw_config = {
+        "tank_temp_threshold_c": 45.0,
+        "trigger_hour": 21.5,
+        "battery_soc_min_percent": 50.0,
+        "car_charging_trigger_start_hour": 15.0,
+    }
+    config = {"location": {"default_timezone_str": "UTC"}}
+
+    with (
+        mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)),
+        mock.patch.object(core, "MelCloudClient", lambda config_path=None: client),
+        mock.patch.object(
+            core, "_get_ohme_charging_power_watts", mock.AsyncMock(return_value=600.0)
+        ),
+        mock.patch.object(core, "get_battery_soc_percent", lambda cfg: 10.0),
+    ):
+        exit_code = asyncio.run(
+            core.run_force_heat_check(config, hw_config, dry_run=False, quiet=True)
+        )
+
+    assert exit_code == 0
+    assert client.force_calls == [True]
+
+
+def test_car_charging_trigger_start_hour_is_configurable(tmp_path, monkeypatch):
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(json.dumps({"ohme_charging_confirm_cycles": 1}), encoding="utf-8")
+    _freeze_time_of_day(monkeypatch, 11, 0)  # Before the default 3pm, but after 10am here.
+    client = FakeMelCloudClient()
+    hw_config = {
+        "tank_temp_threshold_c": 45.0,
+        "trigger_hour": 21.5,
+        "battery_soc_min_percent": 50.0,
+        "car_charging_trigger_start_hour": 10.0,
+    }
+    config = {"location": {"default_timezone_str": "UTC"}}
+
+    with (
+        mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)),
+        mock.patch.object(core, "MelCloudClient", lambda config_path=None: client),
+        mock.patch.object(
+            core, "_get_ohme_charging_power_watts", mock.AsyncMock(return_value=600.0)
+        ),
+        mock.patch.object(core, "get_battery_soc_percent", lambda cfg: 10.0),
+    ):
+        exit_code = asyncio.run(
+            core.run_force_heat_check(config, hw_config, dry_run=False, quiet=True)
+        )
+
+    assert exit_code == 0
+    assert client.force_calls == [True]
+
+
 def test_before_trigger_hour_no_car_charging_and_daytime_does_nothing(tmp_path, monkeypatch):
     exit_code, client = _run(
         tmp_path,
