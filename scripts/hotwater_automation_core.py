@@ -305,10 +305,11 @@ def get_battery_prediction_to_deadline(
         other "prediction unavailable" case elsewhere in this module).
 
     """
+    deadline_str = hour_float_to_time(deadline_hour).strftime("%H:%M")
     now_hour_float = now_local.hour + now_local.minute / 60.0
     horizon_hours = deadline_hour - now_hour_float
     if horizon_hours <= 0:
-        return None, f"Already at/past the {deadline_hour}:00 deadline, nothing to predict"
+        return None, f"Already at/past the {deadline_str} deadline, nothing to predict"
 
     soc_data = solax_modbus_soc(config)
     if soc_data is None:
