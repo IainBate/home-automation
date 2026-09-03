@@ -688,17 +688,52 @@ async def _run_force_heat_check_locked(
 
         in_evening_window = is_in_evening_window(now_local.time(), trigger_time, offpeak_end)
 
-        holiday_mode_active = is_holiday_active(state)
+        # Battery-prediction path (get_battery_prediction_to_deadline) - an
+        # independent, wider (afternoon-through-evening) alternative to
+        # trigger_hour/car-charging. Not is_in_evening_window(): this window
+        # doesn't wrap midnight, so the plain start<=end<=current check is
+        # correct and simpler here.
+        battery_prediction_window_start_time = hour_float_to_time(
+            hw_config.get(
+                "battery_prediction_window_start_hour",
+                DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR,
+            )
+        )
+        battery_prediction_deadline_hour = hw_config.get(
+            "battery_prediction_deadline_hour", DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR
+        )
+        battery_prediction_deadline_time = hour_float_to_time(battery_prediction_deadline_hour)
+        in_battery_prediction_window = is_in_offpeak_window(
+            now_local.time(), battery_prediction_window_start_time, battery_prediction_deadline_time
+        )
 
-        # Car charging is immediate/responsive and stays on a live reading;
-        # every other path (evening/battery/off-peak) is pinned to the daily
-        # snapshot instead - see _update_daily_threshold_snapshot's
-        # docstring. No snapshot yet for today (e.g. it's not daily_check_hour
-        # yet) reads as "not below threshold" - the same safe default as an
-        # unavailable live reading gets.
+        battery_soc_min_percent = hw_config.get(
+            "battery_soc_min_percent", DEFAULT_BATTERY_SOC_MIN_PERCENT
+        )
+        battery_prediction_trigger_active = False
+        battery_prediction_reason = "Outside the battery-prediction window"
+        if in_battery_prediction_window:
+            predicted_min, battery_prediction_reason = get_battery_prediction_to_deadline(
+                config, hw_config, now_local, battery_prediction_deadline_hour
+            )
+            battery_prediction_trigger_active = (
+                predicted_min is not None and predicted_min >= battery_soc_min_percent
+            )
+
+        holiday_mode_active = is_holiday_active(state)
+        service_mode_active = is_service_mode_active(state)
+
+        # Car charging and the battery-prediction path are both immediate/
+        # responsive and stay on a live reading; every other path (evening/
+        # battery/off-peak) is pinned to the daily snapshot instead - see
+        # _update_daily_threshold_snapshot's docstring. No snapshot yet for
+        # today (e.g. it's not daily_check_hour yet - true for the whole
+        # start of the battery-prediction window, which opens before the
+        # default daily_check_hour) reads as "not below threshold" - the same
+        # safe default as an unavailable live reading gets.
         daily_check = state.get("daily_check", {})
         today_str = now_local.date().isoformat()
-        if car_is_charging:
+        if car_is_charging or battery_prediction_trigger_active:
             decision_tank_temperature = tank_temperature
         elif daily_check.get("date") == today_str:
             decision_tank_temperature = daily_check.get("tank_temperature_c")
@@ -712,26 +747,32 @@ async def _run_force_heat_check_locked(
             ),
             car_is_charging=car_is_charging,
             battery_soc_percent=battery_soc,
-            battery_soc_min_percent=hw_config.get(
-                "battery_soc_min_percent", DEFAULT_BATTERY_SOC_MIN_PERCENT
-            ),
+            battery_soc_min_percent=battery_soc_min_percent,
             grid_is_cheap=grid_is_cheap,
             in_evening_window=in_evening_window,
             holiday_mode_active=holiday_mode_active,
+            service_mode_active=service_mode_active,
+            battery_prediction_trigger_active=battery_prediction_trigger_active,
         )
         decision = determine_hotwater_decision(context)
 
-        decision_basis = "live" if car_is_charging else "6pm snapshot"
+        decision_basis = (
+            "live" if (car_is_charging or battery_prediction_trigger_active) else "6pm snapshot"
+        )
         logger.info(
             "Tank: %sC live (%sC %s) | Car charging: %s | Battery SoC: %s%% (%s) | "
-            "Off-peak: %s | Decision: %s (%s)",
+            "Battery prediction: %s | Off-peak: %s | Holiday: %s | Service mode: %s | "
+            "Decision: %s (%s)",
             tank_temperature,
             decision_tank_temperature,
             decision_basis,
             car_is_charging,
             battery_soc,
             battery_soc_source,
+            battery_prediction_reason,
             grid_is_cheap,
+            holiday_mode_active,
+            service_mode_active,
             "FORCE HEAT" if decision.should_force_heat else "no action",
             decision.reason,
         )
@@ -739,7 +780,8 @@ async def _run_force_heat_check_locked(
             print(
                 f"Tank: {tank_temperature}C live ({decision_tank_temperature}C {decision_basis}) "
                 f"| Car charging: {car_is_charging} | Battery SoC: {battery_soc}% "
-                f"({battery_soc_source}) | Off-peak: {grid_is_cheap}"
+                f"({battery_soc_source}) | Battery prediction: {battery_prediction_reason} "
+                f"| Off-peak: {grid_is_cheap}"
             )
             print(
                 f"Decision: {'FORCE HEAT' if decision.should_force_heat else 'no action'} "
