@@ -1,4 +1,4 @@
-"""End-to-end tests for the trigger_hour car-charging cutoff in
+"""End-to-end tests for the car-charging trigger window in
 hotwater_automation_core.py's force-heat check.
 
 Unlike test_hotwater_legionella_coupling.py (which mocks is_car_charging_confirmed
@@ -6,12 +6,21 @@ away entirely), these tests exercise the real is_car_charging_confirmed +
 hour_float_to_time + is_in_evening_window wiring end-to-end via
 run_force_heat_check, only mocking the raw Ohme power reading and the live
 battery SoC - the actual behavior being pinned down:
-- car confirmed charging before trigger_hour -> force-heat, regardless of
-  battery/off-peak
+- car confirmed charging within [car_charging_trigger_start_hour, trigger_hour)
+  -> force-heat, regardless of battery/off-peak
+- car charging outside that window (including the morning/midday, before
+  car_charging_trigger_start_hour) -> never a trigger, even if confirmed
 - at/after trigger_hour, car charging is no longer checked at all (even if
   it's actually happening) - only battery surplus / off-peak matters
 - before trigger_hour with no car charging and not in the evening window ->
   no action
+
+All of these run at/after the default daily_check_hour (18:00) except the
+morning/midday ones - which stay no-action regardless of the daily snapshot,
+since car charging is the only trigger being exercised there and it's
+gated by its own window, decided from a live reading either way (see
+test_hotwater_legionella_eligibility_snapshot.py for the daily-snapshot
+mechanism itself).
 """
 
 from __future__ import annotations
