@@ -61,7 +61,7 @@ scikit-learn>=1.4.0
 # importance despite being free to compute (known exactly in advance, unlike
 # a weather forecast). Pure-Python, zero transitive deps (confirmed via
 # `pip show astral`) - deliberately not pvlib, which would drag numpy/scipy/
-# pandas back in after their removal above (2026-08-18).
+# pandas back in after their removal below (2026-08-18).
 astral>=3.2
 
 # Fujitsu Airstage ductless heat pump (src/api_clients/airstage_client.py).
