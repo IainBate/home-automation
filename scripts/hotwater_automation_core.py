@@ -61,16 +61,19 @@ legionella_interval_days, but can run later than that if the normal trigger
 conditions simply don't occur for a while - it rides on the same "is it worth
 heating right now" decision rather than firing on its own clock.
 
-Whether *today* is even a legionella candidate is decided separately from
-when the force-heat trigger fires: once a day, at hotwater_automation.
-legionella_check_hour (default 18:00), the tank's below-threshold state is
-snapshotted (_update_legionella_eligibility_snapshot). Only if that snapshot
-found the tank cold does a later trigger (whenever it actually fires -
-overnight, timed by battery/off-peak as usual) get upgraded to a legionella
-cycle. This keeps the trigger's own timing untouched while pinning the
-legionella decision itself to a predictable point in the day, rather than
-whatever moment the tank happened to be read at (e.g. the middle of the
-night).
+Whether *today* is even a legionella candidate is decided from the exact
+same daily_check_hour snapshot as the non-car-charging heat decision above
+(_update_daily_threshold_snapshot) - not a separate reading of its own. Only
+if that snapshot found the tank cold does a later trigger (whenever it
+actually fires - overnight, timed by battery/off-peak as usual) get upgraded
+to a legionella cycle. This keeps the trigger's own timing untouched while
+pinning the legionella decision itself to a predictable point in the day,
+rather than whatever moment the tank happened to be read at (e.g. the middle
+of the night). A car-charging-triggered heat never becomes a legionella
+cycle, since it's decided from the live reading, not this snapshot - given
+legionella cycles are already rare (legionella_interval_days, ~90 days by
+default), this is a narrow, low-impact trade rather than a gap worth extra
+mechanism to close.
 
 A legionella cycle - or indeed any day's heating, forced or not - is also
 considered complete the moment the tank is observed at or above
