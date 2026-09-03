@@ -35,9 +35,10 @@ from hotwater_automation_core import get_config_path
 from src.api_clients.weather_client import fetch_forecast_weather_hourly
 from src.config_manager.config_manager import load_static_config
 from src.core_logic.solar_forecast_logic import (
-    build_forecast_rows,
+    build_daily_forecast_rows,
     compute_actual_daily_kwh,
-    predict_hourly_kw,
+    distribute_daily_kwh_to_hourly,
+    predict_daily_kwh,
 )
 from src.utils.logging_setup import configure_cron_safe_logging
 from src.utils.paths import (
