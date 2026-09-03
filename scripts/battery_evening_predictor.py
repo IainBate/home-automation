@@ -62,10 +62,10 @@ from src.core_logic.battery_evening_prediction_logic import (
     extract_forecast_generation_kwh,
     predict_evening_soc,
 )
+from src.utils.historical_data import load_historical_records
 from src.utils.paths import (
     get_battery_evening_prediction_path,
     get_solar_forecast_path,
-    get_solax_historical_data_path,
 )
 
 logger = logging.getLogger(__name__)
