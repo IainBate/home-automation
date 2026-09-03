@@ -50,10 +50,14 @@ def _make_daemon(config_path: str, monkeypatch, tmp_path) -> HotWaterModeDaemon:
     daemon.force_heat_calls = []
     daemon.revert_calls = []
     daemon.legionella_progress_calls = []
+    daemon.legionella_natural_completion_calls = []
     daemon._run_force_heat_cycle = lambda hw_config: daemon.force_heat_calls.append(hw_config)
     daemon._run_revert_cycle = lambda hw_config: daemon.revert_calls.append(hw_config)
     daemon._run_legionella_progress_cycle = lambda hw_config: daemon.legionella_progress_calls.append(
         hw_config
+    )
+    daemon._run_legionella_natural_completion_cycle = (
+        lambda hw_config: daemon.legionella_natural_completion_calls.append(hw_config)
     )
     return daemon
 
