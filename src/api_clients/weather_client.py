@@ -53,7 +53,9 @@ def fetch_historical_weather_hourly(
 
     Returns:
         List of {"timestamp": "YYYY-MM-DD HH:MM", "shortwave_radiation": float,
-        "cloud_cover": float, "temperature_2m": float}, or None on error.
+        "direct_radiation": float, "diffuse_radiation": float, "cloud_cover": float,
+        "cloud_cover_low": float, "cloud_cover_mid": float, "cloud_cover_high": float,
+        "temperature_2m": float}, or None on error.
 
     """
     params = {
