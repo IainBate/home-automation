@@ -46,15 +46,23 @@ requests>=2.28.0           # Pi: 2.32.5
 flask>=3.0.0
 
 # Solar generation forecast (scripts/solar_forecast_trainer.py). A real
-# trained model (RandomForestRegressor) is used here deliberately, unlike
-# battery_evening_prediction_logic.py's simple analog-day statistic - Solcast's
-# generic forecast wasn't accurate for this roof, so this trains on the
-# system's own historical PV output instead. Pulls in numpy/scipy/joblib as
-# transitive deps. On a Pi, install from piwheels (Raspberry Pi OS's pip is
-# usually already configured for it) to get prebuilt ARM wheels rather than
-# compiling from source - a fresh install from source can take a very long
-# time on a Pi4.
+# trained model (ExtraTreesRegressor, forecasting daily kWh) is used here
+# deliberately, unlike battery_evening_prediction_logic.py's simple
+# analog-day statistic - Solcast's generic forecast wasn't accurate for this
+# roof, so this trains on the system's own historical PV output instead.
+# Pulls in numpy/scipy/joblib as transitive deps. On a Pi, install from
+# piwheels (Raspberry Pi OS's pip is usually already configured for it) to
+# get prebuilt ARM wheels rather than compiling from source - a fresh
+# install from source can take a very long time on a Pi4.
 scikit-learn>=1.4.0
+
+# Solar geometry (max elevation, day length) for the forecast model above -
+# ml_forecast_eval/RESULTS.md found these carry ~44% combined feature
+# importance despite being free to compute (known exactly in advance, unlike
+# a weather forecast). Pure-Python, zero transitive deps (confirmed via
+# `pip show astral`) - deliberately not pvlib, which would drag numpy/scipy/
+# pandas back in after their removal above (2026-08-18).
+astral>=3.2
 
 # Fujitsu Airstage ductless heat pump (src/api_clients/airstage_client.py).
 # Unofficial library talking directly to the unit over the local network -
