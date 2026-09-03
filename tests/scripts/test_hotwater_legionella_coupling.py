@@ -64,7 +64,9 @@ def _run_force_heat_check(tmp_path: Path, *, legionella_last_completed_days_ago:
     # eligibility gate (see test_hotwater_legionella_eligibility_snapshot.py
     # for that) - seed today's snapshot as already having found the tank
     # cold, so it doesn't also depend on what time these tests happen to run.
-    today_str = datetime.now(tz=UTC).astimezone().date().isoformat()
+    today_str = (
+        datetime.now(tz=UTC).astimezone(pytz.timezone("Europe/London")).date().isoformat()
+    )
     legionella_state: dict = {
         "cycle_in_progress": False,
         "threshold_check_date": today_str,
