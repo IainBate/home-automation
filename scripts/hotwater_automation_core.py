@@ -1005,7 +1005,58 @@ async def _start_legionella_cycle(
     return 0
 
 
-async def run_revert_check(hw_config: dict[str, Any], *, dry_run: bool, quiet: bool) -> int:
+def _overnight_deadline_passed(
+    activated_at_local: datetime, now_local: datetime, offpeak_end_time: time
+) -> bool:
+    """Whether now_local is at/after the next offpeak_end_time on/after activated_at_local.
+
+    A hard clock deadline (default 05:30) on top of the max-duration safety
+    net - "a cycle scheduled at 6pm must be completed by 5:30am the day
+    after" - regardless of how far the tank still is from target.
+    Deliberately NOT a plain `now_local.time() >= offpeak_end_time` check:
+    that's true for the entire rest of the day once past 05:30 (e.g. 16:30 >=
+    05:30), which would wrongly cap an unrelated afternoon car-charging/
+    battery-prediction-triggered heat that has nothing to do with an
+    overnight deadline. Instead this finds the *next* offpeak_end_time at or
+    after activation (same day if activation was already before it, e.g. a
+    cycle starting at 04:50; the following day if activation was in the
+    evening, e.g. 22:00) and only compares against that.
+
+    Examples:
+        >>> from datetime import UTC
+        >>> tz = UTC
+        >>> # Started 10pm, still running past 6am the next day -> deadline passed
+        >>> _overnight_deadline_passed(
+        ...     datetime(2026, 1, 1, 22, 0, tzinfo=tz), datetime(2026, 1, 2, 6, 0, tzinfo=tz),
+        ...     time(5, 30),
+        ... )
+        True
+        >>> # Started 4:50am, still running at 5:35am the same morning -> deadline passed
+        >>> _overnight_deadline_passed(
+        ...     datetime(2026, 1, 2, 4, 50, tzinfo=tz), datetime(2026, 1, 2, 5, 35, tzinfo=tz),
+        ...     time(5, 30),
+        ... )
+        True
+        >>> # Started 4pm (afternoon path), an hour later -> nowhere near its own deadline
+        >>> _overnight_deadline_passed(
+        ...     datetime(2026, 1, 1, 16, 0, tzinfo=tz), datetime(2026, 1, 1, 17, 0, tzinfo=tz),
+        ...     time(5, 30),
+        ... )
+        False
+
+    """
+    deadline_date = activated_at_local.date()
+    if activated_at_local.time() >= offpeak_end_time:
+        deadline_date += timedelta(days=1)
+    deadline_dt = datetime.combine(
+        deadline_date, offpeak_end_time, tzinfo=activated_at_local.tzinfo
+    )
+    return now_local >= deadline_dt
+
+
+async def run_revert_check(
+    config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
+) -> int:
     """Revert to auto mode once the tank reaches temperature, or a safety limit is hit.
 
     Reverting only ever happens here (never from run_force_heat_check itself),
@@ -1013,10 +1064,19 @@ async def run_revert_check(hw_config: dict[str, Any], *, dry_run: bool, quiet: b
     short just because the car later stops charging (or any other trigger
     condition flips) - it always runs through to one of:
     - the tank reaching its own target_tank_temperature (the normal, expected
-      way this ends), or
+      way this ends),
     - force_heat_max_duration_hours elapsing regardless (a safety net in case
       MELCloud never reports the tank as having reached target, e.g. a stuck
-      sensor reading or the unit silently not heating).
+      sensor reading or the unit silently not heating), or
+    - the offpeak_end (05:30 by default) clock deadline passing since
+      activation, whichever of the two comes first - see
+      _overnight_deadline_passed.
+
+    Not gated on holiday_mode_active/service_mode_active: an already-active
+    force-heat window when either starts is deliberately left to finish/
+    time out normally here rather than being force-interrupted (see
+    scripts/holiday_mode.py's docstring) - simpler and no less safe, since it
+    can only overlap the moment the mode was turned on.
 
     Holds the state-file lock across this whole function - not just a peek at
     the start plus a separately-locked final write - for the same reason
@@ -1034,11 +1094,11 @@ async def run_revert_check(hw_config: dict[str, Any], *, dry_run: bool, quiet: b
 
     """
     with locked_state(timeout=DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS) as state:
-        return await _run_revert_check_locked(hw_config, state, dry_run=dry_run, quiet=quiet)
+        return await _run_revert_check_locked(config, hw_config, state, dry_run=dry_run, quiet=quiet)
 
 
 async def _run_revert_check_locked(
-    hw_config: dict[str, Any], state: dict[str, Any], *, dry_run: bool, quiet: bool
+    config: dict[str, Any], hw_config: dict[str, Any], state: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
     """Body of run_revert_check() that runs inside its locked_state() block."""
     activated_at_str = state.get("force_heat_activated_at")
@@ -1076,11 +1136,21 @@ async def _run_revert_check_locked(
         state.pop("force_heat_activated_at", None)
         return 1
 
+    tz_name = config.get("location", {}).get("default_timezone_str", DEFAULT_TIMEZONE)
+    tz = pytz.timezone(tz_name)
+    now = datetime.now(tz=UTC)
+    now_local = now.astimezone(tz)
+    activated_at_local = activated_at.astimezone(tz)
+
     max_duration_hours = hw_config.get(
         "force_heat_max_duration_hours", DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS
     )
-    elapsed_hours = (datetime.now(tz=UTC) - activated_at).total_seconds() / 3600.0
-    timed_out = elapsed_hours >= max_duration_hours
+    elapsed_hours = (now - activated_at).total_seconds() / 3600.0
+    offpeak_end_time = datetime.strptime(
+        hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
+    ).time()
+    deadline_passed = _overnight_deadline_passed(activated_at_local, now_local, offpeak_end_time)
+    timed_out = elapsed_hours >= max_duration_hours or deadline_passed
 
     client = MelCloudClient(config_path=get_config_path())
     try:
@@ -1111,6 +1181,21 @@ async def _run_revert_check_locked(
             )
             if not quiet:
                 print(f"Tank reached target {target_temperature}C, reverting to auto")
+        elif deadline_passed:
+            logger.warning(
+                "Force-heat active past the %s deadline (%.1fh elapsed) without reaching "
+                "target (%sC / %sC) - reverting anyway as a safety net",
+                offpeak_end_time.strftime("%H:%M"),
+                elapsed_hours,
+                tank_temperature,
+                target_temperature,
+            )
+            if not quiet:
+                print(
+                    f"Force-heat active past the {offpeak_end_time.strftime('%H:%M')} deadline "
+                    f"({elapsed_hours:.1f}h elapsed) without reaching target ({tank_temperature}C "
+                    f"/ {target_temperature}C) - reverting anyway"
+                )
         else:
             logger.warning(
                 "Force-heat active for %.1fh >= %sh limit without reaching target "
