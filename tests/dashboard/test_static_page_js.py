@@ -212,6 +212,31 @@ def test_service_health_card_marks_an_unhealthy_daemon():
 
 
 @requires_node
+def test_service_health_card_puts_log_age_next_to_the_status_badge():
+    """Saves vertical space: the log-age reading sits inline next to the
+    status badge on the service's own row, not on a separate row below it.
+    """
+    payload = {
+        "available": True,
+        "services": [
+            {"key": "battery_daemon", "label": "Battery Daemon", "health_status": "healthy",
+             "installed": True, "active": True, "active_state": "active", "log_age_seconds": 30},
+        ],
+    }
+    html = _run_js(f"console.log(serviceHealthCard({json.dumps(payload)}));")
+
+    assert "Last log activity" not in html
+    assert 'class="subtext"' in html
+    # Same row: no row boundary between the label and the badge.
+    row_start = html.index('<div class="row">')
+    row_end = html.index("</div>", html.index("badge", row_start))
+    row_html = html[row_start:row_end]
+    assert "Battery Daemon" in row_html
+    assert "subtext" in row_html
+    assert "badge" in row_html
+
+
+@requires_node
 def test_hot_water_card_surfaces_an_active_legionella_cycle():
     payload = {
         "available": True,
