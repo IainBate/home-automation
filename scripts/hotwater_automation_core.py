@@ -257,16 +257,95 @@ def locked_state(timeout: float = 10.0) -> contextlib.AbstractContextManager[dic
 
 
 def get_battery_soc_percent(config: dict[str, Any]) -> float | None:
-    """Get average battery SoC across master/slave inverters, or None if unavailable.
+    """Get the lower of the master/slave inverters' live SoC, or None if unavailable.
 
-    Reads live via the same solax_modbus_soc() function battery_mode_daemon.py
-    itself uses - a read-only Modbus call, safe to run independently alongside
-    the battery daemon without touching or coordinating with it.
+    A minimum, not an average: hotwater_automation.battery_soc_min_percent is
+    meant as "both batteries have this much spare charge", not "the pair does
+    on average" - an average can clear the threshold while one battery is
+    already low, which this is meant to catch. Reads live via the same
+    solax_modbus_soc() function battery_mode_daemon.py itself uses - a
+    read-only Modbus call, safe to run independently alongside the battery
+    daemon without touching or coordinating with it.
     """
     soc_data = solax_modbus_soc(config)
     if soc_data is None:
         return None
-    return (soc_data["master"] + soc_data["slave"]) / 2
+    return min(soc_data["master"], soc_data["slave"])
+
+
+def get_battery_prediction_to_deadline(
+    config: dict[str, Any], hw_config: dict[str, Any], now_local: datetime, deadline_hour: float
+) -> tuple[float | None, str]:
+    """Predict the lower of master/slave SoC at deadline_hour, from right now.
+
+    Powers the battery-prediction trigger path (see
+    HotWaterDecisionContext.battery_prediction_trigger_active) - unlike
+    get_battery_soc_percent's live minimum (used by the evening/off-peak
+    path), this looks forward to whether stored solar will *still* be there
+    by deadline_hour (by default hotwater_automation.offpeak_start, 11:30pm -
+    the moment the grid's off-peak window opens anyway), so heating can start
+    earlier than trigger_hour whenever that's forecast to hold.
+
+    Runs src.core_logic.battery_evening_prediction_logic.predict_evening_soc
+    once per battery, each anchored to its own *current* live reading with a
+    horizon shrinking as the day goes on (deadline_hour - now) - not a
+    genuinely independent per-battery model (data/solax_historical_data.json
+    only ever logs the master inverter's SoC via the SolaX cloud API, so
+    there's no slave-specific historical drift to train against), but this
+    still captures "the pair drains together, so apply the same
+    historically-typical drift to each battery's own current level" rather
+    than shifting a single averaged prediction, which is what a plain
+    average-based check would give.
+
+    Returns:
+        (predicted_min_percent, reason) - predicted_min_percent is None if
+        the live SoC or historical data couldn't be read, or there wasn't
+        enough historical data for either battery to predict (the caller
+        should then simply not treat this path as active, the same as any
+        other "prediction unavailable" case elsewhere in this module).
+
+    """
+    now_hour_float = now_local.hour + now_local.minute / 60.0
+    horizon_hours = deadline_hour - now_hour_float
+    if horizon_hours <= 0:
+        return None, f"Already at/past the {deadline_hour}:00 deadline, nothing to predict"
+
+    soc_data = solax_modbus_soc(config)
+    if soc_data is None:
+        return None, "Could not read live battery SoC, cannot predict"
+
+    historical_records = load_historical_records()
+    if not historical_records:
+        return None, "Could not load historical SoC data, cannot predict"
+
+    min_sample_days = hw_config.get(
+        "battery_prediction_min_sample_days",
+        config.get("battery_evening_prediction", {}).get("min_sample_days", 5),
+    )
+    reference_day_of_year = now_local.timetuple().tm_yday
+
+    predicted_values = []
+    for label, current_soc in (("master", soc_data["master"]), ("slave", soc_data["slave"])):
+        result = predict_evening_soc(
+            current_soc_percent=current_soc,
+            historical_records=historical_records,
+            trigger_hour=now_hour_float,
+            horizon_hours=horizon_hours,
+            reference_day_of_year=reference_day_of_year,
+            min_sample_days=min_sample_days,
+        )
+        if result.predicted_soc_percent is None:
+            return None, f"{label} battery: {result.reason}"
+        predicted_values.append((label, result.predicted_soc_percent))
+
+    predicted_min_label, predicted_min_percent = min(predicted_values, key=lambda pair: pair[1])
+    return (
+        predicted_min_percent,
+        (
+            f"Predicted {predicted_min_label} battery at {predicted_min_percent:.1f}% "
+            f"by {deadline_hour}:00 (lower of master/slave predictions)"
+        ),
+    )
 
 
 def get_hotwater_automation_config_error(config: dict[str, Any]) -> str | None:
