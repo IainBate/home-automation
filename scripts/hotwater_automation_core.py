@@ -1362,6 +1362,19 @@ async def _run_revert_check_locked(
                     f"{target_temperature}C) - reverting anyway"
                 )
 
+        if not reached_target:
+            _alert_insufficient_duration(
+                config,
+                kind="force-heat",
+                tank_temperature=tank_temperature,
+                target_temperature=target_temperature,
+                elapsed_hours=elapsed_hours,
+                max_duration_hours=max_duration_hours,
+                config_key="force_heat_max_duration_hours",
+                dry_run=dry_run,
+                quiet=quiet,
+            )
+
         if dry_run:
             if not quiet:
                 print("(dry run - not actually requesting mode change)")
