@@ -8,31 +8,39 @@ decision and act on it" and "revert to auto if overdue" operations, plus
 their supporting state/status helpers, live here once so the two entry
 points can't drift apart.
 
-Force-heats the tank via MELCloud if it needs it (tank temperature below
-tank_temp_threshold_c) and either:
+Force-heats the tank via MELCloud if it needs it and either:
 - the Ohme EV charger is confirmed charging (same power-threshold +
   2-consecutive-cycle confirmation as battery_mode_daemon.py's own charging
-  check - see src/core_logic/ohme_charging_logic.py), and it's still before
-  the configured trigger hour (hotwater_automation.trigger_hour, default
-  21.5 / 9:30pm) - Ohme has already decided this is an economical time to
-  draw power, so hot water piggybacks on it while that condition is still
-  being watched for, OR
-- it's at/after trigger_hour AND either the battery has surplus stored
-  solar (SoC >= battery_soc_min_percent) or the grid is currently in the
-  tariff's off-peak window (Octopus Intelligent Go: 23:30-05:30 by default -
-  see hotwater_automation.offpeak_start/offpeak_end).
+  check - see src/core_logic/ohme_charging_logic.py), it's within the
+  car-charging trigger window (hotwater_automation.
+  car_charging_trigger_start_hour, default 15:00 / 3pm, up to trigger_hour -
+  excludes the morning/midday specifically, since solar water heating is
+  still effective then and an ASHP force-heat off the back of an unrelated
+  EV session isn't wanted) - Ohme has already decided this is an economical
+  time to draw power, so hot water piggybacks on it while that condition is
+  still being watched for, and the tank's *live* temperature is below
+  tank_temp_threshold_c right now, OR
+- it's at/after trigger_hour (hotwater_automation.trigger_hour, default 21.5
+  / 9:30pm) AND either the battery has surplus stored solar (SoC >=
+  battery_soc_min_percent) or the grid is currently in the tariff's
+  off-peak window (Octopus Intelligent Go: 23:30-05:30 by default - see
+  hotwater_automation.offpeak_start/offpeak_end), AND the tank was below
+  tank_temp_threshold_c at hotwater_automation.daily_check_hour (default
+  18:00 / 6pm) - see _update_daily_threshold_snapshot's docstring for why
+  this one reading, not a live one, decides "was heating needed today" for
+  every non-car-charging path.
 
-Car charging is only monitored *before* trigger_hour, not indefinitely: once
-trigger_hour passes without the car having charged, the decision switches
-over entirely to the battery/off-peak check above - so a tank that's still
-cold at trigger_hour heats from stored solar immediately if there's enough
-of it, or otherwise waits for the off-peak window rather than continuing to
-wait on the car indefinitely.
+Car charging is only monitored within its trigger window, not indefinitely:
+once trigger_hour passes without the car having charged, the decision
+switches over entirely to the battery/off-peak check above - so a tank
+that's still cold at trigger_hour heats from stored solar immediately if
+there's enough of it, or otherwise waits for the off-peak window rather than
+continuing to wait on the car indefinitely.
 
-Because the car-charging condition can occur at any time before trigger_hour,
-the force-heat check needs to run frequently (e.g. every 10-15 minutes), not
-just once at the trigger hour - each run is cheap and a no-op unless a
-condition is actually met.
+Because the car-charging condition can occur at any moment within its
+window, the force-heat check needs to run frequently (e.g. every 10-15
+minutes), not just once at the trigger hour - each run is cheap and a no-op
+unless a condition is actually met.
 
 Turning heating back off happens only in the separate revert check, never in
 the force-heat check itself - so a window started because the car was
