@@ -21,7 +21,12 @@ def test_fetch_historical_weather_hourly_parses_response():
         "hourly": {
             "time": ["2026-01-01T00:00", "2026-01-01T01:00"],
             "shortwave_radiation": [0.0, 10.0],
+            "direct_radiation": [0.0, 6.0],
+            "diffuse_radiation": [0.0, 4.0],
             "cloud_cover": [80.0, 75.0],
+            "cloud_cover_low": [60.0, 55.0],
+            "cloud_cover_mid": [20.0, 15.0],
+            "cloud_cover_high": [10.0, 10.0],
             "temperature_2m": [5.0, 5.2],
         }
     }
@@ -34,13 +39,23 @@ def test_fetch_historical_weather_hourly_parses_response():
         {
             "timestamp": "2026-01-01T00:00",
             "shortwave_radiation": 0.0,
+            "direct_radiation": 0.0,
+            "diffuse_radiation": 0.0,
             "cloud_cover": 80.0,
+            "cloud_cover_low": 60.0,
+            "cloud_cover_mid": 20.0,
+            "cloud_cover_high": 10.0,
             "temperature_2m": 5.0,
         },
         {
             "timestamp": "2026-01-01T01:00",
             "shortwave_radiation": 10.0,
+            "direct_radiation": 6.0,
+            "diffuse_radiation": 4.0,
             "cloud_cover": 75.0,
+            "cloud_cover_low": 55.0,
+            "cloud_cover_mid": 15.0,
+            "cloud_cover_high": 10.0,
             "temperature_2m": 5.2,
         },
     ]
