@@ -85,6 +85,57 @@ def test_evening_without_battery_surplus_or_cheap_grid_waits():
     assert decision.should_force_heat is False
 
 
+def test_battery_prediction_trigger_heats_in_daytime_without_car_or_evening_window():
+    decision = determine_hotwater_decision(
+        _context(
+            in_evening_window=False,
+            car_is_charging=False,
+            battery_prediction_trigger_active=True,
+        )
+    )
+    assert decision.should_force_heat is True
+
+
+def test_battery_prediction_trigger_inactive_falls_through_to_evening_window_logic():
+    decision = determine_hotwater_decision(
+        _context(in_evening_window=False, battery_prediction_trigger_active=False)
+    )
+    assert decision.should_force_heat is False
+
+
+def test_holiday_mode_dominates_battery_prediction_trigger():
+    decision = determine_hotwater_decision(
+        _context(battery_prediction_trigger_active=True, holiday_mode_active=True)
+    )
+    assert decision.should_force_heat is False
+
+
+def test_service_mode_dominates_car_charging():
+    decision = determine_hotwater_decision(
+        _context(car_is_charging=True, service_mode_active=True)
+    )
+    assert decision.should_force_heat is False
+
+
+def test_service_mode_dominates_battery_prediction_trigger():
+    decision = determine_hotwater_decision(
+        _context(battery_prediction_trigger_active=True, service_mode_active=True)
+    )
+    assert decision.should_force_heat is False
+
+
+def test_service_mode_dominates_evening_window():
+    decision = determine_hotwater_decision(
+        _context(
+            in_evening_window=True,
+            battery_soc_percent=90.0,
+            battery_soc_min_percent=50.0,
+            service_mode_active=True,
+        )
+    )
+    assert decision.should_force_heat is False
+
+
 def test_offpeak_window_wraps_midnight():
     window_start, window_end = time(23, 30), time(5, 30)
     assert is_in_offpeak_window(time(0, 0), window_start, window_end) is True
