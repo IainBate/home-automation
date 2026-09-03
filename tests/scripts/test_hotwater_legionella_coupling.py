@@ -67,15 +67,18 @@ def _run_force_heat_check(tmp_path: Path, *, legionella_last_completed_days_ago:
     today_str = (
         datetime.now(tz=UTC).astimezone(pytz.timezone("Europe/London")).date().isoformat()
     )
-    legionella_state: dict = {
-        "cycle_in_progress": False,
-        "threshold_check_date": today_str,
-        "threshold_met_at_check": True,
-    }
+    legionella_state: dict = {"cycle_in_progress": False}
     if legionella_last_completed_days_ago is not None:
         completed_at = datetime.now(tz=UTC) - timedelta(days=legionella_last_completed_days_ago)
         legionella_state["last_completed_at"] = completed_at.isoformat()
-    initial_state = {"legionella": legionella_state}
+    initial_state = {
+        "legionella": legionella_state,
+        "daily_check": {
+            "date": today_str,
+            "tank_temperature_c": 30.0,
+            "below_threshold": True,
+        },
+    }
     state_path.write_text(json.dumps(initial_state), encoding="utf-8")
 
     client = FakeMelCloudClient(target_temp=45.0, tank_temp=30.0, max_temp=max_temp)
