@@ -301,7 +301,14 @@ CONFIG_SCHEMA = {
                     "maximum": 21600,
                 },
                 "legionella_interval_days": {"type": "integer", "minimum": 7, "maximum": 365},
-                "legionella_target_temp_c": {"type": "number", "minimum": 50, "maximum": 65},
+                # Capped at 55, not higher (e.g. 60-65): MELCloud has no
+                # official/supported way to trigger a legionella cycle
+                # remotely (confirmed against pymelcloud's full writable
+                # property set - power/mode/target-temp/zones only), so this
+                # project's only option is raising target_tank_temperature
+                # itself - the spec this schema enforces says not to exceed
+                # 55C unless a proper (official) cycle can be triggered.
+                "legionella_target_temp_c": {"type": "number", "minimum": 50, "maximum": 55},
                 "legionella_max_cycle_duration_hours": {
                     "type": "number",
                     "minimum": 1,
