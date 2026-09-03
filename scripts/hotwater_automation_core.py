@@ -130,7 +130,14 @@ DEFAULT_OHME_CHARGING_THRESHOLD_WATTS = 500.0
 DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 3.0
 DEFAULT_TIMEZONE = "Europe/London"
 DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
-DEFAULT_LEGIONELLA_TARGET_TEMP_C = 60.0
+# What a legionella cycle asks MELCloud to heat the tank to. Deliberately not
+# higher (e.g. 60C) by default - some ASHPs can't reliably reach the top of
+# their nominal range (especially in cold weather, when flow-temperature
+# output derates), so asking for more than DEFAULT_LEGIONELLA_NATURAL_
+# COMPLETION_TEMP_C below just means the cycle runs its full
+# legionella_max_cycle_duration_hours every time chasing a target it may
+# never reach, without the tank actually being any less disinfected for it.
+DEFAULT_LEGIONELLA_TARGET_TEMP_C = 55.0
 DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 6.0
 # The tank's below-threshold state is snapshotted once a day at this hour to
 # decide whether a legionella cycle is due - see
