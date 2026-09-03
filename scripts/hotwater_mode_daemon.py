@@ -161,14 +161,16 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
     def _run_revert_cycle(self, hw_config: dict[str, Any]) -> None:
         """Run one revert-if-due safety check cycle. Never raises."""
         try:
-            asyncio.run(run_revert_check(hw_config, dry_run=False, quiet=True))
+            asyncio.run(run_revert_check(self.config, hw_config, dry_run=False, quiet=True))
         except Exception:
             self.logger.exception("Revert-if-due check cycle failed")
 
     def _run_legionella_progress_cycle(self, hw_config: dict[str, Any]) -> None:
         """Run one legionella-cycle-progress check. Never raises."""
         try:
-            asyncio.run(run_legionella_progress_check(hw_config, dry_run=False, quiet=True))
+            asyncio.run(
+                run_legionella_progress_check(self.config, hw_config, dry_run=False, quiet=True)
+            )
         except Exception:
             self.logger.exception("Legionella progress check cycle failed")
 
@@ -180,6 +182,13 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
             )
         except Exception:
             self.logger.exception("Legionella natural-completion check cycle failed")
+
+    def _run_legionella_due_warning_cycle(self, hw_config: dict[str, Any]) -> None:
+        """Run one legionella-due-soon warning email check. Never raises."""
+        try:
+            check_legionella_due_warning(self.config, hw_config, dry_run=False, quiet=True)
+        except Exception:
+            self.logger.exception("Legionella due-warning check cycle failed")
 
     def _hw_config(self) -> dict[str, Any]:
         return self.config.get("hotwater_automation", {})
