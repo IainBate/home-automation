@@ -126,6 +126,13 @@ DEFAULT_BATTERY_SOC_MIN_PERCENT = 50.0
 DEFAULT_OFFPEAK_START = "23:30"
 DEFAULT_OFFPEAK_END = "05:30"
 DEFAULT_TRIGGER_HOUR = 21.5  # 9:30pm - fractional hours are supported (e.g. 21.5 = 21:30)
+# Car charging only counts as a force-heat trigger from this hour up to
+# trigger_hour - see is_car_charging_confirmed's docstring. Excludes the
+# morning/midday specifically (not just "before this hour is fine too") -
+# solar water heating is still effective earlier in the day, so an
+# ASHP force-heat off the back of an unrelated EV charging session isn't
+# wanted then.
+DEFAULT_CAR_CHARGING_TRIGGER_START_HOUR = 15.0  # 3pm
 DEFAULT_OHME_CHARGING_THRESHOLD_WATTS = 500.0
 DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 3.0
 DEFAULT_TIMEZONE = "Europe/London"
