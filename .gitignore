@@ -54,6 +54,7 @@ secrets.yaml.enc.tmp
 .coverage
 htmlcov/
 
-# Standalone ML forecast evaluation workspace - laptop-only, not deployed.
-# Own venv/data/results, not part of the production codebase.
-ml_forecast_eval/
+# Standalone ML forecast evaluation workspace - laptop-only model dev, not
+# deployed. Data/scripts/results are tracked (accumulated by hand from the
+# SolaX Cloud portal - not cheap to regenerate); only its own venv is not.
+ml_forecast_eval/venv/
