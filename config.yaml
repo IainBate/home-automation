@@ -538,7 +538,7 @@ daily_digest_check:
     # silent, repeated failure here would starve both the solar forecast
     # trainer and the battery evening predictor of new data.
     - "solax_realtime_logger.log"
-    - "ohme_status_poller.log"
+    - "ohme_status_daemon.log"
 
 # =============================================================================
 # ENCRYPTED SECRETS BACKUP (scripts/encrypt_secrets.sh / decrypt_secrets.sh)
