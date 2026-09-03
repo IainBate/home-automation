@@ -154,6 +154,42 @@ def test_legionella_due_but_unit_cannot_reach_target_falls_back_to_normal_heat(t
     assert "force_heat_activated_at" in final_state
 
 
+def test_legionella_due_without_todays_eligibility_snapshot_does_a_normal_heat(tmp_path):
+    """Interval-due alone isn't enough - see test_hotwater_legionella_eligibility_snapshot.py.
+
+    A legionella cycle also needs today's threshold_check_date/
+    threshold_met_at_check snapshot (normally written once a day at
+    legionella_check_hour) to already say the tank was cold - without it
+    (e.g. the very first tick of a brand new day, before that check has
+    run), a due-by-interval cycle still just does a normal force-heat.
+    """
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(json.dumps({}), encoding="utf-8")
+
+    client = FakeMelCloudClient(target_temp=45.0, tank_temp=30.0, max_temp=65.0)
+    hw_config = {
+        "tank_temp_threshold_c": 45.0,
+        "legionella_interval_days": 90,
+        "legionella_target_temp_c": 60.0,
+        "legionella_check_hour": 23.99,  # Not reached yet at whatever time this test runs.
+    }
+    config = {"location": {"default_timezone_str": "Europe/London"}}
+
+    with mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)), \
+         mock.patch.object(core, "MelCloudClient", lambda config_path=None: client), \
+         mock.patch.object(core, "is_car_charging_confirmed", mock.AsyncMock(return_value=True)):
+        exit_code = asyncio.run(
+            core.run_force_heat_check(config, hw_config, dry_run=False, quiet=True)
+        )
+
+    final_state = json.loads(state_path.read_text())
+    assert exit_code == 0
+    assert client.force_calls == [True]
+    assert client.target_temp_calls == []  # normal heat, not legionella
+    assert final_state.get("legionella", {}).get("cycle_in_progress") is not True
+    assert "force_heat_activated_at" in final_state
+
+
 def test_legionella_in_progress_defers_the_normal_force_heat_check(tmp_path):
     state_path = tmp_path / "hotwater_automation_state.json"
     state_path.write_text(
