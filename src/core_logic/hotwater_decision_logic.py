@@ -286,8 +286,9 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
             ),
         )
 
-    # Holiday mode dominates everything below, including car charging - see
-    # HotWaterDecisionContext.holiday_mode_active.
+    # Holiday and service mode dominate everything below, including car
+    # charging - see HotWaterDecisionContext.holiday_mode_active/
+    # service_mode_active.
     if context.holiday_mode_active:
         return HotWaterDecision(
             should_force_heat=False,
@@ -295,6 +296,16 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
                 f"Tank at {context.tank_temperature_c:.1f}C < threshold "
                 f"{context.tank_temp_threshold_c:.1f}C, but holiday mode is active - "
                 f"not force-heating"
+            ),
+        )
+
+    if context.service_mode_active:
+        return HotWaterDecision(
+            should_force_heat=False,
+            reason=(
+                f"Tank at {context.tank_temperature_c:.1f}C < threshold "
+                f"{context.tank_temp_threshold_c:.1f}C, but service mode is active - "
+                f"leaving the tank under manual/engineer control"
             ),
         )
 
@@ -307,6 +318,20 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
             reason=(
                 f"Tank at {context.tank_temperature_c:.1f}C < threshold "
                 f"{context.tank_temp_threshold_c:.1f}C, car is charging - heating now"
+            ),
+        )
+
+    # Battery-prediction path: an independent trigger alongside car charging
+    # and the evening/off-peak window below - see
+    # HotWaterDecisionContext.battery_prediction_trigger_active.
+    if context.battery_prediction_trigger_active:
+        return HotWaterDecision(
+            should_force_heat=True,
+            reason=(
+                f"Tank at {context.tank_temperature_c:.1f}C < threshold "
+                f"{context.tank_temp_threshold_c:.1f}C, both batteries predicted "
+                f">= {context.battery_soc_min_percent:.0f}% by the off-peak deadline - "
+                f"heating now from stored solar"
             ),
         )
 
