@@ -53,3 +53,7 @@ secrets.yaml.enc.tmp
 # Coverage output (pytest-cov, see requirements-dev.txt)
 .coverage
 htmlcov/
+
+# Standalone ML forecast evaluation workspace - laptop-only, not deployed.
+# Own venv/data/results, not part of the production codebase.
+ml_forecast_eval/
