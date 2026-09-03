@@ -113,6 +113,7 @@ def test_enabled_valid_config_runs_all_checks_on_first_tick(tmp_path, monkeypatc
     assert len(daemon.force_heat_calls) == 1
     assert len(daemon.revert_calls) == 1
     assert len(daemon.legionella_progress_calls) == 1
+    assert len(daemon.legionella_natural_completion_calls) == 1
 
 
 def test_checks_do_not_rerun_before_their_interval_elapses(tmp_path, monkeypatch):
