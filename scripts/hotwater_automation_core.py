@@ -1144,6 +1144,66 @@ def _overnight_deadline_passed(
     return now_local >= deadline_dt
 
 
+def _alert_insufficient_duration(
+    config: dict[str, Any],
+    *,
+    kind: str,
+    tank_temperature: float | None,
+    target_temperature: float | None,
+    elapsed_hours: float,
+    max_duration_hours: float,
+    config_key: str,
+    dry_run: bool,
+    quiet: bool,
+) -> None:
+    """Log and email that a heating window ended without reaching target.
+
+    Called from run_revert_check/run_legionella_progress_check's own
+    "timed out without reaching target" branches, right where that's
+    discovered - both already log a warning of their own with the specific
+    deadline-vs-duration detail; this adds one more, deliberately identical
+    each time (grep-able as "INSUFFICIENT_DURATION"), plus an email.
+
+    Sent on EVERY occurrence, deliberately with no dedupe (unlike
+    check_legionella_due_warning's once-per-interval stamp): the whole point
+    is to let hotwater_automation.<config_key> be tuned from real frequency
+    data - if it's raised only after seeing how often this actually happens,
+    every occurrence needs to be visible, not just the first.
+    """
+    logger.warning(
+        "INSUFFICIENT_DURATION: %s heating window ended without reaching target "
+        "(%sC / %sC) after %.1fh (limit %sh, hotwater_automation.%s) - consider raising "
+        "it if this keeps happening",
+        kind,
+        tank_temperature,
+        target_temperature,
+        elapsed_hours,
+        max_duration_hours,
+        config_key,
+    )
+
+    if dry_run:
+        if not quiet:
+            print(f"(dry run) would send 'heating window insufficient' alert email ({kind})")
+        return
+
+    subject = f"Hot water: {kind} did not reach target in time"
+    body = (
+        f"The {kind} heating window ended after {elapsed_hours:.1f}h (limit "
+        f"{max_duration_hours}h) without reaching target: tank at {tank_temperature}C, "
+        f"target {target_temperature}C.\n\n"
+        f"If this keeps happening, consider raising hotwater_automation.{config_key} in "
+        "config.yaml.\n\n"
+        "This is only a heads-up - the automation has already reverted safely and will "
+        "retry at the next opportunity."
+    )
+    if send_email(config, subject, body):
+        if not quiet:
+            print(f"Sent 'heating window insufficient' alert email ({kind})")
+    elif not quiet:
+        print(f"Failed to send 'heating window insufficient' alert email ({kind}) - see logs above")
+
+
 async def run_revert_check(
     config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
