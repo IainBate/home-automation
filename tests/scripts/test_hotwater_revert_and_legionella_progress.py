@@ -514,3 +514,101 @@ def test_revert_and_legionella_progress_hold_a_single_lock_for_the_whole_call(tm
         asyncio.run(core.run_revert_check({}, {}, dry_run=False, quiet=True))
 
     assert lock_call_count["n"] == 1
+
+
+# --- 05:30 overnight completion deadline (independent of max_duration) ---
+
+
+def _at(moment: datetime):
+    """Freeze core's view of "now" (it reads UTC and converts to local)."""
+
+    class _FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return moment.astimezone(tz) if tz else moment.replace(tzinfo=None)
+
+    return mock.patch.object(core, "datetime", _FrozenDatetime)
+
+
+def test_revert_check_reverts_past_offpeak_end_deadline_even_under_max_duration(tmp_path):
+    """A cycle started at 10pm is still running at 6am the next day - nowhere
+    near a generous 24h max_duration_hours, but well past the 05:30 deadline.
+    """
+    activated_at = datetime(2026, 1, 1, 22, 0, tzinfo=UTC)
+    state_path = _write_state(tmp_path, {"force_heat_activated_at": activated_at.isoformat()})
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)  # never reached
+
+    with _at(datetime(2026, 1, 2, 6, 0, tzinfo=UTC)):
+        exit_code, final_state = _run(
+            lambda: core.run_revert_check(
+                {"location": {"default_timezone_str": "UTC"}},
+                {"force_heat_max_duration_hours": 24.0, "offpeak_end": "05:30"},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert exit_code == 0
+    assert client.force_calls == [False]
+    assert "force_heat_activated_at" not in final_state
+
+
+def test_revert_check_does_not_apply_deadline_to_an_unrelated_afternoon_window(tmp_path):
+    """A cycle started at 4pm (car-charging/battery-prediction path), an hour
+    later - 16:00/17:00 both satisfy a naive "time >= 05:30" check, but this
+    window has nothing to do with the overnight 05:30 deadline.
+    """
+    activated_at = datetime(2026, 1, 1, 16, 0, tzinfo=UTC)
+    state_path = _write_state(tmp_path, {"force_heat_activated_at": activated_at.isoformat()})
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=45.0)  # not reached, not timed out
+
+    with _at(datetime(2026, 1, 1, 17, 0, tzinfo=UTC)):
+        exit_code, final_state = _run(
+            lambda: core.run_revert_check(
+                {"location": {"default_timezone_str": "UTC"}},
+                {"force_heat_max_duration_hours": 3.0, "offpeak_end": "05:30"},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert exit_code == 0
+    assert client.force_calls == []  # left running - deadline wrongly firing would break this
+    assert "force_heat_activated_at" in final_state
+
+
+def test_legionella_progress_reverts_past_offpeak_end_deadline_even_under_max_duration(tmp_path):
+    started_at = datetime(2026, 1, 1, 4, 50, tzinfo=UTC)  # just before offpeak_end
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": True,
+                "cycle_started_at": started_at.isoformat(),
+                "target_temp_c": 55.0,
+                "original_target_temp_c": 45.0,
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=40.0, target_temp=55.0)  # below disinfection threshold
+
+    with _at(datetime(2026, 1, 1, 5, 35, tzinfo=UTC)):
+        exit_code, final_state = _run(
+            lambda: core.run_legionella_progress_check(
+                {"location": {"default_timezone_str": "UTC"}},
+                {"legionella_max_cycle_duration_hours": 24.0, "offpeak_end": "05:30"},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert exit_code == 0
+    assert client.force_calls == [False]
+    assert final_state["legionella"]["cycle_in_progress"] is False
+    assert final_state["legionella"]["last_completed_at"] is None  # timed out, not completed
