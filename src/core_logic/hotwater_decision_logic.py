@@ -76,6 +76,16 @@ class HotWaterDecisionContext:
             melcloud_client.py's holiday_mode field) - that's a setting on
             the physical unit, read-only from this project; this is a
             separate, software-side pause of this project's own automation.
+        service_mode_active: True if scripts/service_mode.py has service mode
+            active - an engineer/installer visit, during which this project's
+            automation must not touch the tank at all so any manual mode/
+            temperature changes they make aren't fought or silently reverted.
+            Dominates every other condition exactly like holiday_mode_active
+            (including car_is_charging and battery_prediction_trigger_active)
+            - the two are independent and either alone is enough to suppress
+            force-heat. Unlike holiday_mode_active, there's no fixed end date
+            here (service_mode.py has no --start-days) - it stays active
+            until explicitly cancelled.
 
     """
 
@@ -87,6 +97,8 @@ class HotWaterDecisionContext:
     grid_is_cheap: bool
     in_evening_window: bool
     holiday_mode_active: bool = False
+    service_mode_active: bool = False
+    battery_prediction_trigger_active: bool = False
 
 
 @dataclass
