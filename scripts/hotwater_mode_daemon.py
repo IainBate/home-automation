@@ -207,6 +207,15 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
                 "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
             ),
         )
+        # Same cadence again - this one has no prior state to gate on (see
+        # its docstring), so it's just another lifecycle/safety-tier check.
+        self.register_check(
+            "legionella_natural_completion",
+            lambda: self._run_legionella_natural_completion_cycle(self._hw_config()),
+            lambda: self._hw_config().get(
+                "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
+            ),
+        )
 
     def run(self) -> None:
         """Register the hot water checks, then run the shared two-tier polling loop."""
