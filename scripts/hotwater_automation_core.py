@@ -429,13 +429,17 @@ async def is_car_charging_confirmed(
     state: dict[str, Any],
     now_local: datetime,
     trigger_time: time,
+    window_start_time: time,
 ) -> bool:
     """Whether the car is confirmed charging, for the force-heat decision.
 
-    Car charging is only monitored *before* trigger_time - see this module's
-    docstring for why. Once trigger_time has passed, this returns False
-    unconditionally (without even checking Ohme) and resets the confirmation
-    counter, so the next evening starts its own confirmation fresh.
+    Car charging is only monitored within [window_start_time, trigger_time) -
+    see this module's docstring for why. Outside that window (including
+    before window_start_time - solar water heating is still effective
+    earlier in the day, so an unrelated EV session shouldn't force-heat the
+    ASHP then), this returns False unconditionally (without even checking
+    Ohme) and resets the confirmation counter, so the window's next opening
+    starts its own confirmation fresh.
 
     Uses the same power-threshold + 2-consecutive-cycle confirmation as
     battery_mode_daemon.py's own Ohme charging check
@@ -447,7 +451,7 @@ async def is_car_charging_confirmed(
     from both the continuous daemon and one-shot cron invocations - a plain
     in-memory counter would reset to 0 on every cron run.
     """
-    if now_local.time() >= trigger_time:
+    if now_local.time() < window_start_time or now_local.time() >= trigger_time:
         state["ohme_charging_confirm_cycles"] = 0
         return False
 
