@@ -227,6 +227,16 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
                 "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
             ),
         )
+        # Same cadence again - cheap (no MELCloud call), and its own
+        # once-per-interval dedupe (see check_legionella_due_warning) makes
+        # the exact cadence unimportant.
+        self.register_check(
+            "legionella_due_warning",
+            lambda: self._run_legionella_due_warning_cycle(self._hw_config()),
+            lambda: self._hw_config().get(
+                "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
+            ),
+        )
 
     def run(self) -> None:
         """Register the hot water checks, then run the shared two-tier polling loop."""
