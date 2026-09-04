@@ -181,9 +181,7 @@ def test_write_and_verify_raises_airstage_write_error_internally(mock_sleep):
     fake_api = _fake_api([{"iu_set_tmp": "190"}] * airstage_client.WRITE_VERIFY_MAX_ATTEMPTS)
 
     with pytest.raises(AirstageWriteError):
-        import asyncio as real_asyncio
-
-        real_asyncio.run(
+        asyncio.run(
             airstage_client._write_and_verify(
                 fake_api, "AABBCC112233", airstage_client.ACParameter.TARGET_TEMPERATURE, "210"
             )
