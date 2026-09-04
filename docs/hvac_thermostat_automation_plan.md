@@ -286,17 +286,13 @@ hvac_automation:
     thermostat_seconds: 600           # 10 min
     hvac_target_seconds: 1800         # 30 min
     hvac_time_sync_seconds: 3600      # 60 min — currently a stubbed no-op, see §4
-
-thermostat:
-  backend_priority: ["homekit", "resideo_cloud"]
-  homekit:
-    enabled: false                    # true once homekit_thermostat_pair.py succeeds
-    pairing_data_path: "secrets/homekit_thermostat_pairing.json"
 ```
 
-`resideo:` and `airstage:` sections already exist and need no schema changes
-— only `airstage_client.py`'s write functions and `resideo_client.py`'s
-write functions are new code, not new config.
+`resideo:` and `airstage:` sections already exist and need no schema
+changes — `resideo.enabled: true` already, live since 2026-09-04 (§3). No
+`thermostat:` section is needed at all: only `airstage_client.py`'s new
+write functions are new client code: `resideo_client.py` stays read-only,
+unchanged by this plan.
 
 ## 6. Migration steps (for when this plan is approved to execute)
 
