@@ -157,7 +157,60 @@ imperfect — it isn't; see below.
 
 ### 4.1 "Mode change and temperature update should be sent as a single API call"
 
-**Resolved, not a blocker — here's why.**
+**RESOLVED EMPIRICALLY 2026-09-04 — batching does NOT work. The optimistic
+reading below was tested against the real Playroom unit and disproven.
+Build the two-call fallback path. Three findings, all load-bearing for the
+daemon's design:**
+
+**Finding 1 — `/SetParam` honours exactly one key per call.** Full test
+matrix against Playroom (powered off throughout, `iu_onoff` never touched,
+all values restored):
+
+| Test | Result |
+|---|---|
+| Batched `{iu_op_mode, iu_set_tmp}` in one call | **Neither applied** |
+| Single `iu_set_tmp` alone | Applied |
+| Single `iu_op_mode` alone | Applied |
+
+Both keys work individually, so the failure isn't "mode can't be set while
+off" or "temp can't be set while off" — it is specifically the combination.
+The firmware ignores multi-key writes.
+
+**Finding 2 — the HTTP response cannot be trusted as confirmation.** The
+rejected batched write returned:
+
+```json
+{"value": {"iu_op_mode": "4", "iu_set_tmp": "200"}, "write_res": "ack",
+ "read_res": "ack", "result": "OK", "cause": "", "error": ""}
+```
+
+`result: OK`, `write_res: ack`, and an echo of the requested values — for a
+write it silently discarded. **Post-write verification by re-reading the
+parameter is therefore mandatory, not optional.** Any code that treats a
+2xx/`result: OK` as success will report phantom successes. This is a
+stronger requirement than this plan originally assumed.
+
+**Finding 3 — writes propagate with a delay; an immediate read-back can
+return the stale value.** A successful single-key write read back as
+unchanged when checked immediately, then correct a few seconds later. The
+verification in Finding 2 therefore needs a short settle/retry window
+(~3s, retried a few times), *not* a single immediate read. This matters
+directly: without it the daemon would misread its own successful writes as
+failures and trigger the spec's retry→revert path spuriously — and for a
+mode change, "revert" means changing the *other* unit too, so a false
+negative here causes real, visible churn on both units (§8.7).
+
+**Consequence for the spec:** the spec's "Mode change and temperature
+update should be sent as a single API call" is **not achievable on this
+firmware** and needs the owner's sign-off to deviate. The practical impact
+is small and the plan already reasoned this through (below): two local HTTP
+calls land milliseconds apart, and the spec's own retry/revert rule already
+exists to handle mode/temperature inconsistency. Sequence mode first, then
+temperature, verifying each per Findings 2–3.
+
+---
+
+*Original (now disproven) reasoning, kept for the record:*
 
 pyairstage's public `ApiLocal.set_parameter(dsn, name, value)` does only
 send one parameter per call, but that's a limitation of pyairstage's
