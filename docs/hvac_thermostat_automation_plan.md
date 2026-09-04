@@ -41,10 +41,11 @@ the daemon loop, race-safe state file, schedule-normalisation-shaped precedent
 that's meant to show status "on your phone."
 
 **Recommendation:** implement the new work directly in `home_automation`,
-port `heating_automation`'s AC *write* methods and Evohome *write* methods
-in (they're the only pieces `home_automation` doesn't already have), then
-retire `heating_automation` (or leave it as an inert reference — see §6).
-This is a plan step, not done yet — nothing has been moved.
+port `heating_automation`'s AC *write* methods in (the one piece
+`home_automation` doesn't already have — the T6R is read-only for this
+project, so no Evohome write methods are needed, see §3.2), then retire
+`heating_automation` (or leave it as an inert reference — see §6). This is
+a plan step, not done yet — nothing has been moved.
 
 ## 2. Target architecture
 
@@ -321,7 +322,7 @@ unchanged by this plan.
    `hvac_decision_logic.py` (spec Phase 4) as pure functions with full unit
    test coverage — no hardware needed to develop or test either, same as
    `hotwater_decision_logic.py`. Includes the two mode-consistency
-   verification conditions from §8.8: (a) after any retry/revert sequence,
+   verification conditions from §8.7: (a) after any retry/revert sequence,
    both units end up reporting the same mode, never left split; (b) any
    observed Playroom/Landing mode mismatch outside a daemon-initiated
    change (e.g. a human used a unit's physical remote) is corrected
@@ -366,11 +367,11 @@ Match existing conventions exactly:
   - Away entry with units off → power-on; Away exit → units stay on **and**
     immediately receive the schedule's current target (§8.4), not left at
     10°C until the next periodic check.
-  - **Mode consistency (§8.8)**: partial mode-change failure (one unit's
+  - **Mode consistency (§8.7)**: partial mode-change failure (one unit's
     batched call fails) → retry → revert — confirm both units end up
     reporting the *same* mode, never left split even transiently beyond the
     retry window.
-  - **Mode consistency, out-of-band (§8.8)**: a mismatch between Playroom's
+  - **Mode consistency, out-of-band (§8.7)**: a mismatch between Playroom's
     and Landing's actual mode that the daemon didn't itself just cause (e.g.
     a human used a unit's physical remote) is detected and corrected
     immediately on the next poll, not deferred to the normal 30/60-minute
