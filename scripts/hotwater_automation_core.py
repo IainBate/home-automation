@@ -98,6 +98,7 @@ from typing import Any
 import pytz
 
 from src.api_clients.melcloud_client import HotWaterOperationMode, MelCloudClient
+from src.api_clients.melcloud_status_cache import write_status_cache as write_melcloud_status_cache
 from src.api_clients.ohme_ev_client import OhmeEVClient
 from src.api_clients.ohme_status_cache import read_fresh_status
 from src.api_clients.solax_modbus_client import solax_modbus_soc
