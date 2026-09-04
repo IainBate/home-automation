@@ -57,13 +57,13 @@ config.yaml (hvac_automation, airstage, resideo sections)
         │     set_airstage_power/mode/temperature/minimum_heat()  [new, from heating_automation.ACClient]
         │     set_mode() always targets ALL configured zones — shared outdoor unit
         │
-        ├── src/api_clients/thermostat_client.py   (NEW — the abstraction the stub strategy hangs off)
-        │     ThermostatBackend Protocol: get_status(), set_target_temperature()
-        │     ├── HomeKitThermostatBackend   (NEW, stub until paired — see §3)
-        │     ├── ResideoCloudThermostatBackend  (existing resideo_client.py + ported
-        │     │     EvohomeClient write methods, kept as fallback — see §3.3)
-        │     └── select_thermostat_backend(config) — local-first, cloud-fallback,
-        │           per spec's "local protocol first; Resideo Cloud API as fallback only"
+        ├── src/api_clients/resideo_client.py   (DONE 2026-09-04 — see §3)
+        │     fetch_resideo_status()  [existing, read-only via local HomeKit/aiohomekit]
+        │     Read-only for this entire project (confirmed 2026-09-04): the spec's
+        │     T6R "write" targets the Airstage Playroom unit, not the T6R itself — no
+        │     ThermostatBackend abstraction, write interface, or cloud-fallback backend
+        │     needed. Decision logic calls fetch_resideo_status() directly; None means
+        │     "unavailable this poll," same convention every other client here uses.
         │
         ├── src/core_logic/hvac_schedule_logic.py   (NEW, pure functions)
         │     normalise_schedule(), active_period_for(day, time)  — spec Phase 3
