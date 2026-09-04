@@ -35,13 +35,11 @@ first day of a holiday.
 Solar-heated hot water (e.g. a separate PV diverter, if the household has
 one) is entirely outside this codebase and unaffected either way.
 
-Heating: NOT included yet. The Resideo/Evohome integration is currently
-disabled (config.yaml) because this household's actual thermostat is a
-Honeywell Lyric device on a different backend to the one this project's
-resideo_client.py talks to (evohome-async/TCC v2, Evohome-family only) - so
-there is no automated way to lower the heating for a holiday yet. This
-command says so explicitly on --start-days rather than silently doing
-nothing.
+Heating: NOT included yet. resideo_client.py can now read the T6R (a
+Honeywell Lyric device) via local HomeKit, but there is deliberately no
+automated heating *control* yet - the household hasn't finalised a spec or
+verification harness for it. This command says so explicitly on
+--start-days rather than silently doing nothing.
 
 Usage:
     python3 scripts/holiday_mode.py --start-days 7   # pause hot water force-heat for 7 days
