@@ -372,20 +372,27 @@ unchanged by this plan.
    discards, and applies real writes with a lag. See §4.1's three findings;
    all of step 2 below must be written against them, not against the
    original single-call assumption.
-2. Port `heating_automation/src/client_api/ac_client.py`'s four write
-   methods (`set_power`, `set_mode`, `set_temperature`, `set_minimum_heat`)
-   into `home_automation/src/api_clients/airstage_client.py`, converted from
-   the class-based sync-wrapper style to this repo's plain
-   `async def ... ; def fetch/set_x(): asyncio.run(...)` module-function
-   style (matching the existing `fetch_airstage_status`), including its
-   "always all zones" enforcement for mode changes, and add the new combined
-   mode+temperature call from step 1 (batched or two-call-with-detection,
-   per what step 1 found) rather than porting `set_mode`/`set_temperature`
-   as separate calls unchanged.
-3. Port its tests (`heating_automation/spec/`) into
-   `home_automation/tests/api_clients/test_airstage_client.py`, alongside
-   the existing read-path tests — including a new test for whichever
-   combined-call path step 1 confirmed.
+2. ~~Port `heating_automation`'s four write methods into
+   `airstage_client.py`~~ — **DONE 2026-09-04.** `set_airstage_power`,
+   `set_airstage_mode` (no `zone_name` param — always all zones, structurally
+   enforced), `set_airstage_temperature`, `set_airstage_minimum_heat`. Each
+   writes via `ApiLocal.set_parameter` directly (not `AirstageAC`'s set_*
+   methods, which only optimistically cache without verifying — see module
+   docstring) and verifies with the settle/retry re-read §4.1 requires.
+   Deliberately no fused mode+temperature function — see module docstring
+   for why that's a decision-logic/daemon-layer concern, not this client's.
+   Returns `{zone_name: bool}` per write, giving callers the per-zone
+   granularity the retry/revert logic (§8.7) needs.
+3. ~~Port its tests~~ — **DONE 2026-09-04.** 11 new tests in
+   `test_airstage_client.py` (16 total in the file), covering: verification
+   settling over several retries, a write silently discarded by the device
+   never being reported as success, one zone's write failure not hiding the
+   other zone's real result, `set_airstage_mode`'s missing `zone_name`
+   parameter, temperature rounding/wire-scaling, and invalid-mode rejection.
+   Full suite (757 tests) passes. **Also verified live 2026-09-04** against
+   the real Playroom unit via `set_airstage_temperature` itself (not a
+   throwaway script) — write verified, then restored to its original value,
+   verified again. Unit stayed off throughout.
 4. Build `hvac_schedule_logic.py` (spec Phase 3 normalisation) and
    `hvac_decision_logic.py` (spec Phase 4) as pure functions with full unit
    test coverage — no hardware needed to develop or test either, same as
