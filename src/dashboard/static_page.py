@@ -312,8 +312,11 @@ function airstageZoneCard(zone) {
 
 function resideoCard(d) {
   if (!d.available) return unavailableCard("Thermostat", d.error, d.disabled);
+  const modeClass = d.mode === "off" ? "" : "good";
+  const callingClass = d.calling_for_heat ? "good" : "";
   const body = `
-    <div class="row"><span class="label">Mode</span><span class="value"><span class="badge">${escapeHtml(titleCase(d.mode))}</span></span></div>
+    <div class="row"><span class="label">Mode</span><span class="value"><span class="badge ${modeClass}">${escapeHtml(titleCase(d.mode))}</span></span></div>
+    <div class="row"><span class="label">Calling for heat</span><span class="value"><span class="badge ${callingClass}">${d.calling_for_heat ? "Yes" : "No"}</span></span></div>
     <div class="row"><span class="label">Current</span><span class="value">${fmtTemp(d.current_temperature_c)}</span></div>
     ${d.target_temperature_c !== null && d.target_temperature_c !== undefined ? `<div class="row"><span class="label">Target</span><span class="value">${fmtTemp(d.target_temperature_c)}</span></div>` : ""}
   `;
