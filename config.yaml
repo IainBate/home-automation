@@ -511,9 +511,18 @@ web_interface:
   port: 8000
   debug_mode: false                        # Never enable in production - Flask debug mode allows
                                             # remote code execution via its interactive debugger
-  poll_interval_seconds: 45                # How often to refresh cached status from the inverters/
+  poll_interval_seconds: 120               # How often to refresh cached status from the inverters/
                                             # Ohme/MELCloud in the background (phones just read the
-                                            # cache - this doesn't scale with how many phones look)
+                                            # cache - this doesn't scale with how many phones look).
+                                            # Raised from 45s 2026-09-04: this poll drives no
+                                            # automation decision (battery/hot-water/Ohme daemons all
+                                            # poll hardware on their own independent schedules), so
+                                            # slowing it only affects how fresh a rarely-viewed phone
+                                            # page is - not worth the SolaX/Airstage/MELCloud call
+                                            # volume at 45s. MELCloud's own direct dashboard call is
+                                            # now removed entirely (see melcloud_status_cache.py);
+                                            # this interval only matters for SolaX/Airstage/service
+                                            # health now.
 
 # =============================================================================
 # LOGGING CONFIGURATION
