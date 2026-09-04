@@ -233,13 +233,10 @@ def test_set_airstage_mode_rejects_invalid_mode():
 
 @mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
 def test_set_airstage_temperature_rounds_to_nearest_half_degree_and_scales_by_ten(mock_sleep):
-    fake_api = _fake_api([{"iu_set_tmp": "213"}])  # 21.3 rounds to 21.5 -> wire "215"
+    """21.3°C should round to 21.5°C, then scale by 10 for the wire format ("215")."""
+    fake_api = _fake_api([{"iu_set_tmp": "215"}])
 
     with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
-        # 21.3 should round to 21.5 (wire "215"); the stale read-back above never
-        # matches, so this also exercises the "did not verify" path for a
-        # deliberately-wrong first read before the fix below succeeds.
-        fake_api.get_parameters = mock.AsyncMock(side_effect=[{"iu_set_tmp": "215"}])
         result = airstage_client.set_airstage_temperature(_TWO_ZONES_CONFIG, 21.3, zone_name="Landing")
 
     assert result == {"Landing": True}
