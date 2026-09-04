@@ -26,9 +26,9 @@ Source specs (both in `~/Downloads/drive-download-20260901T213737Z-1-001/`):
 | Fujitsu Airstage read | `ACClient.get_status` | `airstage_client.fetch_airstage_status` |
 | Fujitsu Airstage write | `ACClient.set_power/set_mode/set_temperature/set_minimum_heat` (built, tested) | none yet |
 | Same two physical units | Playroom `192.168.68.107`, Upstairs `192.168.68.106` | same IPs, config names "Playroom"/"Landing" |
-| Honeywell thermostat read | `EvohomeClient` (evohome-async/TCC v2) | `resideo_client.fetch_resideo_status` (same library, same backend) |
-| Honeywell thermostat write | `EvohomeClient.set_temperature/set_system_mode/reset_zone` | none |
-| Known blocker | (not diagnosed in this repo) | `config.yaml`'s `resideo.enabled: false`, with a comment dated 2026-09-02 explaining the real device is a Lyric unit, not genuine Evohome — **exactly** the finding in this session's memory |
+| Honeywell thermostat read | `EvohomeClient` (evohome-async/TCC v2) — kept as a correct reference implementation for genuine Evohome hardware, unused by this household | `resideo_client.fetch_resideo_status` — **resolved 2026-09-04**: rebuilt on local HomeKit (`aiohomekit`), read-only, live in production on the dashboard |
+| Honeywell thermostat write | `EvohomeClient.set_temperature/set_system_mode/reset_zone` | none — **and none needed**: clarified 2026-09-04 that the spec's Phase 2 "Writes: house target temperature" targets the Airstage Playroom unit, not the T6R. The T6R is read-only for this entire project |
+| Known blocker | (not diagnosed in this repo) | **Resolved 2026-09-04**: was `config.yaml`'s `resideo.enabled: false` (real device is a Lyric unit, not genuine Evohome) — fixed by pairing local HomeKit instead of using TCC v2; `resideo.enabled: true` now, verified live against the real device |
 | Daemon/scheduler/state persistence | none | `base_daemon.TwoTierPollingDaemon`, `state_store.locked_json_state`, `core_logic/*_decision_logic.py`, `config_manager` schema validation, `dashboard_server.py` |
 | Deployment | no systemd/cron entries found | full `docs/PI4_DEPLOYMENT.md`, `.service` files, dashboard, health checks |
 
