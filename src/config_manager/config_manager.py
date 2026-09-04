@@ -446,6 +446,18 @@ CONFIG_SCHEMA = {
                 },
             },
         },
+        "healthchecks_io": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "ping_url": {"type": "string", "minLength": 1},
+                "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 60},
+            },
+            # ping_url only needs to be non-empty when enabled: true - matches
+            # every other optional integration here (see "email" above).
+            "if": {"properties": {"enabled": {"const": True}}, "required": ["enabled"]},
+            "then": {"required": ["ping_url"]},
+        },
     },
 }
 
