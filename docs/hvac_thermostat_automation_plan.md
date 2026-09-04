@@ -433,6 +433,12 @@ Match existing conventions exactly:
   - Away entry with units off → power-on; Away exit → units stay on **and**
     immediately receive the schedule's current target (§8.4), not left at
     10°C until the next periodic check.
+  - **Write verification (§4.1 findings 2–3)**: a write the device acks
+    (`result: OK`) but discards must be detected as a *failure*, not a
+    success — and a write that succeeds but propagates slowly must be
+    detected as a *success* after the settle window, not a spurious
+    failure. Both directions need a test; getting the second one wrong
+    triggers needless retry→revert churn across both units.
   - **Mode consistency (§8.7)**: partial mode-change failure (one unit's
     batched call fails) → retry → revert — confirm both units end up
     reporting the *same* mode, never left split even transiently beyond the
