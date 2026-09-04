@@ -148,3 +148,215 @@ async def _fetch_status_async(
             "target_temperature_c": zone.get_target_temperature(),
             "outdoor_temperature_c": zone.get_outdoor_temperature(),
         }
+
+
+# ---------------------------------------------------------------------------
+# Write path - see module docstring for the verification and
+# single-parameter-per-call caveats every function below is built around.
+# ---------------------------------------------------------------------------
+
+
+def _resolve_zones(config: dict[str, Any], zone_name: str | None) -> list[dict[str, Any]] | None:
+    """Return the configured zone dict(s) matching zone_name, or all zones if None.
+
+    None (logged) if airstage is disabled, has no zones configured, or
+    zone_name doesn't match any configured zone - callers treat None as
+    "could not resolve a target," same fail-fast convention as
+    fetch_airstage_status.
+    """
+    airstage_config = config.get("airstage", {})
+    if not airstage_config.get("enabled", False):
+        logger.error("airstage.enabled is false in config.yaml")
+        return None
+
+    zones = airstage_config.get("zones", [])
+    if not zones:
+        logger.error("airstage.zones is empty - see config.yaml's airstage comments")
+        return None
+
+    if zone_name is None:
+        return zones
+
+    matches = [z for z in zones if z.get("name", "").lower() == zone_name.lower()]
+    if not matches:
+        logger.error("No airstage zone named %r in config.yaml", zone_name)
+        return None
+    return matches
+
+
+async def _write_and_verify(
+    api: ApiLocal, device_id: str, parameter: ACParameter, wire_value: str
+) -> None:
+    """Write one parameter and confirm the device actually applied it.
+
+    Raises AirstageWriteError if the value never matches after the
+    settle/retry window - see module docstring for why neither the HTTP
+    response nor a single immediate re-read can be trusted alone.
+    """
+    await api.set_parameter(device_id, parameter, wire_value)
+    for attempt in range(1, WRITE_VERIFY_MAX_ATTEMPTS + 1):
+        await asyncio.sleep(WRITE_VERIFY_SETTLE_SECONDS)
+        current = await api.get_parameters([parameter])
+        if str(current.get(parameter)) == str(wire_value):
+            return
+        logger.debug(
+            "Verify attempt %d/%d: %s on %s still %r, wanted %r",
+            attempt,
+            WRITE_VERIFY_MAX_ATTEMPTS,
+            parameter,
+            device_id,
+            current.get(parameter),
+            wire_value,
+        )
+    raise AirstageWriteError(
+        f"{parameter} on {device_id} did not verify as {wire_value!r} after "
+        f"{WRITE_VERIFY_MAX_ATTEMPTS} attempts"
+    )
+
+
+async def _write_zone_parameter(
+    zone: dict[str, Any], timeout_seconds: int, parameter: ACParameter, wire_value: str
+) -> bool:
+    """Open a session, write+verify one parameter on one zone. True on verified success."""
+    name = zone.get("name", "Unknown")
+    device_id = zone.get("device_id")
+    ip_address = zone.get("ip_address")
+    if not device_id or not ip_address:
+        logger.error("airstage zone %r is missing device_id/ip_address", name)
+        return False
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            api = ApiLocal(
+                session=session,
+                device_id=device_id,
+                ip_address=ip_address,
+                timeout_seconds=timeout_seconds,
+            )
+            await _write_and_verify(api, device_id, parameter, wire_value)
+        return True
+    except Exception:
+        # Circuit Breaker: one zone's write failure must not raise out of a
+        # caller writing several zones at once (e.g. set_airstage_mode's
+        # "all zones" loop) - it's reported per-zone so the caller can
+        # implement the spec's retry/revert without one exception aborting
+        # every other zone's write.
+        logger.exception("Failed to write %s=%s to Airstage zone %r", parameter, wire_value, name)
+        return False
+
+
+def set_airstage_power(config: dict[str, Any], on: bool, zone_name: str | None = None) -> dict[str, bool]:
+    """Turn zone(s) on or off. All zones if zone_name is None.
+
+    Returns {zone_name: True/False} - True only for a zone whose new power
+    state was independently re-read and verified, never just a trusted
+    HTTP-OK (see module docstring).
+    """
+    zones = _resolve_zones(config, zone_name)
+    if zones is None:
+        return {}
+
+    timeout_seconds = config.get("airstage", {}).get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
+    wire_value = str(BooleanProperty.ON if on else BooleanProperty.OFF)
+
+    async def _run() -> dict[str, bool]:
+        results = await asyncio.gather(
+            *[_write_zone_parameter(z, timeout_seconds, ACParameter.ONOFF_MODE, wire_value) for z in zones]
+        )
+        return dict(zip((z["name"] for z in zones), results))
+
+    return asyncio.run(_run())
+
+
+def set_airstage_mode(config: dict[str, Any], mode: str) -> dict[str, bool]:
+    """Set operating mode on ALL configured zones - never a single zone.
+
+    No zone_name parameter, unlike the other set_* functions here: the two
+    Airstage units share one outdoor heat exchanger and can only run one
+    refrigerant direction at a time, so mode is physically a whole-system
+    property, not a per-zone one. This is the one hard constraint this
+    module enforces structurally (by omitting the parameter) rather than
+    leaving it to the caller.
+
+    Returns {zone_name: True/False}, one entry per configured zone, so a
+    caller can implement the spec's retry/revert logic (see plan doc §8.7:
+    after any retry/revert, both zones must end up reporting the same mode,
+    never left split).
+    """
+    mode_lower = mode.lower()
+    if mode_lower not in MODE_MAP:
+        raise ValueError(f"Invalid mode {mode!r}. Valid modes: {', '.join(MODE_MAP)}")
+
+    zones = _resolve_zones(config, None)
+    if zones is None:
+        return {}
+
+    timeout_seconds = config.get("airstage", {}).get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
+    wire_value = str(int(MODE_MAP[mode_lower]))
+
+    async def _run() -> dict[str, bool]:
+        results = await asyncio.gather(
+            *[_write_zone_parameter(z, timeout_seconds, ACParameter.OPERATION_MODE, wire_value) for z in zones]
+        )
+        return dict(zip((z["name"] for z in zones), results))
+
+    return asyncio.run(_run())
+
+
+def set_airstage_temperature(
+    config: dict[str, Any], temp_c: float, zone_name: str | None = None
+) -> dict[str, bool]:
+    """Set target temperature (°C, rounded to the nearest 0.5°C). All zones if zone_name is None.
+
+    No mode-range validation here (e.g. heat's 16-30°C) - that's
+    hvac_decision_logic.py's job (config.yaml's
+    hvac_automation.mode_temp_limits is caller-configurable; this client
+    just writes and verifies whatever value it's given, matching this
+    module's read functions doing no business-rule interpretation either).
+
+    Returns {zone_name: True/False}, per the same verification convention as
+    set_airstage_power/set_airstage_mode.
+    """
+    zones = _resolve_zones(config, zone_name)
+    if zones is None:
+        return {}
+
+    timeout_seconds = config.get("airstage", {}).get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
+    rounded_temp = round(temp_c * 2) / 2
+    wire_value = str(int(rounded_temp * 10))
+
+    async def _run() -> dict[str, bool]:
+        results = await asyncio.gather(
+            *[_write_zone_parameter(z, timeout_seconds, ACParameter.TARGET_TEMPERATURE, wire_value) for z in zones]
+        )
+        return dict(zip((z["name"] for z in zones), results))
+
+    return asyncio.run(_run())
+
+
+def set_airstage_minimum_heat(
+    config: dict[str, Any], enabled: bool, zone_name: str | None = None
+) -> dict[str, bool]:
+    """Enable or disable Minimum Heat mode. All zones if zone_name is None.
+
+    Per the spec, minimum heat is exclusively used in Away mode and bypasses
+    all normal temperature validation - enforcing that policy is
+    hvac_decision_logic.py's job, not this client's.
+
+    Returns {zone_name: True/False}, per the same verification convention as
+    the other set_* functions here.
+    """
+    zones = _resolve_zones(config, zone_name)
+    if zones is None:
+        return {}
+
+    timeout_seconds = config.get("airstage", {}).get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
+    wire_value = str(BooleanProperty.ON if enabled else BooleanProperty.OFF)
+
+    async def _run() -> dict[str, bool]:
+        results = await asyncio.gather(
+            *[_write_zone_parameter(z, timeout_seconds, ACParameter.MINIMUM_HEAT, wire_value) for z in zones]
+        )
+        return dict(zip((z["name"] for z in zones), results))
+
+    return asyncio.run(_run())
