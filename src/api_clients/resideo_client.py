@@ -1,74 +1,76 @@
-"""Resideo (Honeywell Home) thermostat client - read-only, via the evohome-async library.
+"""Resideo (Honeywell Home) T6R thermostat client - read-only, via local HomeKit (aiohomekit).
 
-Uses `evohomeasync2` (PyPI: evohome-async), an actively-maintained,
-reverse-engineered client for the same TCC v2 REST API ("tccna.resideo.com")
-the Resideo/Honeywell Home app itself uses for Evohome-family devices
-(including the T6R this project's household uses) - confirmed against the
-installed package's own hardcoded hostname and its "EMEA-V1" (Europe/Middle
-East/Africa) application scope, matching a UK account. This is NOT the same
-backend evohome-async's sibling `evohomeasync` (v0) or the unrelated
-`AIOSomecomfort` package target - those are the older US-only Total Connect
-Comfort platform and do not work for this account/device.
+This household's T6R is a Resideo "Lyric" device, not a genuine Evohome
+system, despite "T6R" matching the name of Evohome's own round zone
+controller - confirmed 2026-09-02 by testing real credentials against
+evohome-async's TCC v2 backend (tccna.resideo.com), which correctly
+rejected them. Lyric has no local API of its own, but this WiFi-connected
+unit supports Apple HomeKit (HAP-over-IP) locally, with no Honeywell/
+Resideo account, cloud, or developer-portal API key involved - the path
+this module uses, via `aiohomekit` (the same library Home Assistant's
+local "HomeKit Controller" integration uses).
 
-Deliberately used INSTEAD of Resideo's official OAuth2 developer API
-(src/api_clients/resideo_client.py previously used that - see git history):
-getting a developer app approved through developer.honeywellhome.com proved
-impractical, whereas this authenticates with the account's normal
-username/password - the same credentials the phone app uses - via the
-library's embedded, already-registered EMEA application ID, no developer
-registration needed. Trade-off: this is an unofficial/reverse-engineered
-client, not held to any API stability contract, so it could break on a
-backend change with no notice - same risk category as this project's Ohme
-client.
+Pairing is a one-time manual step done outside this module (see the
+~/heating_automation project, where it was first established) - this
+module only ever reads from an already-paired accessory, using the
+credentials cached at resideo.pairing_file (default
+~/.local/share/aiohomekit/pairing.json on the Pi). It never writes to
+Target Temperature or Target Heating Cooling State, even though the
+paired accessory technically permits it: controlling the ASHP via the T6R
+is deliberately out of scope for now (see home_automation's CLAUDE.md).
+The T6R only ever reports "off" or "heat" as its target mode - confirmed
+via the accessory's own valid-values metadata, it has no Cool/Auto option
+(single-zone, heat-only system).
 
-No cross-run token caching: each call logs in fresh (password grant), same
-one-shot-per-poll pattern as ohme_ev_client.py/melcloud_client.py used from
-status_collector.py - simpler than persisting refresh tokens for a poller
-that only runs periodically anyway.
-
-Read-only: this module only ever reads zone status - never calls
-evohomeasync2's set_mode/set_temperature/etc, so it carries no risk of
-changing the thermostat's settings.
+Read-only: this module only ever calls aiohomekit's read methods (never
+set_characteristics), so it carries no risk of changing the thermostat's
+settings or affecting the ASHP it's wired to.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import pathlib
 from typing import Any
 
-import aiohttp
-from evohomeasync2 import EvohomeClient
-from evohomeasync2.auth import AbstractTokenManager
+from aiohomekit import Controller
+from aiohomekit.characteristic_cache import CharacteristicCacheFile
+from aiohomekit.model.characteristics import CharacteristicsTypes
+from aiohomekit.model.services import ServicesTypes
+from aiohomekit.zeroconf import ZeroconfServiceListener
+from zeroconf.asyncio import AsyncServiceBrowser, AsyncZeroconf
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT_SECONDS = 30.0
+DEFAULT_TIMEOUT_SECONDS = 15.0
+DEFAULT_PAIRING_ALIAS = "heating-automation"
+DEFAULT_PAIRING_FILE = pathlib.Path.home() / ".local/share/aiohomekit/pairing.json"
 
-
-class _NoCacheTokenManager(AbstractTokenManager):
-    """Minimal token manager: no persistence - see module docstring."""
-
-    async def save_access_token(self) -> None:
-        """No-op: this process re-authenticates from scratch every run."""
+# This accessory's Target Heating Cooling State only ever permits 0/1 (see
+# module docstring) - 2/3 are included so an unexpected future value is
+# still rendered sensibly instead of falling through to a raw int.
+_HEATING_COOLING_STATE_NAMES = {0: "off", 1: "heat", 2: "cool", 3: "auto"}
 
 
 def fetch_resideo_status(config: dict[str, Any]) -> dict[str, Any] | None:
-    """Read-only Resideo thermostat snapshot: current temp, target, and mode.
+    """Read-only Resideo/T6R snapshot: current temp, target temp, mode, calling-for-heat.
 
     Args:
-        config: Full static config - reads its "resideo" section (username,
-            password expected merged in from secrets.yaml).
+        config: Full static config - reads its "resideo" section (enabled,
+            optional pairing_file/pairing_alias/timeout_seconds overrides).
 
     Returns:
-        Dict with "device_name", "mode", "current_temperature_c",
-        "target_temperature_c", or None if disabled, misconfigured, or
-        anything failed (fail-fast, matches this codebase's other cloud
-        clients) - a broad except here, not just the login/HTTP calls' own
-        errors, since a caller collecting several subsystems in one pass
-        (see src/dashboard/status_collector.py) must not have one
-        integration's unexpected exception blank the whole snapshot.
-
+        Dict with "device_name", "mode" ("off" or "heat" for this device),
+        "calling_for_heat" (bool - whether the thermostat's own heating
+        circuit is actively calling for heat right now, distinct from
+        "mode"), "current_temperature_c", "target_temperature_c" - or None
+        if disabled, not yet paired, or anything failed (fail-fast, matches
+        this codebase's other cloud/local clients - a broad except here,
+        not just the connection's own errors, since a caller collecting
+        several subsystems in one pass (see src/dashboard/status_collector.py)
+        must not have one integration's unexpected exception blank the
+        whole snapshot).
     """
     try:
         return _fetch_resideo_status_unsafe(config)
@@ -83,41 +85,75 @@ def _fetch_resideo_status_unsafe(config: dict[str, Any]) -> dict[str, Any] | Non
     if not resideo_config.get("enabled", False):
         return None
 
-    username = resideo_config.get("username")
-    password = resideo_config.get("password")
-    if not username or not password:
-        logger.error("resideo.username/password are not set - see config.yaml's resideo comments")
+    pairing_file = pathlib.Path(resideo_config.get("pairing_file", DEFAULT_PAIRING_FILE))
+    alias = resideo_config.get("pairing_alias", DEFAULT_PAIRING_ALIAS)
+    if not pairing_file.exists():
+        logger.error(
+            "Resideo pairing file %s not found - the T6R must be paired via aiohomekit "
+            "first (a one-time manual step - see resideo_client.py's module docstring)",
+            pairing_file,
+        )
         return None
 
     timeout_seconds = resideo_config.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
-    return asyncio.run(_fetch_status_async(username, password, timeout_seconds))
+    return asyncio.run(_fetch_status_async(pairing_file, alias, timeout_seconds))
 
 
-async def _fetch_status_async(username: str, password: str, timeout_seconds: float) -> dict[str, Any] | None:
-    timeout = aiohttp.ClientTimeout(total=timeout_seconds)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        token_manager = _NoCacheTokenManager(username, password, session, logger=logger)
-        client = EvohomeClient(token_manager, websession=session)
-        await client.update()
+async def _fetch_status_async(
+    pairing_file: pathlib.Path, alias: str, timeout_seconds: float
+) -> dict[str, Any] | None:
+    zeroconf = AsyncZeroconf()
+    controller = Controller(
+        async_zeroconf_instance=zeroconf,
+        char_cache=CharacteristicCacheFile(pairing_file.parent / "charmap.json"),
+    )
+    async with zeroconf:
+        # aiohomekit refuses to start a Controller at all without a live mDNS
+        # browser registered for the HAP service types, even just to read an
+        # already-paired accessory via its cached IP/port (raises
+        # TransportNotSupportedError otherwise) - not obvious from the public
+        # API, found by testing directly against this device.
+        listener = ZeroconfServiceListener()
+        browser = AsyncServiceBrowser(
+            zeroconf.zeroconf,
+            ["_hap._tcp.local.", "_hap._udp.local."],
+            listener=listener,
+        )
+        try:
+            async with controller:
+                controller.load_data(str(pairing_file))
+                pairing = controller.aliases.get(alias)
+                if pairing is None:
+                    logger.error("Resideo pairing alias %r not found in %s", alias, pairing_file)
+                    return None
 
-        zone = _first_zone(client)
-        if zone is None:
-            logger.warning("Resideo account has no locations/gateways/systems/zones")
-            return None
+                accessories = await asyncio.wait_for(
+                    pairing.list_accessories_and_characteristics(),
+                    timeout=timeout_seconds,
+                )
+        finally:
+            await browser.async_cancel()
 
-        return {
-            "device_name": zone.name,
-            "mode": zone.mode.value if hasattr(zone.mode, "value") else zone.mode,
-            "current_temperature_c": zone.temperature,
-            "target_temperature_c": zone.target_heat_temperature,
-        }
+    return _parse_thermostat_status(accessories)
 
 
-def _first_zone(client: EvohomeClient) -> Any | None:
-    """Navigate location -> gateway -> control system -> zone to the first zone found."""
-    for location in client.locations:
-        for gateway in location.gateways:
-            for system in gateway.systems:
-                if system.zones:
-                    return system.zones[0]
+def _parse_thermostat_status(accessories: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for accessory in accessories:
+        for service in accessory.get("services", []):
+            if service.get("type") != ServicesTypes.THERMOSTAT:
+                continue
+
+            chars = {c["type"]: c.get("value") for c in service.get("characteristics", [])}
+            current_state = chars.get(CharacteristicsTypes.HEATING_COOLING_CURRENT)
+            target_state = chars.get(CharacteristicsTypes.HEATING_COOLING_TARGET)
+
+            return {
+                "device_name": chars.get(CharacteristicsTypes.NAME) or "T6R Thermostat",
+                "mode": _HEATING_COOLING_STATE_NAMES.get(target_state, str(target_state)),
+                "calling_for_heat": current_state == 1,
+                "current_temperature_c": chars.get(CharacteristicsTypes.TEMPERATURE_CURRENT),
+                "target_temperature_c": chars.get(CharacteristicsTypes.TEMPERATURE_TARGET),
+            }
+
+    logger.warning("Paired HomeKit accessory has no Thermostat service")
     return None
