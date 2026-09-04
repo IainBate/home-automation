@@ -277,7 +277,19 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
         return {"available": False, "disabled": True, "error": "MELCloud disabled in config.yaml"}
 
     try:
-        status = asyncio.run(_fetch_hot_water_status(config_path))
+        # Prefer the shared cache scripts/hotwater_automation_core.py's own
+        # force-heat check already writes on its 10-minute cadence (see
+        # melcloud_status_cache.py) over making a separate MELCloud call
+        # here on every dashboard poll - same pattern as _collect_ev_charging
+        # above. serialize_melcloud_status() gives both branches identical
+        # field names either way, so the rest of this function doesn't need
+        # to know which path was taken.
+        cached = read_fresh_melcloud_status()
+        tank_fields = (
+            cached
+            if cached is not None
+            else serialize_melcloud_status(asyncio.run(_fetch_hot_water_status(config_path)))
+        )
 
         automation_state = read_json_state(get_hotwater_automation_state_path())
         legionella_state = automation_state.get("legionella", {})
@@ -285,16 +297,16 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
 
         return {
             "available": True,
-            "tank_temperature_c": status.get("tank_temperature"),
-            "target_tank_temperature_c": status.get("target_tank_temperature"),
-            "operation_mode": status["operation_mode"].value if status.get("operation_mode") else None,
-            "status": status["status"].value if status.get("status") else None,
-            "power_on": status.get("power"),
+            "tank_temperature_c": tank_fields.get("tank_temperature_c"),
+            "target_tank_temperature_c": tank_fields.get("target_tank_temperature_c"),
+            "operation_mode": tank_fields.get("operation_mode"),
+            "status": tank_fields.get("status"),
+            "power_on": tank_fields.get("power_on"),
             # MELCloud's own native device-level setting - NOT the same as
             # automation_holiday_active below (this project's own force-heat
             # pause, via scripts/holiday_mode.py). See that script's module
             # docstring for why the two are kept clearly distinct.
-            "holiday_mode": status.get("holiday_mode"),
+            "holiday_mode": tank_fields.get("holiday_mode"),
             "force_heat_active": bool(automation_state.get("force_heat_activated_at")),
             "force_heat_activated_at": automation_state.get("force_heat_activated_at"),
             "legionella_cycle_in_progress": bool(legionella_state.get("cycle_in_progress")),
