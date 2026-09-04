@@ -192,7 +192,9 @@ def test_write_and_verify_raises_airstage_write_error_internally(mock_sleep):
 def test_set_airstage_mode_targets_all_zones_with_no_zone_parameter(mock_sleep):
     """set_airstage_mode has no zone_name parameter at all - the shared outdoor
     unit means mode is a whole-system property, enforced structurally here."""
-    fake_api = _fake_api([{"iu_op_mode": "4"}])
+    # Both zones share this one ApiLocal mock (return_value=), so its
+    # get_parameters() side_effect needs one entry per zone's read, not one.
+    fake_api = _fake_api([{"iu_op_mode": "4"}, {"iu_op_mode": "4"}])
 
     with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
         result = airstage_client.set_airstage_mode(_TWO_ZONES_CONFIG, "heat")
