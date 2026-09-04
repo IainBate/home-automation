@@ -299,6 +299,14 @@ short: batching is very likely achievable and is the primary approach to
 build and verify first, but the whole automation project's viability was
 never actually contingent on it — the fallback delivers the same practical
 outcome the spec is asking for.
+
+*(Outcome 2026-09-04: batching turned out **not** to be achievable — the
+"even if the firmware silently only honours one key" fallback described
+just above is now the primary and only path, and "detectable at runtime by
+re-reading both parameters" turned out to be the essential safeguard, not a
+nicety. The closing claim held: the project's viability was never contingent
+on batching. See the findings at the top of §4.1.)*
+
 - **HVAC time/date sync** (spec Phase 4, hourly +5min offset):
   `heating_automation/CLAUDE.md` states plainly that date/time setting is
   not supported by pyairstage or the local LAN API. This check should be
