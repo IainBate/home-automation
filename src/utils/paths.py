@@ -168,6 +168,24 @@ def get_ohme_status_path() -> str:
     return get_config_path("ohme_status.json")
 
 
+def get_melcloud_status_path() -> str:
+    """Get absolute path to the cached MELCloud hot water tank status file.
+
+    Written on every successful fetch inside
+    scripts/hotwater_automation_core.py's force-heat check (every
+    hotwater_automation.poll_interval_seconds, 10 min by default) - a free
+    byproduct of a fetch that check already makes for its own decision, not
+    a new poll. Read by the dashboard instead of it making its own separate
+    MELCloud call every poll_interval_seconds tick - pymelcloud's own
+    fetch_device_state() documents it "should not be called more than once a
+    minute", which the dashboard's previous every-45s direct call was
+    already violating. Every reader falls back to its own direct MELCloud
+    call when this file is missing or stale - see
+    src/api_clients/melcloud_status_cache.py.
+    """
+    return get_config_path("melcloud_status.json")
+
+
 def get_solar_forecast_path() -> str:
     """Get absolute path to the solar generation forecast status file.
 
