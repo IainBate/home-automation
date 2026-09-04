@@ -277,6 +277,11 @@ changed. Recommend doing exactly that as the first implementation step for
 the mode-change path (step 1 in §6), before building anything else on top of
 it, so the daemon design isn't drafted against an untested assumption.
 
+*(This verification was carried out on 2026-09-04 — see the findings at the
+top of §4.1. Note that checking the response's `"result"` field, as
+suggested here, would have produced the wrong answer: it reported `OK` for
+the discarded write. Only the re-read revealed the truth.)*
+
 **And even if it turns out the firmware silently only honours one key per
 `SetParam` call:** the project still isn't blocked. Fall back to two
 sequential calls (mode, then temperature) — detectable at runtime by
