@@ -597,6 +597,30 @@ daily_digest_check:
     - "ohme_status_daemon.log"
 
 # =============================================================================
+# HEALTHCHECKS.IO HEARTBEAT (scripts/healthchecks_heartbeat.py)
+# =============================================================================
+# A dead-man's-switch, distinct from weekly_health_check/daily_digest_check
+# above: those email you FROM the Pi when they find something wrong, which
+# means a Pi that's powered off, off the network, or has a dead cron simply
+# sends no email at all - indistinguishable from "nothing to report". This
+# instead pings an external Healthchecks.io check on a short, fixed cadence;
+# Healthchecks.io itself emails you if a ping doesn't arrive on schedule, so
+# it catches the whole-Pi-down case the other two can't. Uses the same
+# Healthchecks.io account as ~/bin/home_backup on the Pi, but its own
+# separate check (a different ping_url) - one dead job shouldn't silence
+# alerts for the other.
+#
+# ping_url is account-specific - real value lives in secrets.yaml (see
+# secrets.yaml.example), not here. Create the check at https://healthchecks.io
+# (Period: ~15m, Grace time: ~10m, to comfortably survive one missed 10-minute
+# cron tick without a false alarm), then run via cron every 10 minutes:
+#   */10 * * * * cd /home/pi/home_automation && venv/bin/python3 scripts/healthchecks_heartbeat.py --quiet
+healthchecks_io:
+  enabled: false                                     # Flip true once ping_url is set in secrets.yaml
+  ping_url: "https://hc-ping.com/your-check-uuid-here"  # Placeholder - real value in secrets.yaml
+  timeout_seconds: 10
+
+# =============================================================================
 # ENCRYPTED SECRETS BACKUP (scripts/encrypt_secrets.sh / decrypt_secrets.sh)
 # =============================================================================
 # secrets.yaml is gitignored (real credentials) and normally only lives on
