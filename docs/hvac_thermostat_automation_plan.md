@@ -153,7 +153,9 @@ single, working, read-only client.
 Flagging these now rather than discovering them mid-implementation. The
 single-API-call question (§4.1) was investigated in depth since it's the one
 gap that could plausibly make the spec unachievable rather than just
-imperfect — it isn't; see below.
+imperfect. **Tested 2026-09-04: that spec clause is genuinely unachievable
+on this firmware** — but the project isn't blocked by it, and the deviation
+needs the owner's sign-off. See §4.1.
 
 ### 4.1 "Mode change and temperature update should be sent as a single API call"
 
