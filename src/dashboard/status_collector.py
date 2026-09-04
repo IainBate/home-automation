@@ -360,7 +360,7 @@ def _collect_airstage(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
-    """Read-only Resideo thermostat snapshot via evohome-async (see resideo_client.py)."""
+    """Read-only Resideo T6R snapshot via local HomeKit (see resideo_client.py)."""
     if not config.get("resideo", {}).get("enabled", False):
         return {"available": False, "disabled": True, "error": "Resideo disabled in config.yaml"}
 
@@ -368,7 +368,8 @@ def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
     if status is None:
         return {
             "available": False,
-            "error": "Could not read from Resideo - check resideo.username/password in secrets.yaml",
+            "error": "Could not read from Resideo - check the HomeKit pairing file exists "
+            "(see resideo_client.py's module docstring) and the T6R is on the network",
         }
 
     return {"available": True, **status}
