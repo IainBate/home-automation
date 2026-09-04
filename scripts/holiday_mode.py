@@ -201,9 +201,9 @@ def main() -> None:
                 "enable it."
             )
         print(
-            "Heating: automatic control isn't available yet (Resideo integration is disabled - "
-            "the real thermostat is a Lyric device needing a different API than this project "
-            "currently has). Turn the heating down manually if you want it lower while away."
+            "Heating: automatic control isn't available yet (the dashboard can read the T6R, "
+            "but automated heating control hasn't been built/agreed yet). Turn the heating down "
+            "manually if you want it lower while away."
         )
         return
 
