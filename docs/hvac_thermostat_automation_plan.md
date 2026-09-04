@@ -97,90 +97,55 @@ cron one-shot equivalent (nothing here is cheap enough to run from cron —
 the whole point is a continuously-running decision loop, like the battery
 daemon).
 
-## 3. The T6R stub strategy
+## 3. T6R integration status — done, not a stub
 
-This is the part the request specifically asked for: build it so that once
-T6R access exists, the automation works — without a code change to the
-scheduler, decision logic, daemon, or dashboard.
+This section originally planned a stub-until-paired strategy (build the
+scheduler/decision-logic/daemon/dashboard against an interface, ship a
+`HomeKitThermostatBackend` that returns `available=False` until pairing
+happened). **That's no longer needed — the pairing and read path are both
+done and live in production**, and the write side this section was designed
+to eventually add was based on a misreading of the spec.
 
-### 3.1 Interface, not implementation
+### 3.1 What's actually done
 
-Everything above the client layer (`hvac_decision_logic.py`, the daemon, the
-dashboard) talks to a `ThermostatBackend` interface, never to
-`aiohomekit`/`evohome-async` directly:
+The T6R (a Resideo "Lyric" device, not genuine Evohome — confirmed by
+testing real credentials against TCC v2, which correctly rejected them) is
+read via local Apple HomeKit (`aiohomekit`), paired 2026-09-04. See
+`~/heating_automation` project's memory for the pairing process and the
+library bugs it took workarounds for (this `aiohomekit` version requires a
+live mDNS browser registered before a Controller will even start, even for
+reading an already-paired accessory via its cached IP/port; a separate bug
+in its IP pairing path silently drops the saved credentials unless the
+alias is registered into `controller.aliases` before `save_data()`).
 
-```python
-class ThermostatBackend(Protocol):
-    def get_status(self) -> ThermostatStatus | None: ...
-    def set_target_temperature(self, temp_c: float) -> bool: ...
-```
+`src/api_clients/resideo_client.py` was rebuilt on this pairing and is live
+in production, already serving the dashboard's `resideo` card — verified
+via the running dashboard's `/api/status` endpoint. Pairing credentials
+live at `~/.local/share/aiohomekit/pairing.json` on the Pi (shared between
+`heating_automation` and `home_automation`, since both run as the `pi`
+user) — no cloud account, developer API key, or secret in `secrets.yaml`
+needed.
 
-`ThermostatStatus` carries `current_temperature_c`, `target_temperature_c`,
-`available: bool`, `source: Literal["homekit", "resideo_cloud", "stub"]`.
-`get_status()` returning `None`/`available=False` is not an error condition
-the daemon needs special-cased handling for — it's the same "fail-fast,
-caller checks for None" convention every other client in this repo already
-follows (`airstage_client`, `resideo_client`, `melcloud_client`).
+### 3.2 Scope clarified 2026-09-04: the T6R is read-only for this entire project
 
-### 3.2 What ships today (stub)
+The spec's Phase 2 "Writes: house target temperature" was initially misread
+(by this plan, and independently by the session that built
+`heating_automation`'s `EvohomeClient`) as writing to the T6R itself —
+confirmed with the project owner that it actually means the Airstage
+Playroom unit's target temperature, driven by the schedule and the room
+reading the T6R provides. **There is no `ThermostatBackend` interface, no
+write method, no cloud-fallback backend, and no ported `EvohomeClient`
+write methods anywhere in this plan.** `heating_automation`'s
+`EvohomeClient` remains committed and correct, just unused by this
+project — it's a genuine reference implementation for anyone with real
+multi-zone Evohome hardware, not dead code to delete.
 
-`HomeKitThermostatBackend` is written against the real `aiohomekit` API
-(pairing, characteristic read/write) but starts with **no pairing data
-present**. Until `scripts/homekit_thermostat_pair.py` has been run once
-against the physical unit (8-digit code from the thermostat's own
-Settings → Reset → Reset HomeKit menu, or its box/on-screen code — see the
-memory note this session already recorded), `get_status()`/
-`set_target_temperature()` detect the missing pairing file and return
-`available=False` / log once and return `False`, exactly like
-`resideo_client.py` does today for `resideo.enabled: false`. **No dummy
-temperature values, no `NotImplementedError` crashing the daemon** — the
-rest of the system already has to tolerate "thermostat unreachable this
-poll" (LAN hiccup), so "thermostat not paired yet" is just a permanent
-instance of a case it already handles.
-
-Pairing data (once obtained) is a device-specific secret — store it the way
-`secrets.yaml`/`secrets.yaml.enc` already store other credentials in this
-repo, not as a bare file in `config/`.
-
-### 3.3 What ships today (cloud fallback, also currently a stub)
-
-`ResideoCloudThermostatBackend` wraps `resideo_client.py`'s existing
-read-only Evohome/TCC-v2 client plus the write methods ported from
-`heating_automation`'s `EvohomeClient` (`set_temperature`,
-`set_system_mode`). It's real, tested code — just pointed at a backend this
-specific household's hardware doesn't speak (confirmed both here and in
-`heating_automation`'s memory: the T6R is a Lyric device on
-`api.honeywellhome.com`, not TCC v2's `tccna.resideo.com`). Keep
-`resideo.enabled: false` as it already is. This backend exists in the
-architecture for two reasons: (a) it's genuinely correct for anyone with real
-multi-zone Evohome hardware, so the write methods aren't wasted, and (b) the
-spec explicitly asks for local-first/cloud-fallback — if the HomeKit path
-ever turns out to be unreliable (firmware update breaks HAP support, unit
-gets swapped for a genuine Evohome system, etc.), the fallback slot is
-already wired rather than a future rebuild.
-
-### 3.4 Backend selection
-
-```python
-def select_thermostat_backend(config: dict) -> ThermostatBackend:
-    homekit = HomeKitThermostatBackend(config)
-    if homekit.is_paired():
-        return homekit
-    resideo = ResideoCloudThermostatBackend(config)
-    if config.get("resideo", {}).get("enabled", False):
-        return resideo
-    return NullThermostatBackend()  # always available=False; keeps daemon running
-```
-
-`NullThermostatBackend` is what makes the "build it so it works once T6R
-access exists" property concrete: with **zero** thermostat access, the AC
-schedule/mode/temperature automation (spec Phases 1, 3, 4's HVAC-target
-logic) can be developed, tested, and run for real today — `hvac_decision_logic.py`
-just sees `room_temperature_c=None` and the same "unavailable" branch it
-already needs for a LAN-dropped Airstage zone. The moment
-`homekit_thermostat_pair.py` succeeds, `select_thermostat_backend()` starts
-returning the real backend on the daemon's very next config reload (30s
-fast-tick) — no other file changes.
+`hvac_decision_logic.py` and the daemon call `fetch_resideo_status(config)`
+directly for room temperature. A `None` result (T6R unreachable, pairing
+lost, LAN hiccup) is the same "unavailable this poll" case every other
+client in this repo already requires callers to handle — no special
+abstraction layer, `Protocol`, or backend-selection function needed for a
+single, working, read-only client.
 
 ## 4. Known gaps between the spec and what's buildable today
 
