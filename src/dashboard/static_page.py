@@ -54,12 +54,23 @@ DASHBOARD_HTML = """<!doctype html>
   }
   h1 { font-size: 22px; margin: 0; }
   #updated { font-size: 13px; color: var(--muted); }
+  #cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  #cards > .card:first-child { grid-column: 1 / -1; }
+  @media (min-width: 700px) {
+    #cards { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 1100px) {
+    #cards { grid-template-columns: repeat(3, 1fr); }
+  }
   .card {
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 16px;
-    margin-bottom: 14px;
   }
   .card.has-details { cursor: pointer; }
   .card h2 {
