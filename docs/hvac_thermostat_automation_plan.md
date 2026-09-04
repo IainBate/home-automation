@@ -366,8 +366,15 @@ Match existing conventions exactly:
   - Away entry with units off → power-on; Away exit → units stay on **and**
     immediately receive the schedule's current target (§8.4), not left at
     10°C until the next periodic check.
-  - Partial mode-change failure (one unit's batched call fails) → retry →
-    revert.
+  - **Mode consistency (§8.8)**: partial mode-change failure (one unit's
+    batched call fails) → retry → revert — confirm both units end up
+    reporting the *same* mode, never left split even transiently beyond the
+    retry window.
+  - **Mode consistency, out-of-band (§8.8)**: a mismatch between Playroom's
+    and Landing's actual mode that the daemon didn't itself just cause (e.g.
+    a human used a unit's physical remote) is detected and corrected
+    immediately on the next poll, not deferred to the normal 30/60-minute
+    cadence.
   - Human override → resumes at next scheduled interval, not mid-window,
     and does not require any override-specific code path (§8.3).
   - **Windup**: room stuck below target for many hours (simulated weather
