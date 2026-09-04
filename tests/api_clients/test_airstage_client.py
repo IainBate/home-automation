@@ -122,3 +122,148 @@ def test_fetch_status_async_maps_zone_fields():
         }
     ]
     fake_zone.refresh_parameters.assert_called_once_with({"parameters": []})
+
+
+# ---------------------------------------------------------------------------
+# Write path (2026-09-04)
+# ---------------------------------------------------------------------------
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_set_airstage_power_verifies_on_first_read(mock_sleep):
+    fake_api = _fake_api([{"iu_onoff": "1"}])
+
+    with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
+        result = airstage_client.set_airstage_power(_TWO_ZONES_CONFIG, True, zone_name="Landing")
+
+    assert result == {"Landing": True}
+    fake_api.set_parameter.assert_awaited_once_with(
+        "AABBCC112233", airstage_client.ACParameter.ONOFF_MODE, "1"
+    )
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_write_verification_retries_until_the_value_settles(mock_sleep):
+    """A write that genuinely succeeded can read back stale on the first attempt or
+    two (device propagation lag, see module docstring) - must not be reported as
+    failed just because the first read-back doesn't match yet."""
+    fake_api = _fake_api(
+        [{"iu_set_tmp": "190"}, {"iu_set_tmp": "190"}, {"iu_set_tmp": "210"}]
+    )
+
+    with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
+        result = airstage_client.set_airstage_temperature(_TWO_ZONES_CONFIG, 21.0, zone_name="Landing")
+
+    assert result == {"Landing": True}
+    assert fake_api.get_parameters.await_count == 3
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_write_verification_fails_after_max_attempts_never_raises_to_caller(mock_sleep):
+    """A write acked by the device (result: OK) but never actually applied - see
+    module docstring on why the HTTP response can't be trusted - must be reported
+    as a verified failure (False), not silently treated as success, and must not
+    raise out of set_airstage_temperature (Circuit Breaker convention)."""
+    fake_api = _fake_api([{"iu_set_tmp": "190"}] * airstage_client.WRITE_VERIFY_MAX_ATTEMPTS)
+
+    with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
+        result = airstage_client.set_airstage_temperature(_TWO_ZONES_CONFIG, 21.0, zone_name="Landing")
+
+    assert result == {"Landing": False}
+    assert fake_api.get_parameters.await_count == airstage_client.WRITE_VERIFY_MAX_ATTEMPTS
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_write_and_verify_raises_airstage_write_error_internally(mock_sleep):
+    """Unit test of the internal helper directly, to pin down the exact exception
+    type _write_zone_parameter's broad except is expected to catch."""
+    fake_api = _fake_api([{"iu_set_tmp": "190"}] * airstage_client.WRITE_VERIFY_MAX_ATTEMPTS)
+
+    with pytest.raises(AirstageWriteError):
+        import asyncio as real_asyncio
+
+        real_asyncio.run(
+            airstage_client._write_and_verify(
+                fake_api, "AABBCC112233", airstage_client.ACParameter.TARGET_TEMPERATURE, "210"
+            )
+        )
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_set_airstage_mode_targets_all_zones_with_no_zone_parameter(mock_sleep):
+    """set_airstage_mode has no zone_name parameter at all - the shared outdoor
+    unit means mode is a whole-system property, enforced structurally here."""
+    fake_api = _fake_api([{"iu_op_mode": "4"}])
+
+    with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
+        result = airstage_client.set_airstage_mode(_TWO_ZONES_CONFIG, "heat")
+
+    assert result == {"Landing": True, "Playroom": True}
+    assert fake_api.set_parameter.await_count == 2
+    for call in fake_api.set_parameter.await_args_list:
+        assert call.args[1] == airstage_client.ACParameter.OPERATION_MODE
+        assert call.args[2] == "4"  # OperationMode.HEAT
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_set_airstage_mode_one_zone_failing_does_not_hide_the_others_result(mock_sleep):
+    """One zone's write failing must still report the other zone's real result -
+    the caller (future hvac_decision_logic.py) needs per-zone truth to implement
+    the spec's retry/revert without one zone masking the other (plan doc §8.7)."""
+
+    calls = {"n": 0}
+
+    def make_api(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # Landing: write silently discarded (mirrors the real firmware bug).
+            return _fake_api([{"iu_op_mode": "2"}] * airstage_client.WRITE_VERIFY_MAX_ATTEMPTS)
+        return _fake_api([{"iu_op_mode": "4"}])  # Playroom: verifies fine
+
+    with mock.patch.object(airstage_client, "ApiLocal", side_effect=make_api):
+        result = airstage_client.set_airstage_mode(_TWO_ZONES_CONFIG, "heat")
+
+    assert result == {"Landing": False, "Playroom": True}
+
+
+def test_set_airstage_mode_rejects_invalid_mode():
+    with pytest.raises(ValueError, match="Invalid mode"):
+        airstage_client.set_airstage_mode(_TWO_ZONES_CONFIG, "blizzard")
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_set_airstage_temperature_rounds_to_nearest_half_degree_and_scales_by_ten(mock_sleep):
+    fake_api = _fake_api([{"iu_set_tmp": "213"}])  # 21.3 rounds to 21.5 -> wire "215"
+
+    with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
+        # 21.3 should round to 21.5 (wire "215"); the stale read-back above never
+        # matches, so this also exercises the "did not verify" path for a
+        # deliberately-wrong first read before the fix below succeeds.
+        fake_api.get_parameters = mock.AsyncMock(side_effect=[{"iu_set_tmp": "215"}])
+        result = airstage_client.set_airstage_temperature(_TWO_ZONES_CONFIG, 21.3, zone_name="Landing")
+
+    assert result == {"Landing": True}
+    fake_api.set_parameter.assert_awaited_once_with(
+        "AABBCC112233", airstage_client.ACParameter.TARGET_TEMPERATURE, "215"
+    )
+
+
+@mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+def test_set_airstage_minimum_heat_wire_values(mock_sleep):
+    fake_api = _fake_api([{"iu_min_heat": "1"}])
+
+    with mock.patch.object(airstage_client, "ApiLocal", return_value=fake_api):
+        result = airstage_client.set_airstage_minimum_heat(_TWO_ZONES_CONFIG, True, zone_name="Landing")
+
+    assert result == {"Landing": True}
+    fake_api.set_parameter.assert_awaited_once_with(
+        "AABBCC112233", airstage_client.ACParameter.MINIMUM_HEAT, "1"
+    )
+
+
+def test_set_airstage_power_returns_empty_dict_when_disabled():
+    assert airstage_client.set_airstage_power({"airstage": {"enabled": False}}, True) == {}
+
+
+def test_set_airstage_power_returns_empty_dict_for_unknown_zone():
+    assert airstage_client.set_airstage_power(_TWO_ZONES_CONFIG, True, zone_name="Attic") == {}
