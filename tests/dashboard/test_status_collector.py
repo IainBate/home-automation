@@ -152,6 +152,7 @@ def test_collect_hot_water_includes_force_heat_and_legionella_state(tmp_path):
     )
 
     with (
+        mock.patch.object(status_collector, "read_fresh_melcloud_status", return_value=None),
         mock.patch.object(status_collector, "MelCloudClient", _FakeMelCloudClient),
         mock.patch.object(status_collector, "get_hotwater_automation_state_path", lambda: str(state_path)),
     ):
@@ -168,12 +169,45 @@ def test_collect_hot_water_passes_explicit_config_path_to_client(tmp_path):
     see status_collector.collect_status()'s config_path docstring.
     """
     with (
+        mock.patch.object(status_collector, "read_fresh_melcloud_status", return_value=None),
         mock.patch.object(status_collector, "MelCloudClient", _FakeMelCloudClient),
         mock.patch.object(status_collector, "get_hotwater_automation_state_path", lambda: str(tmp_path / "missing.json")),
     ):
         status_collector._collect_hot_water({"melcloud": {"enabled": True}}, "/abs/path/config.yaml")
 
     assert _FakeMelCloudClient.last_init_kwargs.get("config_path") == "/abs/path/config.yaml"
+
+
+def test_collect_hot_water_uses_cached_status_without_connecting(tmp_path):
+    """Prefers the shared cache scripts/hotwater_automation_core.py's own
+    force-heat check writes (melcloud_status_cache.py) over making a fresh
+    MELCloud call on every dashboard poll - same pattern as
+    test_collect_ev_charging_maps_fields for Ohme's equivalent cache.
+    """
+    cached = {
+        "tank_temperature_c": 47.0,
+        "target_tank_temperature_c": 50.0,
+        "operation_mode": "auto",
+        "status": "idle",
+        "power_on": True,
+        "holiday_mode": False,
+    }
+
+    class _UnusedMelCloudClient:
+        def __init__(self, *_args, **_kwargs):
+            raise AssertionError("must not construct a client when the cache is fresh")
+
+    with (
+        mock.patch.object(status_collector, "read_fresh_melcloud_status", return_value=cached),
+        mock.patch.object(status_collector, "MelCloudClient", _UnusedMelCloudClient),
+        mock.patch.object(status_collector, "get_hotwater_automation_state_path", lambda: str(tmp_path / "missing.json")),
+    ):
+        result = status_collector._collect_hot_water({"melcloud": {"enabled": True}}, "config.yaml")
+
+    assert result["available"] is True
+    assert result["tank_temperature_c"] == 47.0
+    assert result["operation_mode"] == "auto"
+    assert result["power_on"] is True
 
 
 def test_collect_status_resolves_a_default_config_path_when_none_given():
