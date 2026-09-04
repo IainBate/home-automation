@@ -24,13 +24,18 @@ if str(SCRIPTS_DIR) not in sys.path:
 def _isolate_shared_caches(tmp_path_factory, monkeypatch):
     """Point the process-wide cache files at a temp dir for every test.
 
-    The Ohme status cache and the MELCloud token cache are read from fixed
-    paths under config/, and on the Pi those files really exist and are kept
-    fresh by the running daemons. Without this, tests that mean to exercise a
-    direct API call silently take the cache path instead - passing on a dev
-    machine (no cache files) and failing on the Pi, which is exactly what
-    happened to tests/scripts/test_hotwater_is_car_charging.py the first time
-    this was deployed.
+    The Ohme status cache, the MELCloud status cache and the MELCloud token
+    cache are read from fixed paths under config/, and on the Pi those files
+    really exist and are kept fresh by the running daemons. Without this,
+    tests that mean to exercise a direct API call silently take the cache
+    path instead - passing on a dev machine (no cache files) and failing on
+    the Pi, which is exactly what happened to
+    tests/scripts/test_hotwater_is_car_charging.py the first time this was
+    deployed, and what the full suite hit again for melcloud_status_cache.py
+    the day it was added: every existing test exercising
+    hotwater_automation_core.py's force-heat check wrote a real
+    config/melcloud_status.json on this dev machine, since none of them knew
+    to patch a cache path that didn't exist yet when they were written.
 
     Redirects the paths rather than stubbing the read functions, so the real
     cache code still runs (and tests that patch those functions themselves
@@ -42,10 +47,15 @@ def _isolate_shared_caches(tmp_path_factory, monkeypatch):
     """
     cache_dir = tmp_path_factory.mktemp("shared-caches")
 
-    from src.api_clients import melcloud_token_cache, ohme_status_cache
+    from src.api_clients import melcloud_status_cache, melcloud_token_cache, ohme_status_cache
 
     monkeypatch.setattr(
         ohme_status_cache, "get_ohme_status_path", lambda: str(cache_dir / "ohme_status.json")
+    )
+    monkeypatch.setattr(
+        melcloud_status_cache,
+        "get_melcloud_status_path",
+        lambda: str(cache_dir / "melcloud_status.json"),
     )
     monkeypatch.setattr(
         melcloud_token_cache,
