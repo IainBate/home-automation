@@ -59,12 +59,19 @@ DASHBOARD_HTML = """<!doctype html>
     grid-template-columns: 1fr;
     gap: 14px;
   }
-  #cards > .card:first-child { grid-column: 1 / -1; }
   @media (min-width: 700px) {
     #cards { grid-template-columns: repeat(2, 1fr); }
   }
   @media (min-width: 1100px) {
-    #cards { grid-template-columns: repeat(3, 1fr); }
+    #cards { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    body { padding: 10px 18px 18px; padding-top: max(10px, env(safe-area-inset-top)); }
+    header { margin-bottom: 8px; }
+    .card { padding: 12px 14px; }
+    .card h2 { margin: 0 0 6px; }
+    .ring-row { padding: 2px 0 6px; gap: 10px; }
+    .row { padding: 3px 0; font-size: 15px; }
+    .row .label { font-size: 13px; }
+    .bar-track { margin-top: 4px; }
   }
   .card {
     background: var(--card-bg);
