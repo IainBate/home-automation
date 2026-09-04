@@ -317,44 +317,35 @@ unchanged by this plan.
    `home_automation/tests/api_clients/test_airstage_client.py`, alongside
    the existing read-path tests — including a new test for whichever
    combined-call path step 1 confirmed.
-4. Port `EvohomeClient`'s write methods into a new
-   `ResideoCloudThermostatBackend` (§3.3), reusing `resideo_client.py`'s
-   existing auth/read code rather than duplicating it.
-5. Build `thermostat_client.py`'s `ThermostatBackend` Protocol,
-   `NullThermostatBackend`, and `select_thermostat_backend()` (§3.4).
-6. Build `HomeKitThermostatBackend` against `aiohomekit`, plus
-   `scripts/homekit_thermostat_pair.py` as a one-shot interactive pairing
-   CLI. Ships stubbed (unpaired) — this is the piece that unblocks
-   automatically once the physical pairing step happens.
-7. Build `hvac_schedule_logic.py` (spec Phase 3 normalisation) and
+4. Build `hvac_schedule_logic.py` (spec Phase 3 normalisation) and
    `hvac_decision_logic.py` (spec Phase 4) as pure functions with full unit
    test coverage — no hardware needed to develop or test either, same as
-   `hotwater_decision_logic.py`.
-8. Build `scripts/hvac_mode_daemon.py` on `TwoTierPollingDaemon`, and
-   `scripts/hvac_away_mode.py` mirroring `holiday_mode.py`.
-9. Wire `hvac_automation.enabled: true` and exercise end-to-end against the
-   real Airstage units with `thermostat.homekit.enabled: false` (so the
-   AC-only half of the system — schedule, mode cycling, temperature
-   adjustment, Away — is validated for real before T6R access exists at
-   all).
-10. Extend `status_collector.py`/`dashboard_server.py` with the automation
-    status card.
-11. Once HomeKit pairing succeeds: flip `thermostat.homekit.enabled: true`,
-    re-enable the two checks that were running on stubbed/`None` room
-    temperature, and confirm the schedule → thermostat write path end to end.
-12. Decide the fate of `heating_automation`: once steps 2–4 are ported and
-    verified in `home_automation`, either delete it or leave it as an inert
-    read-only reference (its own CLAUDE.md/tests keep working standalone
-    either way — nothing here depends on it continuing to exist).
+   `hotwater_decision_logic.py`. Includes the two mode-consistency
+   verification conditions from §8.8: (a) after any retry/revert sequence,
+   both units end up reporting the same mode, never left split; (b) any
+   observed Playroom/Landing mode mismatch outside a daemon-initiated
+   change (e.g. a human used a unit's physical remote) is corrected
+   immediately, not deferred to the next scheduled cadence.
+5. Build `scripts/hvac_mode_daemon.py` on `TwoTierPollingDaemon`, and
+   `scripts/hvac_away_mode.py` mirroring `holiday_mode.py`. Reads room
+   temperature via the already-live `fetch_resideo_status()` — no
+   thermostat work left to do at this step.
+6. Wire `hvac_automation.enabled: true` and exercise end-to-end against the
+   real Airstage units. The T6R read path is already live (§3), so this is
+   the first point the *full* loop — schedule, mode cycling, temperature
+   adjustment, Away, and the room-temperature input — runs for real; it's
+   not gated on any further thermostat work.
+7. Extend `status_collector.py`/`dashboard_server.py` with the automation
+   status card.
+8. Decide the fate of `heating_automation`: once step 2 is ported and
+   verified in `home_automation`, either delete it or leave it as an inert
+   reference for `EvohomeClient` (its own CLAUDE.md/tests keep working
+   standalone either way — nothing here depends on it continuing to exist).
 
-Each step above is independently testable and independently useful — the
-plan is ordered so that everything except the literal HomeKit read/write
-calls (step 6's pairing, step 11's flip) can be built, tested, and run for
-real before T6R hardware access is solved, which is the "stub it and check
-when it's populated" property this was asked for. Step 1 is deliberately
-first: it's the cheapest possible way to retire the one open question that
-could have reshaped the daemon's error-handling design, before anything else
-gets built on top of an assumption.
+Each step above is independently testable and independently useful. Step 1
+is deliberately first: it's the cheapest possible way to retire the one open
+question that could have reshaped the daemon's error-handling design, before
+anything else gets built on top of an assumption.
 
 ## 7. Testing
 
