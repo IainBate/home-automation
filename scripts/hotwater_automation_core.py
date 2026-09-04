@@ -643,6 +643,13 @@ async def _run_force_heat_check_locked(
         await client.connect()
         status = await client.get_tank_status()
 
+        # Free byproduct of this check's own fetch, not a new API call - see
+        # melcloud_status_cache.py's module docstring for why this is the
+        # one write site that keeps the dashboard's cache fresh, rather than
+        # the dashboard making its own separate MELCloud call every poll.
+        with contextlib.suppress(Exception):
+            write_melcloud_status_cache(status)
+
         tank_temperature = status["tank_temperature"]
 
         tz_name = config.get("location", {}).get("default_timezone_str", DEFAULT_TIMEZONE)
