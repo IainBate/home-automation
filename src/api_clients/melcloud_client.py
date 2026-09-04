@@ -370,7 +370,7 @@ class MelCloudClient:
             msg = f"Failed to refresh MELCloud tank status: {e}"
             raise MelCloudConnectionError(msg) from e
 
-        last_seen = self.device.last_seen
+        last_seen = _safe_last_seen(self.device)
 
         status = {
             "timestamp": datetime.now(tz=UTC).isoformat(),
