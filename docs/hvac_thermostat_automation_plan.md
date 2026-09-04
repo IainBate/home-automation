@@ -591,7 +591,7 @@ reasons:
    situation than an ordinary "room hasn't hit target yet," and the
    fastest-possible response this design offers to any condition.
 
-### 8.7 What's already correct: mode ceilings/floors themselves
+### 8.8 What's already correct: mode ceilings/floors themselves
 
 One reassurance: `cool` and `heat` being the two ends of the normal 3-mode
 cycle, with no wraparound and no escalation past either end, is already
