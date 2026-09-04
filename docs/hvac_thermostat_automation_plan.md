@@ -560,7 +560,7 @@ its state file as authoritative across restarts (`hotwater_mode_daemon.py`,
 `battery_mode_daemon.py`), and this should follow the same pattern rather
 than being a special case.
 
-### 8.8 Mode consistency between units — decided 2026-09-04: explicit invariant, immediate correction
+### 8.7 Mode consistency between units — decided 2026-09-04: explicit invariant, immediate correction
 
 The project owner flagged this directly: it's critical the two units are
 never fighting each other (one heating while the other cools). This is
