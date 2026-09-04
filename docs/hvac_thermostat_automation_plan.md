@@ -363,13 +363,13 @@ unchanged by this plan.
 
 ## 6. Migration steps (for when this plan is approved to execute)
 
-1. **Verify §4.1's batched `SetParam` against the real units first** — a
-   throwaway script sending one combined `{iu_op_mode, iu_set_tmp}` request
-   to Playroom or Upstairs, confirming via re-read that both values changed.
-   Cheap, harmless (worst case it behaves like a normal mode+temp change),
-   and settles which of the two code paths in §4.1 the rest of the build
-   should target — do this before step 2 below writes the real
-   `set_mode`/`set_temperature` combined-call path against an assumption.
+1. ~~**Verify §4.1's batched `SetParam` against the real units first**~~ —
+   **DONE 2026-09-04. Answer: batching does not work.** Build the two-call
+   path (mode first, then temperature), with mandatory post-write re-read
+   verification using a settle/retry window — the device acks writes it
+   discards, and applies real writes with a lag. See §4.1's three findings;
+   all of step 2 below must be written against them, not against the
+   original single-call assumption.
 2. Port `heating_automation/src/client_api/ac_client.py`'s four write
    methods (`set_power`, `set_mode`, `set_temperature`, `set_minimum_heat`)
    into `home_automation/src/api_clients/airstage_client.py`, converted from
