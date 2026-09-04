@@ -393,15 +393,41 @@ unchanged by this plan.
    the real Playroom unit via `set_airstage_temperature` itself (not a
    throwaway script) — write verified, then restored to its original value,
    verified again. Unit stayed off throughout.
-4. Build `hvac_schedule_logic.py` (spec Phase 3 normalisation) and
-   `hvac_decision_logic.py` (spec Phase 4) as pure functions with full unit
-   test coverage — no hardware needed to develop or test either, same as
-   `hotwater_decision_logic.py`. Includes the two mode-consistency
-   verification conditions from §8.7: (a) after any retry/revert sequence,
-   both units end up reporting the same mode, never left split; (b) any
-   observed Playroom/Landing mode mismatch outside a daemon-initiated
-   change (e.g. a human used a unit's physical remote) is corrected
-   immediately, not deferred to the next scheduled cadence.
+4. ~~Build `hvac_schedule_logic.py` and `hvac_decision_logic.py`~~ —
+   **DONE 2026-09-04.** Both pure, no I/O. 72 new tests (829 total passing),
+   covering every §7 scenario: windup/drift cap, strict debounce, mode
+   ceilings and floors, restart mid-cycle, Away entry/exit, the §8.1
+   symmetric gate, and both §8.7 mode-consistency conditions. The decision
+   is *declarative* (it describes the end state that should hold, with None
+   meaning "leave this alone"); sequencing, verification, retry and revert
+   stay in the daemon and client, since the device takes one parameter per
+   write and lies about whether writes applied (§4.1).
+
+   Four things worth knowing, found while implementing:
+
+   - **§8.4 can't be fully honoured as written.** It says Away exit should
+     immediately apply the schedule's "mode + target", but the spec's
+     schedule (Phase 3) carries *only* temperatures — there is no scheduled
+     mode to restore. Away exit therefore restores the target immediately
+     and turns minimum heat off, leaving mode to the normal cycle (whose
+     dwell timers are reset on exit, so it settles for 60 min first).
+   - **Mode divergence is only checked between units that are both powered
+     on.** An off unit reads as mode "off", which would look like divergence
+     forever — and "correcting" it would mean powering it on, which only a
+     human (or Away entry) may do. An off unit is not fighting anything, so
+     this is the right reading of §8.7 rather than a loophole in it.
+   - **"Raise a below-minimum target to the new mode's minimum" is dormant
+     under the spec's default limits** — heat→dry/cool is already forced to
+     18°C by its own rule, and cool→dry share an 18°C floor, so the rule can
+     never fire. Implemented and tested anyway (with custom limits), since
+     `mode_temp_limits` is user-configurable per §5.
+   - **§9's dry-mode dead period is real and now quantified.** With the
+     drift cap at 3°C and 0.5°C steps every 30 min, a cold room in `dry`
+     spends ~3 hours ratcheting the setpoint to the cap before mode
+     escalation to `heat` can fire — `dry` cannot heat, so that time is
+     wasted. §9 already accepted this as a known cost with a possible future
+     refinement; noting the actual duration here so it isn't a surprise in
+     the logs.
 5. Build `scripts/hvac_mode_daemon.py` on `TwoTierPollingDaemon`, and
    `scripts/hvac_away_mode.py` mirroring `holiday_mode.py`. Reads room
    temperature via the already-live `fetch_resideo_status()` — no
