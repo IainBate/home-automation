@@ -1,12 +1,39 @@
-"""Tests for airstage_client.py's read-only, multi-zone status fetch and error handling."""
+"""Tests for airstage_client.py's status fetch, error handling, and (2026-09-04) write path.
+
+Write-path tests mock ApiLocal.set_parameter/get_parameters directly rather
+than pyairstage's higher-level AirstageAC, matching the module's own design:
+writes bypass AirstageAC's optimistic caching entirely (see module
+docstring) and are verified by re-reading the raw parameter.
+"""
 
 from __future__ import annotations
 
 from unittest import mock
 
+import pytest
+
 from src.api_clients import airstage_client
+from src.api_clients.airstage_client import AirstageWriteError
 
 _ZONE_CONFIG = {"name": "Landing", "device_id": "AABBCC112233", "ip_address": "192.168.1.50"}
+_TWO_ZONES_CONFIG = {
+    "airstage": {
+        "enabled": True,
+        "zones": [
+            _ZONE_CONFIG,
+            {"name": "Playroom", "device_id": "DDEEFF445566", "ip_address": "192.168.1.51"},
+        ],
+    }
+}
+
+
+def _fake_api(get_parameters_side_effect):
+    """An AsyncMock ApiLocal whose get_parameters() yields the given sequence of
+    return values on successive calls - one per verification read attempt."""
+    api = mock.AsyncMock()
+    api.set_parameter = mock.AsyncMock(return_value={"result": "OK"})
+    api.get_parameters = mock.AsyncMock(side_effect=get_parameters_side_effect)
+    return api
 
 
 def test_fetch_returns_none_when_disabled():
