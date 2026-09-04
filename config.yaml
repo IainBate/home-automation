@@ -595,6 +595,7 @@ daily_digest_check:
     # trainer and the battery evening predictor of new data.
     - "solax_realtime_logger.log"
     - "ohme_status_daemon.log"
+    - "healthchecks_heartbeat.log"
 
 # =============================================================================
 # HEALTHCHECKS.IO HEARTBEAT (scripts/healthchecks_heartbeat.py)
