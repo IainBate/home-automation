@@ -343,24 +343,19 @@ airstage:
 # =============================================================================
 # RESIDEO THERMOSTAT (src/api_clients/resideo_client.py)
 # =============================================================================
-# Read-only thermostat status (T6R and other Evohome-family devices) via
-# evohome-async, an unofficial but actively-maintained client for the same
-# TCC v2 backend ("tccna.resideo.com") the Resideo/Honeywell Home app itself
-# uses - authenticates with your normal app username/password, no developer
-# portal registration needed (Resideo's official OAuth2 API - developer.
-# honeywellhome.com - proved impractical to get approved for; see git
-# history for that earlier approach). Trade-off: unofficial/reverse-engineered,
-# so it could break on a backend change with no notice, same risk category
-# as this project's Ohme client.
+# Read-only T6R status via local Apple HomeKit (aiohomekit), not the cloud:
+# this household's T6R is a Resideo "Lyric" device, not genuine Evohome, so
+# evohome-async/TCC v2 (tccna.resideo.com) never authenticated against it
+# (confirmed 2026-09-02). HomeKit needs no Honeywell/Resideo account, cloud,
+# or developer-portal API key - just a one-time manual pairing (already done
+# for this device - see resideo_client.py's module docstring). No username/
+# password needed here, unlike this project's other cloud clients.
 resideo:
-  # Disabled: this account's T6R thermostat is a Resideo "Lyric" device, on a
-  # different backend than evohome-async targets (confirmed 2026-09-02 - the
-  # account's real credentials correctly fail on the legacy TCC portal
-  # evohome-async uses). Re-enable only after switching to the official Lyric
-  # developer OAuth2 API (api.honeywellhome.com) - see resideo_client.py.
-  enabled: false
-  username: "your-resideo-email@example.com"  # Placeholder - real value in secrets.yaml
-  password: "your-resideo-password"            # Placeholder - real value in secrets.yaml
+  enabled: true
+  # Defaults match where the one-time HomeKit pairing already saved its
+  # credentials on this Pi - only set these if using a different path/alias.
+  # pairing_file: "/home/pi/.local/share/aiohomekit/pairing.json"
+  # pairing_alias: "heating-automation"
 
 # =============================================================================
 # CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
