@@ -1,10 +1,10 @@
 {
   "meta": {
-    "last_updated": "2026-07-10T13:41:41.797471",
-    "data_points": 54720,
+    "last_updated": "2026-09-03T20:50:05.034244+00:00",
+    "data_points": 55007,
     "date_range": {
       "start": "2026-01-01",
-      "end": "2026-07-09"
+      "end": "2026-09-03"
     }
   },
   "data": [
@@ -437767,6 +437767,2551 @@
       "grid_power_kw": -0.4,
       "load_power_kw": 0.4,
       "soc_percent": 95
+    },
+    {
+      "timestamp": "2026-09-02 21:57:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.093,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99
+    },
+    {
+      "timestamp": "2026-09-02 22:02:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.946,
+      "grid_power_kw": 13.243,
+      "soc_percent": 97,
+      "yield_today_kwh": 15.8
+    },
+    {
+      "timestamp": "2026-09-02 22:07:52",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.945,
+      "grid_power_kw": 13.261,
+      "soc_percent": 92,
+      "yield_today_kwh": 16.4
+    },
+    {
+      "timestamp": "2026-09-02 22:12:52",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.938,
+      "grid_power_kw": 13.256,
+      "soc_percent": 86,
+      "yield_today_kwh": 16.9
+    },
+    {
+      "timestamp": "2026-09-02 22:17:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.928,
+      "grid_power_kw": 13.248,
+      "soc_percent": 81,
+      "yield_today_kwh": 17.5
+    },
+    {
+      "timestamp": "2026-09-02 22:22:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.912,
+      "grid_power_kw": 13.222,
+      "soc_percent": 75,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-02 22:27:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.898,
+      "grid_power_kw": 13.202,
+      "soc_percent": 69,
+      "yield_today_kwh": 18.6
+    },
+    {
+      "timestamp": "2026-09-02 22:32:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.889,
+      "grid_power_kw": 13.179,
+      "soc_percent": 64,
+      "yield_today_kwh": 19.2
+    },
+    {
+      "timestamp": "2026-09-02 22:37:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.881,
+      "grid_power_kw": 13.179,
+      "soc_percent": 58,
+      "yield_today_kwh": 19.8
+    },
+    {
+      "timestamp": "2026-09-02 22:42:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.871,
+      "grid_power_kw": 13.153,
+      "soc_percent": 52,
+      "yield_today_kwh": 20.3
+    },
+    {
+      "timestamp": "2026-09-02 22:47:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.856,
+      "grid_power_kw": 13.125,
+      "soc_percent": 46,
+      "yield_today_kwh": 20.9
+    },
+    {
+      "timestamp": "2026-09-02 22:52:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.841,
+      "grid_power_kw": 13.172,
+      "soc_percent": 39,
+      "yield_today_kwh": 21.4
+    },
+    {
+      "timestamp": "2026-09-02 22:57:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.818,
+      "grid_power_kw": 13.101,
+      "soc_percent": 31,
+      "yield_today_kwh": 22.0
+    },
+    {
+      "timestamp": "2026-09-02 23:02:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.788,
+      "grid_power_kw": 13.067,
+      "soc_percent": 23,
+      "yield_today_kwh": 22.5
+    },
+    {
+      "timestamp": "2026-09-02 23:07:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -6.751,
+      "grid_power_kw": 12.976,
+      "soc_percent": 15,
+      "yield_today_kwh": 23.1
+    },
+    {
+      "timestamp": "2026-09-02 23:12:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.091,
+      "grid_power_kw": 0.0,
+      "soc_percent": 14,
+      "yield_today_kwh": 23.1
+    },
+    {
+      "timestamp": "2026-09-02 23:17:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.091,
+      "grid_power_kw": 0.0,
+      "soc_percent": 14,
+      "yield_today_kwh": 23.1
+    },
+    {
+      "timestamp": "2026-09-02 23:22:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.091,
+      "grid_power_kw": 0.0,
+      "soc_percent": 14,
+      "yield_today_kwh": 23.1
+    },
+    {
+      "timestamp": "2026-09-02 23:27:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.091,
+      "grid_power_kw": 0.0,
+      "soc_percent": 14,
+      "yield_today_kwh": 23.2
+    },
+    {
+      "timestamp": "2026-09-02 23:32:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.868,
+      "grid_power_kw": -10.247,
+      "soc_percent": 17,
+      "yield_today_kwh": 23.2
+    },
+    {
+      "timestamp": "2026-09-02 23:37:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.892,
+      "grid_power_kw": -10.295,
+      "soc_percent": 21,
+      "yield_today_kwh": 23.2
+    },
+    {
+      "timestamp": "2026-09-02 23:42:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.913,
+      "grid_power_kw": -10.317,
+      "soc_percent": 25,
+      "yield_today_kwh": 23.2
+    },
+    {
+      "timestamp": "2026-09-02 23:47:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.914,
+      "grid_power_kw": -10.319,
+      "soc_percent": 29,
+      "yield_today_kwh": 23.2
+    },
+    {
+      "timestamp": "2026-09-02 23:52:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.917,
+      "grid_power_kw": -10.335,
+      "soc_percent": 33,
+      "yield_today_kwh": 23.2
+    },
+    {
+      "timestamp": "2026-09-02 23:57:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.919,
+      "grid_power_kw": -10.337,
+      "soc_percent": 36,
+      "yield_today_kwh": 23.2
+    },
+    {
+      "timestamp": "2026-09-03 00:02:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.916,
+      "grid_power_kw": -10.355,
+      "soc_percent": 40,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:07:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.917,
+      "grid_power_kw": -10.346,
+      "soc_percent": 44,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:12:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.919,
+      "grid_power_kw": -10.344,
+      "soc_percent": 47,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:17:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.927,
+      "grid_power_kw": -10.432,
+      "soc_percent": 50,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:22:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.93,
+      "grid_power_kw": -10.459,
+      "soc_percent": 53,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:27:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.941,
+      "grid_power_kw": -10.477,
+      "soc_percent": 57,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:32:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.952,
+      "grid_power_kw": -10.5,
+      "soc_percent": 60,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:37:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.957,
+      "grid_power_kw": -10.513,
+      "soc_percent": 64,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:42:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.958,
+      "grid_power_kw": -10.505,
+      "soc_percent": 67,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:47:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.962,
+      "grid_power_kw": -10.521,
+      "soc_percent": 71,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:52:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.966,
+      "grid_power_kw": -10.528,
+      "soc_percent": 75,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 00:57:53",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.972,
+      "grid_power_kw": -10.538,
+      "soc_percent": 78,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:02:53",
+      "timestamp_utc": "2026-09-02T17:02:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.977,
+      "grid_power_kw": -10.56,
+      "soc_percent": 82,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:07:53",
+      "timestamp_utc": "2026-09-02T17:07:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 4.987,
+      "grid_power_kw": -10.575,
+      "soc_percent": 85,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:12:53",
+      "timestamp_utc": "2026-09-02T17:12:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 5.011,
+      "grid_power_kw": -10.632,
+      "soc_percent": 89,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:17:53",
+      "timestamp_utc": "2026-09-02T17:17:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 1.262,
+      "grid_power_kw": -2.181,
+      "soc_percent": 94,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:22:53",
+      "timestamp_utc": "2026-09-02T17:22:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.144,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:27:53",
+      "timestamp_utc": "2026-09-02T17:27:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.148,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:32:53",
+      "timestamp_utc": "2026-09-02T17:32:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.196,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:37:53",
+      "timestamp_utc": "2026-09-02T17:37:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.166,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:42:53",
+      "timestamp_utc": "2026-09-02T17:42:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.138,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:47:53",
+      "timestamp_utc": "2026-09-02T17:47:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.128,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:52:53",
+      "timestamp_utc": "2026-09-02T17:52:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.137,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 01:57:53",
+      "timestamp_utc": "2026-09-02T17:57:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.126,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:02:53",
+      "timestamp_utc": "2026-09-02T18:02:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.152,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:07:53",
+      "timestamp_utc": "2026-09-02T18:07:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.152,
+      "soc_percent": 100,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:12:53",
+      "timestamp_utc": "2026-09-02T18:12:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.15,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:17:53",
+      "timestamp_utc": "2026-09-02T18:17:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.166,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:22:53",
+      "timestamp_utc": "2026-09-02T18:22:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.146,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:27:53",
+      "timestamp_utc": "2026-09-02T18:27:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.115,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:32:53",
+      "timestamp_utc": "2026-09-02T18:32:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.208,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:37:53",
+      "timestamp_utc": "2026-09-02T18:37:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.167,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:42:53",
+      "timestamp_utc": "2026-09-02T18:42:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.189,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:47:53",
+      "timestamp_utc": "2026-09-02T18:47:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.244,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:52:53",
+      "timestamp_utc": "2026-09-02T18:52:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.211,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 02:57:53",
+      "timestamp_utc": "2026-09-02T18:57:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.201,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:02:53",
+      "timestamp_utc": "2026-09-02T19:02:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.251,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:07:53",
+      "timestamp_utc": "2026-09-02T19:07:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.24,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:12:53",
+      "timestamp_utc": "2026-09-02T19:12:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.254,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:17:53",
+      "timestamp_utc": "2026-09-02T19:17:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.18,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:22:53",
+      "timestamp_utc": "2026-09-02T19:22:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.203,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:27:53",
+      "timestamp_utc": "2026-09-02T19:27:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.213,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:32:53",
+      "timestamp_utc": "2026-09-02T19:32:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.215,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:37:53",
+      "timestamp_utc": "2026-09-02T19:37:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.242,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:42:53",
+      "timestamp_utc": "2026-09-02T19:42:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.179,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:47:53",
+      "timestamp_utc": "2026-09-02T19:47:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.146,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:52:53",
+      "timestamp_utc": "2026-09-02T19:52:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.164,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 03:57:54",
+      "timestamp_utc": "2026-09-02T19:57:54Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -1.814,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:02:54",
+      "timestamp_utc": "2026-09-02T20:02:54Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -4.604,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:07:52",
+      "timestamp_utc": "2026-09-02T20:07:52Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -5.344,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:12:52",
+      "timestamp_utc": "2026-09-02T20:12:52Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -5.765,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:17:52",
+      "timestamp_utc": "2026-09-02T20:17:52Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -5.185,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:22:53",
+      "timestamp_utc": "2026-09-02T20:22:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.144,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:27:53",
+      "timestamp_utc": "2026-09-02T20:27:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.123,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:32:53",
+      "timestamp_utc": "2026-09-02T20:32:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.199,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:37:53",
+      "timestamp_utc": "2026-09-02T20:37:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.15,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:42:53",
+      "timestamp_utc": "2026-09-02T20:42:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.161,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:47:53",
+      "timestamp_utc": "2026-09-02T20:47:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.146,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:52:53",
+      "timestamp_utc": "2026-09-02T20:52:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.19,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 04:57:53",
+      "timestamp_utc": "2026-09-02T20:57:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.203,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:02:53",
+      "timestamp_utc": "2026-09-02T21:02:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.122,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:07:53",
+      "timestamp_utc": "2026-09-02T21:07:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.155,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:12:53",
+      "timestamp_utc": "2026-09-02T21:12:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.263,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:17:53",
+      "timestamp_utc": "2026-09-02T21:17:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.259,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:22:53",
+      "timestamp_utc": "2026-09-02T21:22:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.24,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:27:53",
+      "timestamp_utc": "2026-09-02T21:27:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": -0.253,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:32:53",
+      "timestamp_utc": "2026-09-02T21:32:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:37:53",
+      "timestamp_utc": "2026-09-02T21:37:53Z",
+      "pv_power_kw": 0.001,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:42:53",
+      "timestamp_utc": "2026-09-02T21:42:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:47:53",
+      "timestamp_utc": "2026-09-02T21:47:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:52:53",
+      "timestamp_utc": "2026-09-02T21:52:53Z",
+      "pv_power_kw": 0.002,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 05:57:53",
+      "timestamp_utc": "2026-09-02T21:57:53Z",
+      "pv_power_kw": 0.002,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:02:53",
+      "timestamp_utc": "2026-09-02T22:02:53Z",
+      "pv_power_kw": 0.001,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:07:53",
+      "timestamp_utc": "2026-09-02T22:07:53Z",
+      "pv_power_kw": 0.001,
+      "battery_power_kw": -0.142,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:12:53",
+      "timestamp_utc": "2026-09-02T22:12:53Z",
+      "pv_power_kw": 0.003,
+      "battery_power_kw": -0.141,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:17:53",
+      "timestamp_utc": "2026-09-02T22:17:53Z",
+      "pv_power_kw": 0.002,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:22:53",
+      "timestamp_utc": "2026-09-02T22:22:53Z",
+      "pv_power_kw": 0.001,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:27:53",
+      "timestamp_utc": "2026-09-02T22:27:53Z",
+      "pv_power_kw": 0.002,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:32:53",
+      "timestamp_utc": "2026-09-02T22:32:53Z",
+      "pv_power_kw": 0.005,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:37:53",
+      "timestamp_utc": "2026-09-02T22:37:53Z",
+      "pv_power_kw": 0.012,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:42:53",
+      "timestamp_utc": "2026-09-02T22:42:53Z",
+      "pv_power_kw": 0.023,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:47:53",
+      "timestamp_utc": "2026-09-02T22:47:53Z",
+      "pv_power_kw": 0.016,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:52:53",
+      "timestamp_utc": "2026-09-02T22:52:53Z",
+      "pv_power_kw": 0.015,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 06:57:53",
+      "timestamp_utc": "2026-09-02T22:57:53Z",
+      "pv_power_kw": 0.015,
+      "battery_power_kw": -0.07,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 07:02:53",
+      "timestamp_utc": "2026-09-02T23:02:53Z",
+      "pv_power_kw": 0.053,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.0
+    },
+    {
+      "timestamp": "2026-09-03 07:07:53",
+      "timestamp_utc": "2026-09-02T23:07:53Z",
+      "pv_power_kw": 0.22,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.1
+    },
+    {
+      "timestamp": "2026-09-03 07:12:53",
+      "timestamp_utc": "2026-09-02T23:12:53Z",
+      "pv_power_kw": 0.232,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.1
+    },
+    {
+      "timestamp": "2026-09-03 07:17:53",
+      "timestamp_utc": "2026-09-02T23:17:53Z",
+      "pv_power_kw": 0.324,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.1
+    },
+    {
+      "timestamp": "2026-09-03 07:22:53",
+      "timestamp_utc": "2026-09-02T23:22:53Z",
+      "pv_power_kw": 0.241,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.1
+    },
+    {
+      "timestamp": "2026-09-03 07:27:53",
+      "timestamp_utc": "2026-09-02T23:27:53Z",
+      "pv_power_kw": 0.354,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.1
+    },
+    {
+      "timestamp": "2026-09-03 07:32:53",
+      "timestamp_utc": "2026-09-02T23:32:53Z",
+      "pv_power_kw": 0.473,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.2
+    },
+    {
+      "timestamp": "2026-09-03 07:37:53",
+      "timestamp_utc": "2026-09-02T23:37:53Z",
+      "pv_power_kw": 0.519,
+      "battery_power_kw": -0.214,
+      "grid_power_kw": 0.737,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.2
+    },
+    {
+      "timestamp": "2026-09-03 07:42:53",
+      "timestamp_utc": "2026-09-02T23:42:53Z",
+      "pv_power_kw": 0.363,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.2
+    },
+    {
+      "timestamp": "2026-09-03 07:47:53",
+      "timestamp_utc": "2026-09-02T23:47:53Z",
+      "pv_power_kw": 0.399,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.3
+    },
+    {
+      "timestamp": "2026-09-03 07:52:53",
+      "timestamp_utc": "2026-09-02T23:52:53Z",
+      "pv_power_kw": 0.505,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.3
+    },
+    {
+      "timestamp": "2026-09-03 07:57:53",
+      "timestamp_utc": "2026-09-02T23:57:53Z",
+      "pv_power_kw": 0.349,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.243,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.3
+    },
+    {
+      "timestamp": "2026-09-03 08:02:53",
+      "timestamp_utc": "2026-09-03T00:02:53Z",
+      "pv_power_kw": 0.655,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.699,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.4
+    },
+    {
+      "timestamp": "2026-09-03 08:07:53",
+      "timestamp_utc": "2026-09-03T00:07:53Z",
+      "pv_power_kw": 0.4,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.353,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.4
+    },
+    {
+      "timestamp": "2026-09-03 08:12:53",
+      "timestamp_utc": "2026-09-03T00:12:53Z",
+      "pv_power_kw": 0.33,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.252,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.4
+    },
+    {
+      "timestamp": "2026-09-03 08:17:53",
+      "timestamp_utc": "2026-09-03T00:17:53Z",
+      "pv_power_kw": 0.596,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.618,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.5
+    },
+    {
+      "timestamp": "2026-09-03 08:22:53",
+      "timestamp_utc": "2026-09-03T00:22:53Z",
+      "pv_power_kw": 0.695,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.744,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.5
+    },
+    {
+      "timestamp": "2026-09-03 08:27:53",
+      "timestamp_utc": "2026-09-03T00:27:53Z",
+      "pv_power_kw": 0.969,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.135,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.6
+    },
+    {
+      "timestamp": "2026-09-03 08:32:53",
+      "timestamp_utc": "2026-09-03T00:32:53Z",
+      "pv_power_kw": 0.538,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.699,
+      "soc_percent": 99,
+      "yield_today_kwh": 0.7
+    },
+    {
+      "timestamp": "2026-09-03 08:37:53",
+      "timestamp_utc": "2026-09-03T00:37:53Z",
+      "pv_power_kw": 0.818,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.955,
+      "soc_percent": 98,
+      "yield_today_kwh": 0.7
+    },
+    {
+      "timestamp": "2026-09-03 08:42:53",
+      "timestamp_utc": "2026-09-03T00:42:53Z",
+      "pv_power_kw": 0.974,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.241,
+      "soc_percent": 98,
+      "yield_today_kwh": 0.8
+    },
+    {
+      "timestamp": "2026-09-03 08:47:53",
+      "timestamp_utc": "2026-09-03T00:47:53Z",
+      "pv_power_kw": 1.066,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.373,
+      "soc_percent": 98,
+      "yield_today_kwh": 0.8
+    },
+    {
+      "timestamp": "2026-09-03 08:52:53",
+      "timestamp_utc": "2026-09-03T00:52:53Z",
+      "pv_power_kw": 0.802,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.997,
+      "soc_percent": 98,
+      "yield_today_kwh": 0.9
+    },
+    {
+      "timestamp": "2026-09-03 08:57:53",
+      "timestamp_utc": "2026-09-03T00:57:53Z",
+      "pv_power_kw": 0.777,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.073,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.0
+    },
+    {
+      "timestamp": "2026-09-03 09:02:53",
+      "timestamp_utc": "2026-09-03T01:02:53Z",
+      "pv_power_kw": 1.017,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.323,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.1
+    },
+    {
+      "timestamp": "2026-09-03 09:07:53",
+      "timestamp_utc": "2026-09-03T01:07:53Z",
+      "pv_power_kw": 1.161,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.485,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.1
+    },
+    {
+      "timestamp": "2026-09-03 09:12:53",
+      "timestamp_utc": "2026-09-03T01:12:53Z",
+      "pv_power_kw": 0.801,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.951,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.2
+    },
+    {
+      "timestamp": "2026-09-03 09:17:53",
+      "timestamp_utc": "2026-09-03T01:17:53Z",
+      "pv_power_kw": 0.868,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.079,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.3
+    },
+    {
+      "timestamp": "2026-09-03 09:22:53",
+      "timestamp_utc": "2026-09-03T01:22:53Z",
+      "pv_power_kw": 1.017,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.33,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.3
+    },
+    {
+      "timestamp": "2026-09-03 09:27:53",
+      "timestamp_utc": "2026-09-03T01:27:53Z",
+      "pv_power_kw": 1.313,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.694,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.4
+    },
+    {
+      "timestamp": "2026-09-03 09:32:53",
+      "timestamp_utc": "2026-09-03T01:32:53Z",
+      "pv_power_kw": 0.837,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.016,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.5
+    },
+    {
+      "timestamp": "2026-09-03 09:37:53",
+      "timestamp_utc": "2026-09-03T01:37:53Z",
+      "pv_power_kw": 1.507,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.93,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.6
+    },
+    {
+      "timestamp": "2026-09-03 09:42:53",
+      "timestamp_utc": "2026-09-03T01:42:53Z",
+      "pv_power_kw": 1.635,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.144,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.7
+    },
+    {
+      "timestamp": "2026-09-03 09:47:53",
+      "timestamp_utc": "2026-09-03T01:47:53Z",
+      "pv_power_kw": 1.919,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.495,
+      "soc_percent": 98,
+      "yield_today_kwh": 1.9
+    },
+    {
+      "timestamp": "2026-09-03 09:52:53",
+      "timestamp_utc": "2026-09-03T01:52:53Z",
+      "pv_power_kw": 1.465,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.923,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.0
+    },
+    {
+      "timestamp": "2026-09-03 09:57:53",
+      "timestamp_utc": "2026-09-03T01:57:53Z",
+      "pv_power_kw": 1.312,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.699,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.1
+    },
+    {
+      "timestamp": "2026-09-03 10:02:53",
+      "timestamp_utc": "2026-09-03T02:02:53Z",
+      "pv_power_kw": 1.003,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.297,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.2
+    },
+    {
+      "timestamp": "2026-09-03 10:07:52",
+      "timestamp_utc": "2026-09-03T02:07:52Z",
+      "pv_power_kw": 1.414,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.762,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.3
+    },
+    {
+      "timestamp": "2026-09-03 10:12:52",
+      "timestamp_utc": "2026-09-03T02:12:52Z",
+      "pv_power_kw": 1.303,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.596,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.4
+    },
+    {
+      "timestamp": "2026-09-03 10:17:52",
+      "timestamp_utc": "2026-09-03T02:17:52Z",
+      "pv_power_kw": 1.765,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.212,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.5
+    },
+    {
+      "timestamp": "2026-09-03 10:22:52",
+      "timestamp_utc": "2026-09-03T02:22:52Z",
+      "pv_power_kw": 1.608,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.965,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.6
+    },
+    {
+      "timestamp": "2026-09-03 10:27:52",
+      "timestamp_utc": "2026-09-03T02:27:52Z",
+      "pv_power_kw": 1.309,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.652,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.7
+    },
+    {
+      "timestamp": "2026-09-03 10:32:52",
+      "timestamp_utc": "2026-09-03T02:32:52Z",
+      "pv_power_kw": 2.353,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.899,
+      "soc_percent": 98,
+      "yield_today_kwh": 2.9
+    },
+    {
+      "timestamp": "2026-09-03 10:37:52",
+      "timestamp_utc": "2026-09-03T02:37:52Z",
+      "pv_power_kw": 2.861,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.436,
+      "soc_percent": 98,
+      "yield_today_kwh": 3.1
+    },
+    {
+      "timestamp": "2026-09-03 10:42:52",
+      "timestamp_utc": "2026-09-03T02:42:52Z",
+      "pv_power_kw": 2.18,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.668,
+      "soc_percent": 98,
+      "yield_today_kwh": 3.3
+    },
+    {
+      "timestamp": "2026-09-03 10:47:52",
+      "timestamp_utc": "2026-09-03T02:47:52Z",
+      "pv_power_kw": 1.83,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.303,
+      "soc_percent": 98,
+      "yield_today_kwh": 3.5
+    },
+    {
+      "timestamp": "2026-09-03 10:52:52",
+      "timestamp_utc": "2026-09-03T02:52:52Z",
+      "pv_power_kw": 2.124,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.679,
+      "soc_percent": 98,
+      "yield_today_kwh": 3.7
+    },
+    {
+      "timestamp": "2026-09-03 10:57:52",
+      "timestamp_utc": "2026-09-03T02:57:52Z",
+      "pv_power_kw": 2.499,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.03,
+      "soc_percent": 98,
+      "yield_today_kwh": 3.9
+    },
+    {
+      "timestamp": "2026-09-03 11:02:52",
+      "timestamp_utc": "2026-09-03T03:02:52Z",
+      "pv_power_kw": 1.914,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.314,
+      "soc_percent": 98,
+      "yield_today_kwh": 4.1
+    },
+    {
+      "timestamp": "2026-09-03 11:07:52",
+      "timestamp_utc": "2026-09-03T03:07:52Z",
+      "pv_power_kw": 1.126,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.418,
+      "soc_percent": 98,
+      "yield_today_kwh": 4.2
+    },
+    {
+      "timestamp": "2026-09-03 11:12:52",
+      "timestamp_utc": "2026-09-03T03:12:52Z",
+      "pv_power_kw": 1.592,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.971,
+      "soc_percent": 98,
+      "yield_today_kwh": 4.3
+    },
+    {
+      "timestamp": "2026-09-03 11:17:52",
+      "timestamp_utc": "2026-09-03T03:17:52Z",
+      "pv_power_kw": 2.673,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.115,
+      "soc_percent": 98,
+      "yield_today_kwh": 4.5
+    },
+    {
+      "timestamp": "2026-09-03 11:22:52",
+      "timestamp_utc": "2026-09-03T03:22:52Z",
+      "pv_power_kw": 3.107,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.516,
+      "soc_percent": 98,
+      "yield_today_kwh": 4.7
+    },
+    {
+      "timestamp": "2026-09-03 11:27:52",
+      "timestamp_utc": "2026-09-03T03:27:52Z",
+      "pv_power_kw": 1.505,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.731,
+      "soc_percent": 98,
+      "yield_today_kwh": 5.0
+    },
+    {
+      "timestamp": "2026-09-03 11:32:52",
+      "timestamp_utc": "2026-09-03T03:32:52Z",
+      "pv_power_kw": 5.501,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 6.511,
+      "soc_percent": 98,
+      "yield_today_kwh": 5.3
+    },
+    {
+      "timestamp": "2026-09-03 11:37:52",
+      "timestamp_utc": "2026-09-03T03:37:52Z",
+      "pv_power_kw": 3.418,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 4.186,
+      "soc_percent": 98,
+      "yield_today_kwh": 5.7
+    },
+    {
+      "timestamp": "2026-09-03 11:42:52",
+      "timestamp_utc": "2026-09-03T03:42:52Z",
+      "pv_power_kw": 2.027,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.689,
+      "soc_percent": 98,
+      "yield_today_kwh": 5.9
+    },
+    {
+      "timestamp": "2026-09-03 11:47:52",
+      "timestamp_utc": "2026-09-03T03:47:52Z",
+      "pv_power_kw": 4.551,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 5.2,
+      "soc_percent": 98,
+      "yield_today_kwh": 6.1
+    },
+    {
+      "timestamp": "2026-09-03 11:52:52",
+      "timestamp_utc": "2026-09-03T03:52:52Z",
+      "pv_power_kw": 2.492,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.201,
+      "soc_percent": 98,
+      "yield_today_kwh": 6.4
+    },
+    {
+      "timestamp": "2026-09-03 11:57:52",
+      "timestamp_utc": "2026-09-03T03:57:52Z",
+      "pv_power_kw": 2.272,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.982,
+      "soc_percent": 98,
+      "yield_today_kwh": 6.7
+    },
+    {
+      "timestamp": "2026-09-03 12:02:53",
+      "timestamp_utc": "2026-09-03T04:02:53Z",
+      "pv_power_kw": 2.899,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.76,
+      "soc_percent": 98,
+      "yield_today_kwh": 7.0
+    },
+    {
+      "timestamp": "2026-09-03 12:07:52",
+      "timestamp_utc": "2026-09-03T04:07:52Z",
+      "pv_power_kw": 3.837,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 4.82,
+      "soc_percent": 98,
+      "yield_today_kwh": 7.2
+    },
+    {
+      "timestamp": "2026-09-03 12:12:52",
+      "timestamp_utc": "2026-09-03T04:12:52Z",
+      "pv_power_kw": 2.499,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.223,
+      "soc_percent": 98,
+      "yield_today_kwh": 7.5
+    },
+    {
+      "timestamp": "2026-09-03 12:17:52",
+      "timestamp_utc": "2026-09-03T04:17:52Z",
+      "pv_power_kw": 4.181,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 4.859,
+      "soc_percent": 98,
+      "yield_today_kwh": 7.7
+    },
+    {
+      "timestamp": "2026-09-03 12:22:52",
+      "timestamp_utc": "2026-09-03T04:22:52Z",
+      "pv_power_kw": 5.009,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 5.731,
+      "soc_percent": 98,
+      "yield_today_kwh": 8.0
+    },
+    {
+      "timestamp": "2026-09-03 12:27:52",
+      "timestamp_utc": "2026-09-03T04:27:52Z",
+      "pv_power_kw": 4.738,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 5.443,
+      "soc_percent": 98,
+      "yield_today_kwh": 8.4
+    },
+    {
+      "timestamp": "2026-09-03 12:32:52",
+      "timestamp_utc": "2026-09-03T04:32:52Z",
+      "pv_power_kw": 5.419,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 6.203,
+      "soc_percent": 98,
+      "yield_today_kwh": 8.8
+    },
+    {
+      "timestamp": "2026-09-03 12:37:53",
+      "timestamp_utc": "2026-09-03T04:37:53Z",
+      "pv_power_kw": 2.783,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.517,
+      "soc_percent": 98,
+      "yield_today_kwh": 9.2
+    },
+    {
+      "timestamp": "2026-09-03 12:42:53",
+      "timestamp_utc": "2026-09-03T04:42:53Z",
+      "pv_power_kw": 5.815,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 6.914,
+      "soc_percent": 98,
+      "yield_today_kwh": 9.5
+    },
+    {
+      "timestamp": "2026-09-03 12:47:53",
+      "timestamp_utc": "2026-09-03T04:47:53Z",
+      "pv_power_kw": 5.305,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 6.492,
+      "soc_percent": 98,
+      "yield_today_kwh": 9.9
+    },
+    {
+      "timestamp": "2026-09-03 12:52:53",
+      "timestamp_utc": "2026-09-03T04:52:53Z",
+      "pv_power_kw": 5.192,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 6.185,
+      "soc_percent": 98,
+      "yield_today_kwh": 10.2
+    },
+    {
+      "timestamp": "2026-09-03 12:57:53",
+      "timestamp_utc": "2026-09-03T04:57:53Z",
+      "pv_power_kw": 1.97,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.512,
+      "soc_percent": 98,
+      "yield_today_kwh": 10.5
+    },
+    {
+      "timestamp": "2026-09-03 13:02:53",
+      "timestamp_utc": "2026-09-03T05:02:53Z",
+      "pv_power_kw": 1.299,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.593,
+      "soc_percent": 98,
+      "yield_today_kwh": 10.6
+    },
+    {
+      "timestamp": "2026-09-03 13:07:53",
+      "timestamp_utc": "2026-09-03T05:07:53Z",
+      "pv_power_kw": 1.483,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.83,
+      "soc_percent": 98,
+      "yield_today_kwh": 10.7
+    },
+    {
+      "timestamp": "2026-09-03 13:12:53",
+      "timestamp_utc": "2026-09-03T05:12:53Z",
+      "pv_power_kw": 1.435,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.832,
+      "soc_percent": 98,
+      "yield_today_kwh": 10.8
+    },
+    {
+      "timestamp": "2026-09-03 13:17:53",
+      "timestamp_utc": "2026-09-03T05:17:53Z",
+      "pv_power_kw": 1.584,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.972,
+      "soc_percent": 98,
+      "yield_today_kwh": 10.9
+    },
+    {
+      "timestamp": "2026-09-03 13:22:53",
+      "timestamp_utc": "2026-09-03T05:22:53Z",
+      "pv_power_kw": 1.014,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.236,
+      "soc_percent": 98,
+      "yield_today_kwh": 11.0
+    },
+    {
+      "timestamp": "2026-09-03 13:27:53",
+      "timestamp_utc": "2026-09-03T05:27:53Z",
+      "pv_power_kw": 2.561,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.367,
+      "soc_percent": 98,
+      "yield_today_kwh": 11.2
+    },
+    {
+      "timestamp": "2026-09-03 13:32:53",
+      "timestamp_utc": "2026-09-03T05:32:53Z",
+      "pv_power_kw": 1.73,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.209,
+      "soc_percent": 98,
+      "yield_today_kwh": 11.3
+    },
+    {
+      "timestamp": "2026-09-03 13:37:53",
+      "timestamp_utc": "2026-09-03T05:37:53Z",
+      "pv_power_kw": 1.204,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.636,
+      "soc_percent": 98,
+      "yield_today_kwh": 11.4
+    },
+    {
+      "timestamp": "2026-09-03 13:42:53",
+      "timestamp_utc": "2026-09-03T05:42:53Z",
+      "pv_power_kw": 1.566,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.101,
+      "soc_percent": 98,
+      "yield_today_kwh": 11.6
+    },
+    {
+      "timestamp": "2026-09-03 13:47:53",
+      "timestamp_utc": "2026-09-03T05:47:53Z",
+      "pv_power_kw": 1.999,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.676,
+      "soc_percent": 98,
+      "yield_today_kwh": 11.7
+    },
+    {
+      "timestamp": "2026-09-03 13:52:53",
+      "timestamp_utc": "2026-09-03T05:52:53Z",
+      "pv_power_kw": 1.131,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.512,
+      "soc_percent": 98,
+      "yield_today_kwh": 11.8
+    },
+    {
+      "timestamp": "2026-09-03 13:57:53",
+      "timestamp_utc": "2026-09-03T05:57:53Z",
+      "pv_power_kw": 3.086,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 4.135,
+      "soc_percent": 98,
+      "yield_today_kwh": 12.0
+    },
+    {
+      "timestamp": "2026-09-03 14:02:53",
+      "timestamp_utc": "2026-09-03T06:02:53Z",
+      "pv_power_kw": 2.004,
+      "battery_power_kw": 0.766,
+      "grid_power_kw": 2.046,
+      "soc_percent": 99,
+      "yield_today_kwh": 12.1
+    },
+    {
+      "timestamp": "2026-09-03 14:07:52",
+      "timestamp_utc": "2026-09-03T06:07:52Z",
+      "pv_power_kw": 4.177,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 5.506,
+      "soc_percent": 100,
+      "yield_today_kwh": 12.3
+    },
+    {
+      "timestamp": "2026-09-03 14:12:52",
+      "timestamp_utc": "2026-09-03T06:12:52Z",
+      "pv_power_kw": 2.984,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 4.039,
+      "soc_percent": 100,
+      "yield_today_kwh": 12.5
+    },
+    {
+      "timestamp": "2026-09-03 14:17:52",
+      "timestamp_utc": "2026-09-03T06:17:52Z",
+      "pv_power_kw": 2.677,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.591,
+      "soc_percent": 100,
+      "yield_today_kwh": 12.8
+    },
+    {
+      "timestamp": "2026-09-03 14:22:52",
+      "timestamp_utc": "2026-09-03T06:22:52Z",
+      "pv_power_kw": 2.723,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.713,
+      "soc_percent": 100,
+      "yield_today_kwh": 13.0
+    },
+    {
+      "timestamp": "2026-09-03 14:27:52",
+      "timestamp_utc": "2026-09-03T06:27:52Z",
+      "pv_power_kw": 4.853,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 6.493,
+      "soc_percent": 100,
+      "yield_today_kwh": 13.2
+    },
+    {
+      "timestamp": "2026-09-03 14:32:52",
+      "timestamp_utc": "2026-09-03T06:32:52Z",
+      "pv_power_kw": 3.411,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 4.611,
+      "soc_percent": 100,
+      "yield_today_kwh": 13.6
+    },
+    {
+      "timestamp": "2026-09-03 14:37:52",
+      "timestamp_utc": "2026-09-03T06:37:52Z",
+      "pv_power_kw": 2.227,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.003,
+      "soc_percent": 100,
+      "yield_today_kwh": 13.8
+    },
+    {
+      "timestamp": "2026-09-03 14:42:52",
+      "timestamp_utc": "2026-09-03T06:42:52Z",
+      "pv_power_kw": 1.812,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.439,
+      "soc_percent": 100,
+      "yield_today_kwh": 14.0
+    },
+    {
+      "timestamp": "2026-09-03 14:47:52",
+      "timestamp_utc": "2026-09-03T06:47:52Z",
+      "pv_power_kw": 2.074,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.786,
+      "soc_percent": 100,
+      "yield_today_kwh": 14.1
+    },
+    {
+      "timestamp": "2026-09-03 14:52:52",
+      "timestamp_utc": "2026-09-03T06:52:52Z",
+      "pv_power_kw": 1.997,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.699,
+      "soc_percent": 99,
+      "yield_today_kwh": 14.3
+    },
+    {
+      "timestamp": "2026-09-03 14:57:52",
+      "timestamp_utc": "2026-09-03T06:57:52Z",
+      "pv_power_kw": 1.984,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.595,
+      "soc_percent": 99,
+      "yield_today_kwh": 14.5
+    },
+    {
+      "timestamp": "2026-09-03 15:02:52",
+      "timestamp_utc": "2026-09-03T07:02:52Z",
+      "pv_power_kw": 1.685,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.187,
+      "soc_percent": 99,
+      "yield_today_kwh": 14.6
+    },
+    {
+      "timestamp": "2026-09-03 15:07:52",
+      "timestamp_utc": "2026-09-03T07:07:52Z",
+      "pv_power_kw": 1.778,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.332,
+      "soc_percent": 99,
+      "yield_today_kwh": 14.7
+    },
+    {
+      "timestamp": "2026-09-03 15:12:52",
+      "timestamp_utc": "2026-09-03T07:12:52Z",
+      "pv_power_kw": 1.871,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.473,
+      "soc_percent": 99,
+      "yield_today_kwh": 14.9
+    },
+    {
+      "timestamp": "2026-09-03 15:17:53",
+      "timestamp_utc": "2026-09-03T07:17:53Z",
+      "pv_power_kw": 1.392,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.773,
+      "soc_percent": 99,
+      "yield_today_kwh": 15.0
+    },
+    {
+      "timestamp": "2026-09-03 15:22:53",
+      "timestamp_utc": "2026-09-03T07:22:53Z",
+      "pv_power_kw": 1.874,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.389,
+      "soc_percent": 99,
+      "yield_today_kwh": 15.1
+    },
+    {
+      "timestamp": "2026-09-03 15:27:53",
+      "timestamp_utc": "2026-09-03T07:27:53Z",
+      "pv_power_kw": 1.933,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.519,
+      "soc_percent": 99,
+      "yield_today_kwh": 15.3
+    },
+    {
+      "timestamp": "2026-09-03 15:32:53",
+      "timestamp_utc": "2026-09-03T07:32:53Z",
+      "pv_power_kw": 2.268,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.993,
+      "soc_percent": 99,
+      "yield_today_kwh": 15.4
+    },
+    {
+      "timestamp": "2026-09-03 15:37:53",
+      "timestamp_utc": "2026-09-03T07:37:53Z",
+      "pv_power_kw": 2.076,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.741,
+      "soc_percent": 99,
+      "yield_today_kwh": 15.6
+    },
+    {
+      "timestamp": "2026-09-03 15:42:53",
+      "timestamp_utc": "2026-09-03T07:42:53Z",
+      "pv_power_kw": 2.234,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.994,
+      "soc_percent": 99,
+      "yield_today_kwh": 15.8
+    },
+    {
+      "timestamp": "2026-09-03 15:47:53",
+      "timestamp_utc": "2026-09-03T07:47:53Z",
+      "pv_power_kw": 1.391,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.717,
+      "soc_percent": 99,
+      "yield_today_kwh": 15.9
+    },
+    {
+      "timestamp": "2026-09-03 15:52:53",
+      "timestamp_utc": "2026-09-03T07:52:53Z",
+      "pv_power_kw": 1.964,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.671,
+      "soc_percent": 99,
+      "yield_today_kwh": 16.0
+    },
+    {
+      "timestamp": "2026-09-03 15:57:53",
+      "timestamp_utc": "2026-09-03T07:57:53Z",
+      "pv_power_kw": 2.585,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.457,
+      "soc_percent": 99,
+      "yield_today_kwh": 16.2
+    },
+    {
+      "timestamp": "2026-09-03 16:02:53",
+      "timestamp_utc": "2026-09-03T08:02:53Z",
+      "pv_power_kw": 2.6,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.669,
+      "soc_percent": 99,
+      "yield_today_kwh": 16.4
+    },
+    {
+      "timestamp": "2026-09-03 16:07:53",
+      "timestamp_utc": "2026-09-03T08:07:53Z",
+      "pv_power_kw": 2.292,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.151,
+      "soc_percent": 99,
+      "yield_today_kwh": 16.6
+    },
+    {
+      "timestamp": "2026-09-03 16:12:53",
+      "timestamp_utc": "2026-09-03T08:12:53Z",
+      "pv_power_kw": 2.282,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 3.202,
+      "soc_percent": 99,
+      "yield_today_kwh": 16.8
+    },
+    {
+      "timestamp": "2026-09-03 16:17:53",
+      "timestamp_utc": "2026-09-03T08:17:53Z",
+      "pv_power_kw": 1.095,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.398,
+      "soc_percent": 99,
+      "yield_today_kwh": 16.9
+    },
+    {
+      "timestamp": "2026-09-03 16:22:53",
+      "timestamp_utc": "2026-09-03T08:22:53Z",
+      "pv_power_kw": 1.864,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.649,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.0
+    },
+    {
+      "timestamp": "2026-09-03 16:27:53",
+      "timestamp_utc": "2026-09-03T08:27:53Z",
+      "pv_power_kw": 1.39,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.854,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.1
+    },
+    {
+      "timestamp": "2026-09-03 16:32:53",
+      "timestamp_utc": "2026-09-03T08:32:53Z",
+      "pv_power_kw": 1.283,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.693,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.2
+    },
+    {
+      "timestamp": "2026-09-03 16:37:53",
+      "timestamp_utc": "2026-09-03T08:37:53Z",
+      "pv_power_kw": 1.158,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.524,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.3
+    },
+    {
+      "timestamp": "2026-09-03 16:42:53",
+      "timestamp_utc": "2026-09-03T08:42:53Z",
+      "pv_power_kw": 1.502,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 2.027,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.4
+    },
+    {
+      "timestamp": "2026-09-03 16:47:53",
+      "timestamp_utc": "2026-09-03T08:47:53Z",
+      "pv_power_kw": 1.313,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.728,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.5
+    },
+    {
+      "timestamp": "2026-09-03 16:52:54",
+      "timestamp_utc": "2026-09-03T08:52:54Z",
+      "pv_power_kw": 1.237,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.658,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.7
+    },
+    {
+      "timestamp": "2026-09-03 16:57:53",
+      "timestamp_utc": "2026-09-03T08:57:53Z",
+      "pv_power_kw": 0.745,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.915,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.7
+    },
+    {
+      "timestamp": "2026-09-03 17:02:53",
+      "timestamp_utc": "2026-09-03T09:02:53Z",
+      "pv_power_kw": 0.642,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.741,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.8
+    },
+    {
+      "timestamp": "2026-09-03 17:07:53",
+      "timestamp_utc": "2026-09-03T09:07:53Z",
+      "pv_power_kw": 0.914,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 1.185,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.8
+    },
+    {
+      "timestamp": "2026-09-03 17:12:53",
+      "timestamp_utc": "2026-09-03T09:12:53Z",
+      "pv_power_kw": 0.522,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.58,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.9
+    },
+    {
+      "timestamp": "2026-09-03 17:17:53",
+      "timestamp_utc": "2026-09-03T09:17:53Z",
+      "pv_power_kw": 0.217,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.175,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.9
+    },
+    {
+      "timestamp": "2026-09-03 17:22:53",
+      "timestamp_utc": "2026-09-03T09:22:53Z",
+      "pv_power_kw": 0.36,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.347,
+      "soc_percent": 99,
+      "yield_today_kwh": 17.9
+    },
+    {
+      "timestamp": "2026-09-03 17:27:53",
+      "timestamp_utc": "2026-09-03T09:27:53Z",
+      "pv_power_kw": 0.29,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.181,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.0
+    },
+    {
+      "timestamp": "2026-09-03 17:32:53",
+      "timestamp_utc": "2026-09-03T09:32:53Z",
+      "pv_power_kw": 0.319,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.185,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.0
+    },
+    {
+      "timestamp": "2026-09-03 17:37:53",
+      "timestamp_utc": "2026-09-03T09:37:53Z",
+      "pv_power_kw": 0.408,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.338,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.0
+    },
+    {
+      "timestamp": "2026-09-03 17:42:53",
+      "timestamp_utc": "2026-09-03T09:42:53Z",
+      "pv_power_kw": 0.295,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.136,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.0
+    },
+    {
+      "timestamp": "2026-09-03 17:47:54",
+      "timestamp_utc": "2026-09-03T09:47:54Z",
+      "pv_power_kw": 0.265,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.102,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-03 17:52:54",
+      "timestamp_utc": "2026-09-03T09:52:54Z",
+      "pv_power_kw": 0.251,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.102,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-03 17:57:54",
+      "timestamp_utc": "2026-09-03T09:57:54Z",
+      "pv_power_kw": 0.115,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-03 18:02:54",
+      "timestamp_utc": "2026-09-03T10:02:54Z",
+      "pv_power_kw": 0.106,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-03 18:07:52",
+      "timestamp_utc": "2026-09-03T10:07:52Z",
+      "pv_power_kw": 0.072,
+      "battery_power_kw": -0.072,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-03 18:12:52",
+      "timestamp_utc": "2026-09-03T10:12:52Z",
+      "pv_power_kw": 0.086,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-03 18:17:52",
+      "timestamp_utc": "2026-09-03T10:17:52Z",
+      "pv_power_kw": 0.322,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.1
+    },
+    {
+      "timestamp": "2026-09-03 18:22:52",
+      "timestamp_utc": "2026-09-03T10:22:52Z",
+      "pv_power_kw": 0.378,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.2
+    },
+    {
+      "timestamp": "2026-09-03 18:27:52",
+      "timestamp_utc": "2026-09-03T10:27:52Z",
+      "pv_power_kw": 0.316,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.2
+    },
+    {
+      "timestamp": "2026-09-03 18:32:52",
+      "timestamp_utc": "2026-09-03T10:32:52Z",
+      "pv_power_kw": 0.245,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.2
+    },
+    {
+      "timestamp": "2026-09-03 18:37:52",
+      "timestamp_utc": "2026-09-03T10:37:52Z",
+      "pv_power_kw": 0.3,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.2
+    },
+    {
+      "timestamp": "2026-09-03 18:42:52",
+      "timestamp_utc": "2026-09-03T10:42:52Z",
+      "pv_power_kw": 0.142,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.2
+    },
+    {
+      "timestamp": "2026-09-03 18:47:52",
+      "timestamp_utc": "2026-09-03T10:47:52Z",
+      "pv_power_kw": 0.157,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.2
+    },
+    {
+      "timestamp": "2026-09-03 18:52:52",
+      "timestamp_utc": "2026-09-03T10:52:52Z",
+      "pv_power_kw": 0.223,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 18:57:52",
+      "timestamp_utc": "2026-09-03T10:57:52Z",
+      "pv_power_kw": 0.188,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 19:02:52",
+      "timestamp_utc": "2026-09-03T11:02:52Z",
+      "pv_power_kw": 0.106,
+      "battery_power_kw": 0.0,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 19:07:52",
+      "timestamp_utc": "2026-09-03T11:07:52Z",
+      "pv_power_kw": 0.05,
+      "battery_power_kw": -0.071,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 19:12:52",
+      "timestamp_utc": "2026-09-03T11:12:52Z",
+      "pv_power_kw": 0.046,
+      "battery_power_kw": -0.142,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 19:17:52",
+      "timestamp_utc": "2026-09-03T11:17:52Z",
+      "pv_power_kw": 0.041,
+      "battery_power_kw": -0.142,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 19:22:52",
+      "timestamp_utc": "2026-09-03T11:22:52Z",
+      "pv_power_kw": 0.012,
+      "battery_power_kw": -0.141,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 19:27:52",
+      "timestamp_utc": "2026-09-03T11:27:52Z",
+      "pv_power_kw": 0.011,
+      "battery_power_kw": -0.141,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.3
+    },
+    {
+      "timestamp": "2026-09-03 19:32:52",
+      "timestamp_utc": "2026-09-03T11:32:52Z",
+      "pv_power_kw": 0.008,
+      "battery_power_kw": -0.164,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.4
+    },
+    {
+      "timestamp": "2026-09-03 19:37:53",
+      "timestamp_utc": "2026-09-03T11:37:53Z",
+      "pv_power_kw": 0.009,
+      "battery_power_kw": -0.211,
+      "grid_power_kw": 0.0,
+      "soc_percent": 99,
+      "yield_today_kwh": 18.4
+    },
+    {
+      "timestamp": "2026-09-03 19:42:53",
+      "timestamp_utc": "2026-09-03T11:42:53Z",
+      "pv_power_kw": 0.004,
+      "battery_power_kw": -0.211,
+      "grid_power_kw": 0.0,
+      "soc_percent": 98,
+      "yield_today_kwh": 18.4
+    },
+    {
+      "timestamp": "2026-09-03 19:47:53",
+      "timestamp_utc": "2026-09-03T11:47:53Z",
+      "pv_power_kw": 0.003,
+      "battery_power_kw": -0.211,
+      "grid_power_kw": 0.0,
+      "soc_percent": 98,
+      "yield_today_kwh": 18.4
+    },
+    {
+      "timestamp": "2026-09-03 19:52:53",
+      "timestamp_utc": "2026-09-03T11:52:53Z",
+      "pv_power_kw": 0.004,
+      "battery_power_kw": -0.187,
+      "grid_power_kw": 0.0,
+      "soc_percent": 98,
+      "yield_today_kwh": 18.4
+    },
+    {
+      "timestamp": "2026-09-03 19:57:53",
+      "timestamp_utc": "2026-09-03T11:57:53Z",
+      "pv_power_kw": 0.004,
+      "battery_power_kw": -0.187,
+      "grid_power_kw": 0.0,
+      "soc_percent": 98,
+      "yield_today_kwh": 18.4
+    },
+    {
+      "timestamp": "2026-09-03 20:02:53",
+      "timestamp_utc": "2026-09-03T12:02:53Z",
+      "pv_power_kw": 0.001,
+      "battery_power_kw": -0.187,
+      "grid_power_kw": 0.0,
+      "soc_percent": 98,
+      "yield_today_kwh": 18.5
+    },
+    {
+      "timestamp": "2026-09-03 20:07:53",
+      "timestamp_utc": "2026-09-03T12:07:53Z",
+      "pv_power_kw": 0.003,
+      "battery_power_kw": -0.187,
+      "grid_power_kw": 0.0,
+      "soc_percent": 98,
+      "yield_today_kwh": 18.5
+    },
+    {
+      "timestamp": "2026-09-03 20:12:53",
+      "timestamp_utc": "2026-09-03T12:12:53Z",
+      "pv_power_kw": 0.002,
+      "battery_power_kw": -0.234,
+      "grid_power_kw": 0.0,
+      "soc_percent": 97,
+      "yield_today_kwh": 18.6
+    },
+    {
+      "timestamp": "2026-09-03 20:17:53",
+      "timestamp_utc": "2026-09-03T12:17:53Z",
+      "pv_power_kw": 0.002,
+      "battery_power_kw": -0.211,
+      "grid_power_kw": 0.0,
+      "soc_percent": 96,
+      "yield_today_kwh": 18.6
+    },
+    {
+      "timestamp": "2026-09-03 20:22:53",
+      "timestamp_utc": "2026-09-03T12:22:53Z",
+      "pv_power_kw": 0.003,
+      "battery_power_kw": -0.234,
+      "grid_power_kw": 0.0,
+      "soc_percent": 96,
+      "yield_today_kwh": 18.7
+    },
+    {
+      "timestamp": "2026-09-03 20:27:53",
+      "timestamp_utc": "2026-09-03T12:27:53Z",
+      "pv_power_kw": 0.001,
+      "battery_power_kw": -0.234,
+      "grid_power_kw": 0.0,
+      "soc_percent": 96,
+      "yield_today_kwh": 18.7
+    },
+    {
+      "timestamp": "2026-09-03 20:32:53",
+      "timestamp_utc": "2026-09-03T12:32:53Z",
+      "pv_power_kw": 0.002,
+      "battery_power_kw": -0.258,
+      "grid_power_kw": 0.0,
+      "soc_percent": 95,
+      "yield_today_kwh": 18.7
+    },
+    {
+      "timestamp": "2026-09-03 20:37:53",
+      "timestamp_utc": "2026-09-03T12:37:53Z",
+      "pv_power_kw": 0.001,
+      "battery_power_kw": -0.258,
+      "grid_power_kw": 0.0,
+      "soc_percent": 95,
+      "yield_today_kwh": 18.7
+    },
+    {
+      "timestamp": "2026-09-03 20:42:53",
+      "timestamp_utc": "2026-09-03T12:42:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.281,
+      "grid_power_kw": 0.0,
+      "soc_percent": 95,
+      "yield_today_kwh": 18.7
+    },
+    {
+      "timestamp": "2026-09-03 20:47:53",
+      "timestamp_utc": "2026-09-03T12:47:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.281,
+      "grid_power_kw": 0.0,
+      "soc_percent": 95,
+      "yield_today_kwh": 18.8
+    },
+    {
+      "timestamp": "2026-09-03 20:52:53",
+      "timestamp_utc": "2026-09-03T12:52:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.257,
+      "grid_power_kw": 0.0,
+      "soc_percent": 95,
+      "yield_today_kwh": 18.8
+    },
+    {
+      "timestamp": "2026-09-03 20:57:53",
+      "timestamp_utc": "2026-09-03T12:57:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.304,
+      "grid_power_kw": 0.0,
+      "soc_percent": 94,
+      "yield_today_kwh": 18.8
+    },
+    {
+      "timestamp": "2026-09-03 21:02:53",
+      "timestamp_utc": "2026-09-03T13:02:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.281,
+      "grid_power_kw": 0.0,
+      "soc_percent": 94,
+      "yield_today_kwh": 18.8
+    },
+    {
+      "timestamp": "2026-09-03 21:07:53",
+      "timestamp_utc": "2026-09-03T13:07:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.281,
+      "grid_power_kw": 0.0,
+      "soc_percent": 94,
+      "yield_today_kwh": 18.8
+    },
+    {
+      "timestamp": "2026-09-03 21:12:53",
+      "timestamp_utc": "2026-09-03T13:12:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.234,
+      "grid_power_kw": 0.0,
+      "soc_percent": 94,
+      "yield_today_kwh": 18.9
+    },
+    {
+      "timestamp": "2026-09-03 21:17:53",
+      "timestamp_utc": "2026-09-03T13:17:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.234,
+      "grid_power_kw": 0.0,
+      "soc_percent": 94,
+      "yield_today_kwh": 18.9
+    },
+    {
+      "timestamp": "2026-09-03 21:22:53",
+      "timestamp_utc": "2026-09-03T13:22:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.257,
+      "grid_power_kw": 0.0,
+      "soc_percent": 93,
+      "yield_today_kwh": 18.9
+    },
+    {
+      "timestamp": "2026-09-03 21:27:53",
+      "timestamp_utc": "2026-09-03T13:27:53Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.257,
+      "grid_power_kw": 0.0,
+      "soc_percent": 93,
+      "yield_today_kwh": 18.9
+    },
+    {
+      "timestamp": "2026-09-03 21:32:54",
+      "timestamp_utc": "2026-09-03T13:32:54Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.257,
+      "grid_power_kw": 0.0,
+      "soc_percent": 93,
+      "yield_today_kwh": 18.9
+    },
+    {
+      "timestamp": "2026-09-03 21:37:54",
+      "timestamp_utc": "2026-09-03T13:37:54Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.257,
+      "grid_power_kw": 0.0,
+      "soc_percent": 93,
+      "yield_today_kwh": 19.0
+    },
+    {
+      "timestamp": "2026-09-03 21:42:54",
+      "timestamp_utc": "2026-09-03T13:42:54Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.187,
+      "grid_power_kw": 0.0,
+      "soc_percent": 92,
+      "yield_today_kwh": 19.0
+    },
+    {
+      "timestamp": "2026-09-03 21:47:54",
+      "timestamp_utc": "2026-09-03T13:47:54Z",
+      "pv_power_kw": 0.0,
+      "battery_power_kw": -0.187,
+      "grid_power_kw": 0.0,
+      "soc_percent": 92,
+      "yield_today_kwh": 19.0
     }
   ]
 }

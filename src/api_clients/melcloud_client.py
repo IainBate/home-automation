@@ -87,6 +87,28 @@ DEFAULT_CHECK_DELAY_SECONDS = 15.0
 # How long a fetched status stays fresh enough to reuse without another API call.
 STATUS_CACHE_DURATION_SECONDS = 5.0
 
+# Fallback format for MELCloud's LastCommunication field: pymelcloud's own
+# Device.last_seen property requires fractional seconds ("%Y-%m-%dT%H:%M:%S.%f")
+# and raises ValueError when MELCloud omits them, which it does intermittently
+# in practice (observed 2026-09-03/04) - this recovers the same value instead
+# of losing it (and logging a spurious ERROR) on those responses.
+_LAST_COMMUNICATION_FALLBACK_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
+
+def _safe_last_seen(device: AtwDevice) -> datetime | None:
+    """Read device.last_seen, tolerating a LastCommunication value with no fractional seconds."""
+    try:
+        return device.last_seen
+    except ValueError:
+        raw = (device._state or {}).get("LastCommunication")  # noqa: SLF001 - pymelcloud exposes no public accessor
+        if raw is None:
+            return None
+        try:
+            return datetime.strptime(raw, _LAST_COMMUNICATION_FALLBACK_FORMAT).replace(tzinfo=UTC)
+        except ValueError:
+            logger.warning("Unparseable MELCloud LastCommunication value: %r", raw)
+            return None
+
 
 class HotWaterOperationMode(str, Enum):
     """Internal representation of the tank's hot water operation mode.
