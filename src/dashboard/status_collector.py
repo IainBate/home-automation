@@ -326,8 +326,8 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
 
 async def _fetch_hot_water_status(config_path: str) -> dict[str, Any]:
     client = MelCloudClient(config_path=config_path)
-    await client.connect()
     try:
+        await client.connect()
         return await asyncio.wait_for(client.get_tank_status(use_cache=False), timeout=DASHBOARD_FETCH_TIMEOUT_SECONDS)
     finally:
         await client.close()
