@@ -75,11 +75,13 @@ pyairstage>=3.2.2
 # saic-ismart-client package.
 saic-ismart-client-ng>=0.9.3
 
-# Resideo/Honeywell Home thermostat client (src/api_clients/resideo_client.py).
-# Unofficial, reverse-engineered client for the TCC v2 backend, used instead of
-# Resideo's official OAuth2 developer API (impractical to get an app approved
-# for) - authenticates with the account's normal username/password instead.
-evohome-async>=2.1.0
+# Resideo/Honeywell Home T6R thermostat client (src/api_clients/resideo_client.py).
+# Local Apple HomeKit (HAP-over-IP) client - this household's T6R is a Lyric
+# device, not genuine Evohome, so evohome-async/TCC v2 was replaced with this
+# (2026-09-04). No Honeywell/Resideo account or API key involved; requires a
+# one-time manual HomeKit pairing (see resideo_client.py's module docstring).
+aiohomekit>=3.2.20          # Pi: 3.2.20
+zeroconf>=0.148.0           # Pi: 0.148.0
 
 # Utilities
 pytz>=2021.1               # Pi: 2025.2
