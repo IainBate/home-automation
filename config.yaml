@@ -617,7 +617,7 @@ daily_digest_check:
 # cron tick without a false alarm), then run via cron every 10 minutes:
 #   */10 * * * * cd /home/pi/home_automation && venv/bin/python3 scripts/healthchecks_heartbeat.py --quiet
 healthchecks_io:
-  enabled: false                                     # Flip true once ping_url is set in secrets.yaml
+  enabled: true
   ping_url: "https://hc-ping.com/your-check-uuid-here"  # Placeholder - real value in secrets.yaml
   timeout_seconds: 10
 
