@@ -560,6 +560,37 @@ its state file as authoritative across restarts (`hotwater_mode_daemon.py`,
 `battery_mode_daemon.py`), and this should follow the same pattern rather
 than being a special case.
 
+### 8.8 Mode consistency between units — decided 2026-09-04: explicit invariant, immediate correction
+
+The project owner flagged this directly: it's critical the two units are
+never fighting each other (one heating while the other cools). This is
+already **structurally guaranteed** — `set_mode()` (ported from
+`heating_automation`'s `ACClient`, §6 step 2) always applies to both units
+in a single operation, because they share one outdoor heat exchanger and
+can physically only run one refrigerant direction at a time. But it needs
+to be an explicit, *verified* property, not just an emergent one, for two
+reasons:
+
+1. **The spec's own retry/revert path is the one place they can transiently
+   disagree.** "If a mode change succeeds on one unit but fails on the
+   other: retry the failed unit immediately. If the retry also fails:
+   revert the successful unit to its previous mode." Verification
+   condition: after any retry/revert sequence completes, both units must
+   report the same mode — never left split, even transiently beyond the
+   retry window itself. Already listed as a required test scenario in §7.
+
+2. **A human touching one unit's physical remote directly, independent of
+   anything the daemon commanded, is not covered by the spec's "human
+   override" section** — that section only discusses the daemon resuming
+   control after a human's deliberate mode/temperature change, not one
+   unit's mode silently diverging from the other. **Recommendation:** every
+   poll reads both units' *actual* current mode (not the daemon's
+   last-known/commanded state), and treats any Playroom/Landing mismatch as
+   an immediate, high-priority correction — bypassing the normal 30/60-minute
+   cadence entirely, since this is a materially different, higher-stakes
+   situation than an ordinary "room hasn't hit target yet," and the
+   fastest-possible response this design offers to any condition.
+
 ### 8.7 What's already correct: mode ceilings/floors themselves
 
 One reassurance: `cool` and `heat` being the two ends of the normal 3-mode
