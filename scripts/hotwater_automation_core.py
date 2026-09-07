@@ -937,6 +937,42 @@ async def _run_force_heat_check_locked(
     return 1
 
 
+def _daily_check_lookup_date_str(hw_config: dict[str, Any], now_local: datetime) -> str:
+    """The calendar date whose daily_check snapshot governs right now.
+
+    _update_daily_threshold_snapshot always WRITES under the calendar date it
+    ran on - safe, since daily_check_hour (18:00 by default) is always in the
+    afternoon/evening, never near midnight. But every READ of that snapshot
+    (the force-heat decision, the legionella-due check, and
+    _refresh_daily_snapshot_if_warm's own correction) needs to keep finding
+    that same snapshot for the REST of that evening's session - which runs
+    through midnight to offpeak_end (05:30 by default) the following
+    calendar day.
+
+    Without this adjustment (a real gap found 2026-09-07, discovered
+    alongside the "don't re-trigger" fix elsewhere in this module): any
+    decision made between midnight and offpeak_end would compare the
+    snapshot's date against TOMORROW's date (relative to when the snapshot
+    was actually written), never match, and read the tank's temperature as
+    unavailable - silently unable to heat at all during that stretch, no
+    matter how cold the tank actually was. That's exactly the part of the
+    night (car-charging and battery-prediction have both already closed by
+    then) that's supposed to be covered by "the grid is now off-peak, heat
+    regardless" - which never got the chance to apply.
+
+    Before offpeak_end, we're still in "last night's" session - look up
+    yesterday's date. At/after it, use today's - the same offpeak_end
+    boundary _overnight_deadline_passed already uses to mark an overnight
+    session as over.
+    """
+    offpeak_end_time = datetime.strptime(
+        hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
+    ).time()
+    if now_local.time() < offpeak_end_time:
+        return (now_local - timedelta(days=1)).date().isoformat()
+    return now_local.date().isoformat()
+
+
 def _update_daily_threshold_snapshot(
     hw_config: dict[str, Any],
     state: dict[str, Any],
