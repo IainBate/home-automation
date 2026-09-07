@@ -157,8 +157,21 @@ fi
 # secrets backup and pushed unreviewed.
 git commit -q -m "Update encrypted secrets backup ($(date +%Y-%m-%d))" -- secrets.yaml.enc
 
-if git push -q 2>/dev/null; then
-    echo "secrets.yaml.enc changed - committed and pushed."
+# git push's own progress output is quieted by -q, but this repo's pre-push
+# hook (which runs the full test suite, ~2.5 minutes of dots and a pass/fail
+# summary) prints straight to stdout regardless of that flag - cron mails any
+# stdout/stderr a job produces, so left uncaptured this mails the entire test
+# run to the inbox every night secrets actually change, even though nothing
+# is wrong. Captured here instead: a normal successful push stays fully
+# silent under --quiet, matching every other cron job in this project's
+# convention (daily_digest_check.py/weekly_health_check.py: only email when
+# something is actually wrong) - the captured output is only surfaced below
+# if the push doesn't succeed, which is exactly when it's worth reading.
+PUSH_LOG="$(mktemp "${TMPDIR:-/tmp}/secrets.push.XXXXXX")"
+trap 'rm -f "$WORK_ENC" "$WORK_PLAIN" "$PUSH_LOG"' EXIT
+
+if git push -q >"$PUSH_LOG" 2>&1; then
+    log "secrets.yaml.enc changed - committed and pushed."
     exit 0
 fi
 
@@ -166,11 +179,13 @@ fi
 # the remote once and retry; only then treat it as a real failure. The local
 # commit is already safe either way - this only affects the offsite copy.
 echo "WARNING: push rejected, retrying after rebase..." >&2
-if git pull --rebase -q && git push -q; then
-    echo "secrets.yaml.enc changed - committed and pushed (after rebase)."
+cat "$PUSH_LOG" >&2
+if git pull --rebase -q >>"$PUSH_LOG" 2>&1 && git push -q >>"$PUSH_LOG" 2>&1; then
+    log "secrets.yaml.enc changed - committed and pushed (after rebase)."
     exit 0
 fi
 
 echo "ERROR: secrets backup committed locally but could NOT be pushed." >&2
 echo "       The offsite copy is now behind - resolve by hand on this machine." >&2
+cat "$PUSH_LOG" >&2
 exit 1
