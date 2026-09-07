@@ -332,11 +332,13 @@ function airstageZoneCard(zone) {
   if (zone.outdoor_temperature_c !== null && zone.outdoor_temperature_c !== undefined) {
     detailRows.push(`<div class="row"><span class="label">Outdoor temperature</span><span class="value">${fmtTemp(zone.outdoor_temperature_c)}</span></div>`);
   }
-  // house_target_c/hvac_target_c are only ever set on the master zone's
+  // schedule_target_c/hvac_target_c are only ever set on the master zone's
   // summary (see status_collector.py's _attach_hvac_automation_summary) -
   // the mirror zone's card gets the automationRow above but no extra detail.
-  if (auto && auto.house_target_c !== undefined && auto.house_target_c !== null) {
-    detailRows.push(`<div class="row"><span class="label">Schedule target</span><span class="value">${fmtTemp(auto.house_target_c)}</span></div>`);
+  // schedule_target_c is already whichever of heat_target_c/cool_target_c
+  // matches the zone's current mode (picked server-side).
+  if (auto && auto.schedule_target_c !== undefined && auto.schedule_target_c !== null) {
+    detailRows.push(`<div class="row"><span class="label">Schedule target</span><span class="value">${fmtTemp(auto.schedule_target_c)}</span></div>`);
     detailRows.push(`<div class="row"><span class="label">Automation setpoint</span><span class="value">${fmtTemp(auto.hvac_target_c)}</span></div>`);
   }
   return card(title, body, detailRows.join(""));
