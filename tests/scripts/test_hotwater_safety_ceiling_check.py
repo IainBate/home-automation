@@ -209,7 +209,10 @@ def test_defaults_are_well_above_normal_operating_targets(tmp_path):
     hw_config.
     """
     state_path = _write_state(tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()})
-    client = FakeMelCloudClient(tank_temp=55.0, operation_mode=HotWaterOperationMode.FORCE_HOT_WATER)
+    # 50C, not 55C - the ceiling default now EQUALS 55 (the household's
+    # actual absolute limit, confirmed 2026-09-07), not a margin above the
+    # normal 50C target, so 50C is the right "healthy" reading here.
+    client = FakeMelCloudClient(tank_temp=50.0, operation_mode=HotWaterOperationMode.FORCE_HOT_WATER)
 
     exit_code, _state_bytes, emails = _run({}, state_path, client)
 
