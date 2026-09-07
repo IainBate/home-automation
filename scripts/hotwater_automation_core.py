@@ -811,7 +811,11 @@ async def _run_force_heat_check_locked(
         # default daily_check_hour) reads as "not below threshold" - the same
         # safe default as an unavailable live reading gets.
         daily_check = state.get("daily_check", {})
-        today_str = now_local.date().isoformat()
+        # _daily_check_lookup_date_str, not a plain now_local.date() - a
+        # decision made between midnight and offpeak_end is still part of
+        # LAST evening's session and must still find that snapshot (see its
+        # own docstring for the real gap this closes).
+        today_str = _daily_check_lookup_date_str(hw_config, now_local)
         if car_is_charging or battery_prediction_trigger_active:
             decision_tank_temperature = tank_temperature
         elif daily_check.get("date") == today_str:
