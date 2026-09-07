@@ -397,11 +397,17 @@ def _attach_hvac_automation_summary(zones: list[dict[str, Any]], hvac_config: di
 
     No import from scripts/* (dashboard code never imports scripts/*, same
     convention as _collect_hot_water's identical note above) - reads
-    hvac_automation_state.json directly instead. house_target_c/hvac_target_c
-    (the schedule's target and the automation's live-tuned setpoint - see
-    src/core_logic/hvac_decision_logic.py) are only meaningful for the master
-    zone, whose target the control loop actually drives; the mirror zone gets
-    just the enabled/away-mode flags, matching what's actually true of it.
+    hvac_automation_state.json directly instead. schedule_target_c/
+    hvac_target_c (the schedule's currently-active target and the
+    automation's live-tuned setpoint - see
+    src/core_logic/hvac_decision_logic.py) are only meaningful for the
+    master zone, whose target the control loop actually drives; the mirror
+    zone gets just the enabled/away-mode flags, matching what's actually
+    true of it. family_target_c is a plain pure function from src/ (not
+    scripts/), so reusing it here doesn't cross that boundary - it just
+    picks whichever of heat_target_c/cool_target_c matches the zone's live
+    mode, the same "two targets, not one" split hvac_decision_logic.py's
+    own docstring explains.
     """
     automation_state = read_json_state(get_hvac_automation_state_path())
     hvac_state = automation_state.get("hvac", {})
@@ -413,7 +419,13 @@ def _attach_hvac_automation_summary(zones: list[dict[str, Any]], hvac_config: di
             continue
         summary: dict[str, Any] = {"enabled": True, "away_mode_active": away_active}
         if zone.get("name", "").lower() == master_zone_name.lower():
-            summary["house_target_c"] = hvac_state.get("house_target_c")
+            heat_target_c = hvac_state.get("heat_target_c")
+            cool_target_c = hvac_state.get("cool_target_c")
+            summary["schedule_target_c"] = (
+                family_target_c(zone.get("mode", "").lower(), heat_target_c, cool_target_c)
+                if heat_target_c is not None and cool_target_c is not None
+                else None
+            )
             summary["hvac_target_c"] = hvac_state.get("hvac_target_c")
         zone["hvac_automation"] = summary
 
