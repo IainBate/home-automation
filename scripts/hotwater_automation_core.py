@@ -1505,6 +1505,7 @@ async def _run_legionella_progress_check_locked(
         await client.connect()
         status = await client.get_tank_status()
         tank_temperature = status["tank_temperature"]
+        _refresh_daily_snapshot_if_warm(hw_config, state, tank_temperature, now.astimezone(tz))
 
         # A legionella cycle is considered done as soon as the tank is
         # actually hot enough to have been disinfected - not only once it
