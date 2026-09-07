@@ -1,10 +1,11 @@
 """Unit tests for src/core_logic/hvac_schedule_logic.py.
 
-Covers the spec's four schedule-normalisation rules and the day-to-schedule
-mapping directly (the module's own docstring examples cover a few of these
-too, via --doctest-modules, but those are easy to read past without noticing
-if they stop being exercised - these tests are the ones that actually fail a
-build).
+Covers the spec's four schedule-normalisation rules, the day-to-schedule
+mapping, and (2026-09-07) the heat_target_c/cool_target_c split and its
+load-time validation - directly (the module's own docstring examples cover a
+few of these too, via --doctest-modules, but those are easy to read past
+without noticing if they stop being exercised - these tests are the ones
+that actually fail a build).
 """
 
 from __future__ import annotations
@@ -59,13 +60,32 @@ def test_time_to_minutes_ignores_sub_minute_precision():
 def test_parse_periods_builds_from_schedule_yaml_shape():
     periods = parse_periods(
         [
-            {"start": "00:00", "end": "06:00", "house_target_c": 18.0},
-            {"start": "06:00", "end": "24:00", "house_target_c": 21.5},
+            {"start": "00:00", "end": "06:00", "heat_target_c": 18.0, "cool_target_c": 20.0},
+            {"start": "06:00", "end": "24:00", "heat_target_c": 17.0, "cool_target_c": 21.5},
         ]
     )
 
     assert _bounds(periods) == [(0, 360), (360, 1440)]
-    assert periods[1].house_target_c == 21.5
+    assert periods[1].heat_target_c == 17.0
+    assert periods[1].cool_target_c == 21.5
+
+
+def test_parse_periods_rejects_heat_target_at_or_above_cool_target():
+    """The deadband hvac_decision_logic.py depends on to avoid continual mode
+    switching only exists if heat_target_c is genuinely below cool_target_c -
+    this must be caught here, at load time, not left to manifest as runaway
+    mode-flapping later."""
+    with pytest.raises(ValueError, match="heat_target_c"):
+        parse_periods(
+            [{"start": "00:00", "end": "24:00", "heat_target_c": 20.0, "cool_target_c": 20.0}]
+        )
+
+
+def test_parse_periods_rejects_heat_target_above_cool_target():
+    with pytest.raises(ValueError, match="heat_target_c"):
+        parse_periods(
+            [{"start": "00:00", "end": "24:00", "heat_target_c": 22.0, "cool_target_c": 20.0}]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -74,14 +94,14 @@ def test_parse_periods_builds_from_schedule_yaml_shape():
 
 
 def test_rule_1_first_period_is_forced_to_start_at_midnight():
-    result = normalise_schedule([SchedulePeriod(120, 360, 18.0)])
+    result = normalise_schedule([SchedulePeriod(120, 360, 18.0, 20.0)])
 
     assert _bounds(result) == [(0, 360)]
 
 
 def test_rule_2_gap_is_closed_by_bringing_the_later_period_forward():
     result = normalise_schedule(
-        [SchedulePeriod(0, 360, 18.0), SchedulePeriod(480, 600, 19.0)]
+        [SchedulePeriod(0, 360, 18.0, 20.0), SchedulePeriod(480, 600, 17.0, 19.0)]
     )
 
     assert _bounds(result) == [(0, 360), (360, 600)]
@@ -89,7 +109,7 @@ def test_rule_2_gap_is_closed_by_bringing_the_later_period_forward():
 
 def test_rule_3_overlap_moves_the_later_start_to_the_earlier_end():
     result = normalise_schedule(
-        [SchedulePeriod(0, 600, 18.0), SchedulePeriod(480, 720, 19.0)]
+        [SchedulePeriod(0, 600, 18.0, 20.0), SchedulePeriod(480, 720, 17.0, 19.0)]
     )
 
     assert _bounds(result) == [(0, 600), (600, 720)]
@@ -98,14 +118,15 @@ def test_rule_3_overlap_moves_the_later_start_to_the_earlier_end():
 def test_rule_4_period_fully_swallowed_by_an_earlier_one_is_deleted():
     result = normalise_schedule(
         [
-            SchedulePeriod(0, 600, 18.0),
-            SchedulePeriod(480, 540, 19.0),  # entirely inside the first
-            SchedulePeriod(540, 720, 20.0),
+            SchedulePeriod(0, 600, 18.0, 20.0),
+            SchedulePeriod(480, 540, 17.0, 19.0),  # entirely inside the first
+            SchedulePeriod(540, 720, 16.0, 21.0),
         ]
     )
 
     assert _bounds(result) == [(0, 600), (600, 720)]
-    assert [p.house_target_c for p in result] == [18.0, 20.0]
+    assert [p.heat_target_c for p in result] == [18.0, 16.0]
+    assert [p.cool_target_c for p in result] == [20.0, 21.0]
 
 
 def test_rule_4_deletion_relinks_against_the_last_surviving_period():
@@ -113,33 +134,33 @@ def test_rule_4_deletion_relinks_against_the_last_surviving_period():
     was removed - it re-links to the last one that actually survived."""
     result = normalise_schedule(
         [
-            SchedulePeriod(0, 600, 18.0),
-            SchedulePeriod(60, 120, 19.0),  # deleted
-            SchedulePeriod(90, 180, 20.0),  # also deleted (still inside the first)
-            SchedulePeriod(200, 900, 21.0),
+            SchedulePeriod(0, 600, 18.0, 20.0),
+            SchedulePeriod(60, 120, 17.0, 19.0),  # deleted
+            SchedulePeriod(90, 180, 16.0, 21.0),  # also deleted (still inside the first)
+            SchedulePeriod(200, 900, 15.0, 22.0),
         ]
     )
 
     assert _bounds(result) == [(0, 600), (600, 900)]
-    assert [p.house_target_c for p in result] == [18.0, 21.0]
+    assert [p.heat_target_c for p in result] == [18.0, 15.0]
 
 
 def test_periods_supplied_out_of_order_are_sorted_before_normalising():
     result = normalise_schedule(
-        [SchedulePeriod(360, 600, 19.0), SchedulePeriod(0, 360, 18.0)]
+        [SchedulePeriod(360, 600, 17.0, 19.0), SchedulePeriod(0, 360, 18.0, 20.0)]
     )
 
     assert _bounds(result) == [(0, 360), (360, 600)]
-    assert [p.house_target_c for p in result] == [18.0, 19.0]
+    assert [p.heat_target_c for p in result] == [18.0, 17.0]
 
 
 def test_already_contiguous_schedule_is_left_unchanged():
     spec_initial = [
-        SchedulePeriod(0, 360, 18.0),
-        SchedulePeriod(360, 480, 18.0),
-        SchedulePeriod(480, 900, 18.0),
-        SchedulePeriod(900, 1320, 18.0),
-        SchedulePeriod(1320, 1440, 18.0),
+        SchedulePeriod(0, 360, 18.0, 20.0),
+        SchedulePeriod(360, 480, 18.0, 20.0),
+        SchedulePeriod(480, 900, 18.0, 20.0),
+        SchedulePeriod(900, 1320, 18.0, 20.0),
+        SchedulePeriod(1320, 1440, 18.0, 20.0),
     ]
 
     assert normalise_schedule(spec_initial) == spec_initial
@@ -156,26 +177,26 @@ def test_empty_schedule_normalises_to_empty():
 
 def test_active_period_boundaries_are_start_inclusive_end_exclusive():
     periods = normalise_schedule(
-        [SchedulePeriod(0, 360, 18.0), SchedulePeriod(360, 1440, 21.0)]
+        [SchedulePeriod(0, 360, 18.0, 20.0), SchedulePeriod(360, 1440, 15.0, 22.0)]
     )
 
-    assert active_period_for(periods, time(5, 59)).house_target_c == 18.0
-    assert active_period_for(periods, time(6, 0)).house_target_c == 21.0
+    assert active_period_for(periods, time(5, 59)).heat_target_c == 18.0
+    assert active_period_for(periods, time(6, 0)).heat_target_c == 15.0
 
 
 def test_active_period_covers_the_final_minute_of_a_full_day():
     """A period ending at 24:00 must cover 23:59 - the reason end-of-day is
     stored as 1440 rather than a datetime.time."""
-    periods = normalise_schedule([SchedulePeriod(0, 1440, 18.0)])
+    periods = normalise_schedule([SchedulePeriod(0, 1440, 18.0, 20.0)])
 
-    assert active_period_for(periods, time(23, 59)).house_target_c == 18.0
+    assert active_period_for(periods, time(23, 59)).heat_target_c == 18.0
 
 
 def test_active_period_is_none_when_the_schedule_does_not_reach_that_time():
     """The spec has no "last period must end at 24:00" rule, so a short
     schedule genuinely leaves part of the day unscheduled. Callers must see
     None rather than an invented default target."""
-    periods = normalise_schedule([SchedulePeriod(0, 360, 18.0)])
+    periods = normalise_schedule([SchedulePeriod(0, 360, 18.0, 20.0)])
 
     assert active_period_for(periods, time(9, 0)) is None
 
