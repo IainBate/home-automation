@@ -701,6 +701,15 @@ def validate_business_rules(  # pylint: disable=too-many-locals
             if hotwater_melcloud_error:
                 warnings.append(f"Warning: {hotwater_melcloud_error}")
 
+        # HVAC automation cross-check - same reasoning as the hot water one
+        # just above (shared condition with hvac_automation_core.py's hard
+        # startup gate, this side only warns).
+        hvac_config = config_data.get("hvac_automation", {})
+        if hvac_config.get("enabled", False):
+            hvac_error = get_hvac_automation_config_error(config_data)
+            if hvac_error:
+                warnings.append(f"Warning: {hvac_error}")
+
     except (KeyError, ValueError, TypeError, AttributeError) as e:
         warnings.append(f"Warning: could not validate business rules: {e!s}")
         logger.exception("Business rule validation error")
