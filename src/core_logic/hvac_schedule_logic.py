@@ -28,14 +28,12 @@ comfort - around 20C feels right when cooling in summer, around 18C when
 heating in winter. Each period therefore now carries ``heat_target_c`` and
 ``cool_target_c`` separately (``dry`` shares ``cool_target_c`` with ``cool`` -
 they already share the same hardware temperature range in
-hvac_decision_logic.py's ``mode_temp_limits``). Season is *not* modelled
-explicitly anywhere - it falls out for free, since heat mode is what runs in
-winter and cool/dry is what runs in summer; the two targets are simply
-whichever the schedule says for that time of day, picked by
-``heat_target_c is not None`` won't reach a point - see
-hvac_decision_logic.py's docstring for how the two targets interact
-(directional escalation trigger, deadband, "retain vs reset" on a mode
-change).
+hvac_decision_logic.py's ``mode_temp_limits``). Season is *not* modelled explicitly anywhere - it falls out for free, since
+heat mode is what runs in winter and cool/dry is what runs in summer, so
+whichever mode the automation is actually in already picks the seasonally-
+appropriate target. See hvac_decision_logic.py's docstring for how the two
+targets interact (directional escalation trigger, deadband, "retain vs
+reset" on a mode change).
 
 ``heat_target_c`` must be strictly less than ``cool_target_c`` for every
 period - see parse_periods()'s validation. This isn't just a sanity check:
