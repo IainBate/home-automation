@@ -1884,7 +1884,7 @@ async def _run_legionella_progress_check_locked(
 
 
 async def run_legionella_natural_completion_check(
-    hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
+    config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
     """Mark the legionella interval satisfied if the tank is hot enough on its own.
 
