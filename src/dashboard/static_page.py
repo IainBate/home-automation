@@ -303,6 +303,7 @@ function hotWaterCard(d) {
     <div class="row"><span class="label">Device holiday mode</span><span class="value">${d.holiday_mode ? "On" : "Off"}</span></div>
     ${d.force_heat_activated_at ? `<div class="row"><span class="label">Force heat since</span><span class="value">${escapeHtml(d.force_heat_activated_at)}</span></div>` : ""}
     ${d.legionella_last_completed_at ? `<div class="row"><span class="label">Last legionella cycle</span><span class="value">${escapeHtml(d.legionella_last_completed_at)}</span></div>` : ""}
+    ${d.legionella_days_until_due != null ? `<div class="row"><span class="label">Next legionella cycle</span><span class="value">${d.legionella_days_until_due > 0 ? `due in ${d.legionella_days_until_due}d` : `overdue by ${-d.legionella_days_until_due}d`}</span></div>` : ""}
   `;
   return card("Hot Water", body, details);
 }
