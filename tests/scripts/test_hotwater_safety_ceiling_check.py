@@ -228,3 +228,114 @@ def test_defaults_are_well_above_normal_operating_targets(tmp_path):
     assert exit_code == 0
     assert client.force_calls == []
     assert emails == []
+
+
+# --- Legionella cycle in progress: completion/timeout crediting ------------
+
+
+def test_legionella_temp_violation_completes_the_cycle_quietly(tmp_path):
+    """The ceiling now EQUALS the legionella completion temperature, so
+    reaching it while a cycle is in progress is a normal completion, not an
+    alarm - restore the target, credit last_completed_at, send the calm
+    completion email (not the SAFETY CEILING one), log at INFO not CRITICAL.
+    """
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": True,
+                "cycle_started_at": datetime.now(tz=UTC).isoformat(),
+                "original_target_temp_c": 50.0,
+                "target_temp_c": 55.0,
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=55.0, operation_mode=HotWaterOperationMode.FORCE_HOT_WATER)
+
+    exit_code, state_bytes, emails = _run({}, state_path, client)
+
+    assert exit_code == 0
+    assert client.force_calls == [False]
+    assert client.target_temp_calls == [50.0]  # restored to the original target
+    assert len(emails) == 1
+    assert "legionella cycle completed" in emails[0][0].lower()
+
+    final_state = json.loads(state_bytes)
+    assert final_state["legionella"]["cycle_in_progress"] is False
+    assert final_state["legionella"]["last_completed_at"] is not None
+
+
+def test_legionella_duration_timeout_cleans_up_without_crediting(tmp_path):
+    """Below the completion temperature, but timed out on duration - a
+    genuine timeout (like run_legionella_progress_check's own timed_out
+    branch): target still restored so it doesn't stay wrong, but NOT
+    credited as complete, and still the loud SAFETY CEILING alarm.
+    """
+    old_start = (datetime.now(tz=UTC) - timedelta(hours=4)).isoformat()
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": True,
+                "cycle_started_at": old_start,
+                "original_target_temp_c": 50.0,
+                "target_temp_c": 55.0,
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=48.0, operation_mode=HotWaterOperationMode.FORCE_HOT_WATER)
+
+    exit_code, state_bytes, emails = _run(
+        {"safety_max_duration_hours": 3.0}, state_path, client
+    )
+
+    assert exit_code == 0
+    assert client.force_calls == [False]
+    assert client.target_temp_calls == [50.0]
+    assert len(emails) == 1
+    assert "safety ceiling" in emails[0][0].lower()
+    assert "not been credited as complete" in emails[0][1].lower()
+
+    final_state = json.loads(state_bytes)
+    assert final_state["legionella"]["cycle_in_progress"] is False
+    assert "last_completed_at" not in final_state["legionella"]
+
+
+def test_temperature_violation_without_a_legionella_cycle_is_unaffected(tmp_path):
+    """No legionella state at all - the original, unchanged behavior: loud
+    alarm, no state write, no set_target_tank_temperature call.
+    """
+    state_path = _write_state(tmp_path, {})
+    client = FakeMelCloudClient(tank_temp=56.0, operation_mode=HotWaterOperationMode.FORCE_HOT_WATER)
+
+    exit_code, state_bytes, emails = _run({}, state_path, client)
+
+    assert exit_code == 0
+    assert client.force_calls == [False]
+    assert client.target_temp_calls == []
+    assert len(emails) == 1
+    assert "safety ceiling" in emails[0][0].lower()
+    assert json.loads(state_bytes) == {}
+
+
+def test_legionella_completion_is_a_noop_if_something_else_already_cleared_it(tmp_path):
+    """A race guard: if cycle_in_progress is already False by the time the
+    lock is acquired (e.g. run_legionella_progress_check's own concurrent
+    tick got there first), don't overwrite whatever it already wrote.
+    """
+    state_path = _write_state(
+        tmp_path,
+        {
+            "legionella": {
+                "cycle_in_progress": False,
+                "last_completed_at": "2026-01-01T00:00:00+00:00",
+            }
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=55.0, operation_mode=HotWaterOperationMode.FORCE_HOT_WATER)
+
+    exit_code, state_bytes, _emails = _run({}, state_path, client)
+
+    assert exit_code == 0
+    final_state = json.loads(state_bytes)
+    assert final_state["legionella"]["last_completed_at"] == "2026-01-01T00:00:00+00:00"
