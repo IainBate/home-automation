@@ -99,6 +99,7 @@ def test_fetch_reports_one_zone_unreachable_without_affecting_others():
 def test_fetch_status_async_maps_zone_fields():
     fake_zone = mock.Mock()
     fake_zone.get_operating_mode.return_value = mock.Mock(value="HEAT")
+    fake_zone.get_device_on_off_state.return_value = airstage_client.BooleanProperty.ON
     fake_zone.get_display_temperature.return_value = 21.5
     fake_zone.get_target_temperature.return_value = 22.0
     fake_zone.get_outdoor_temperature.return_value = 8.0
