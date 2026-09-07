@@ -61,6 +61,30 @@ def test_schema_validation_reports_wrong_type_with_hint():
     assert any("Check the data type" in e for e in errors)
 
 
+def test_schema_rejects_safety_ceiling_temp_below_legionella_target_max():
+    """safety_ceiling_temp_c's schema minimum (55) structurally prevents
+    configuring the independent safety backstop below legionella_target_temp_c's
+    own max (55) - it's meant to sit above every normal operating target, not
+    duplicate or undercut one.
+    """
+    config = _real_config()
+    config["hotwater_automation"]["safety_ceiling_temp_c"] = 50
+
+    assert len(validate_config_schema(config)) >= 1
+
+
+def test_schema_rejects_safety_max_duration_at_or_below_existing_limits():
+    """safety_max_duration_hours's schema minimum (1.5) structurally prevents
+    configuring it at/below force_heat_max_duration_hours/
+    legionella_max_cycle_duration_hours (both 1h) - it's meant to sit above
+    both as a backstop, not duplicate or undercut them.
+    """
+    config = _real_config()
+    config["hotwater_automation"]["safety_max_duration_hours"] = 1
+
+    assert len(validate_config_schema(config)) >= 1
+
+
 # --- validate_business_rules --------------------------------------------------
 
 
