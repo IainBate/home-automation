@@ -182,7 +182,13 @@ hotwater_automation:
                                             # Kept short (1h) - a heating run isn't expected to run
                                             # long; a run that's still going after this is stopped
                                             # and retried at the next due trigger instead.
-  battery_prediction_window_start_hour: 15 # 3pm - see the battery-prediction path below
+  battery_prediction_window_start_hour: 18 # 6pm - deliberately NOT 3pm: between
+                                            # car_charging_trigger_start_hour (3pm) and this hour,
+                                            # only car charging may trigger a heat - the battery's
+                                            # state is irrelevant in that narrower window, by design
+                                            # (confirmed 2026-09-07). This is also daily_check_hour,
+                                            # so the two decisions become available at the same
+                                            # moment, though they're independent checks.
   battery_prediction_deadline_hour: 23.5   # 11:30pm - defaults to offpeak_start above (the moment
                                             # cheap grid import opens anyway). An independent trigger
                                             # path, alongside car charging and the evening/off-peak
@@ -192,7 +198,13 @@ hotwater_automation:
                                             # >= battery_soc_min_percent by this deadline (see
                                             # hotwater_automation_core.py's
                                             # get_battery_prediction_to_deadline), heat now from
-                                            # stored solar rather than waiting for trigger_hour.
+                                            # stored solar rather than waiting for trigger_hour. This
+                                            # prediction is recomputed fresh on every poll tick (not
+                                            # cached from the first check in the window), so a
+                                            # borderline/insufficient prediction at 6pm doesn't block
+                                            # a later tick from firing once conditions (or the day's
+                                            # actual usage so far) make it confident - see
+                                            # get_battery_prediction_to_deadline's own docstring.
   poll_interval_seconds: 600               # hotwater_mode_daemon.py: how often to run the
                                             # force-heat check (10 min - frequent enough to catch
                                             # EV charging starting)
