@@ -337,7 +337,10 @@ def test_collect_airstage_attaches_automation_summary_to_master_zone_only():
         "airstage": {"enabled": True},
         "hvac_automation": {"enabled": True, "master_zone": "Playroom", "mirror_zone": "Landing"},
     }
-    automation_state = {"hvac": {"house_target_c": 18.0, "hvac_target_c": 19.5}, "away_mode": {"active": False}}
+    automation_state = {
+        "hvac": {"heat_target_c": 18.0, "cool_target_c": 21.0, "hvac_target_c": 19.5},
+        "away_mode": {"active": False},
+    }
 
     with mock.patch.object(
         status_collector, "fetch_airstage_status", return_value=fake_zones
@@ -348,7 +351,7 @@ def test_collect_airstage_attaches_automation_summary_to_master_zone_only():
     assert playroom["hvac_automation"] == {
         "enabled": True,
         "away_mode_active": False,
-        "house_target_c": 18.0,
+        "schedule_target_c": 18.0,  # heat_target_c - Playroom's live mode is HEAT
         "hvac_target_c": 19.5,
     }
     assert landing["hvac_automation"] == {"enabled": True, "away_mode_active": False}
