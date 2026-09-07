@@ -19,10 +19,9 @@ Period boundaries are held as minutes since midnight (0-1440) rather than
 Storing 1440 keeps "22:00-24:00" exactly as written in schedule.yaml rather
 than fudging it to 23:59 and leaving a sliver of the day uncovered.
 
-**Deviation from the original spec, decided 2026-09-07 (not yet written up
-in docs/hvac_thermostat_automation_plan.md's numbered §8 list - see its
-"Seasonal/mode-family comfort target" note near the end)**: the spec's Phase
-3 gave each period a single ``house_target_c``. The project owner's own
+**Deviation from the original spec, decided 2026-09-07 - see
+docs/hvac_thermostat_automation_plan.md §8.9 for the full reasoning**: the
+spec's Phase 3 gave each period a single ``house_target_c``. The project owner's own
 experience running the units manually is that a single number doesn't match
 comfort - around 20C feels right when cooling in summer, around 18C when
 heating in winter. Each period therefore now carries ``heat_target_c`` and
