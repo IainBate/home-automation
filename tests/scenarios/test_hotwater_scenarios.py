@@ -326,7 +326,11 @@ async def test_completed_force_heat_does_not_immediately_retrigger(hotwater_env)
     melcloud = FakeMelCloudServer(tank_temperature=38.0, target_tank_temperature=45.0)
     ohme = FakeOhmeServer(power_watts=0.0)  # car not charging - normal evening/battery path
     env["seed_recent_legionella_cycle"]()
-    off_peak = datetime(2026, 9, 3, 23, 45, tzinfo=UTC)
+    # 22:45 UTC = 23:45 local (Europe/London is BST/UTC+1 in September) -
+    # safely within local off-peak (23:30-05:30) and before local midnight,
+    # so this first call still lands on the same local calendar day the
+    # daily_check_hour snapshot needs to be taken under.
+    off_peak = datetime(2026, 9, 3, 22, 45, tzinfo=UTC)
 
     # Cold tank triggers a normal force-heat via grid_is_cheap. This is also
     # what takes the daily_check_hour (18:00) snapshot for the first time
