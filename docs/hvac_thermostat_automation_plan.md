@@ -728,6 +728,66 @@ further transition out of it. The stuck-state risks are all in the
 *temperature* ratchet (§8.2) and the *missing gate* (§8.1), not in the mode
 state machine's shape itself.
 
+### 8.9 Seasonal/mode-family comfort target — decided 2026-09-07: two targets, not one, with a directional deadband
+
+The spec's Phase 3 gave every schedule period a single `house_target_c`.
+Raised by the project owner from real experience running the units
+manually: one flat number doesn't match comfort - around 20C feels right
+when cooling in summer, around 18C feels right when heating in winter.
+
+**Decided**: `schedule.yaml`'s periods now carry `heat_target_c` and
+`cool_target_c` separately (`dry` shares `cool_target_c` with `cool` - they
+already share one hardware temperature range in `mode_temp_limits`).
+Season itself is never modelled explicitly anywhere - it falls out for
+free, since heat mode is what runs in winter and cool/dry is what runs in
+summer, so whichever mode is actually active already picks the
+seasonally-appropriate target.
+
+**The risk this creates, and how it's closed**: with two targets instead of
+one, the dry↔heat boundary is a real discontinuity - naively comparing room
+temperature against "the current mode's target" at that boundary would let
+the automation flip back and forth every time the room crosses whatever
+number happens to sit between the two. Ruled out four candidate designs and
+picked the strongest one:
+
+1. **Directional trigger (chosen)**: escalating *into* a mode is gated on
+   *that mode's own* target, not the mode being left. Dry → heat only once
+   the room is genuinely below `heat_target_c` (not merely below
+   `cool_target_c`); heat → dry only once the room is genuinely above
+   `cool_target_c` (not merely above `heat_target_c`). Reuses the existing
+   60-minute dwell timer and §8.1's drift-cap gate unchanged - only *which*
+   of two now-four dwell timers each check reads changes. The gap between
+   the two targets becomes a real deadband for free, with no new config.
+2. An explicit separate `deadband_c` margin, independent of the gap between
+   the two targets. More tunable, but a second knob whose interaction with
+   the first isn't obvious.
+3. Relying on the 60-minute dwell alone, no new mechanism. Simplest, but a
+   room hovering in the gap between the two targets for hours could still
+   slowly oscillate once per hour.
+4. Requiring both the drift-cap gate *and* the destination-target crossing
+   before any escalation. Strictest, fewest unnecessary changes, but reacts
+   slowest of the four to a genuine shift.
+
+Implemented in `src/core_logic/hvac_schedule_logic.py` (the two fields,
+validated `heat_target_c < cool_target_c` at load time - not just a sanity
+check, the deadband guarantee depends on that gap actually existing) and
+`src/core_logic/hvac_decision_logic.py` (four dwell timers instead of two;
+intra-mode adjustment reads the *current* mode's own family target,
+escalation reads the *destination* mode's - see that module's docstring for
+the full mechanism). On a mode change, the setpoint is retained when
+staying within the same family (cool↔dry) but reset to the new family's own
+target when crossing families (dry↔heat) - the spec's literal "moving from
+heat to dry/cool, set target to 18C" rule, generalised from a hardcoded 18C
+to whichever `cool_target_c` the active period actually configures.
+
+Reasoned through why this doesn't reintroduce continual switching: a
+round-trip (heat→dry→heat) requires the room to physically swing across the
+whole gap between the two targets, each side sustained for the full
+60-minute dwell, with the current mode's own setpoint already pushed to its
+drift-capped limit first (§8.1/§8.2, unchanged), and a further 30-minute
+post-change suppression window after any change. Four independent layers of
+inertia, not one.
+
 ## 9. Energy efficiency review
 
 - **Dry-before-cool is already correct, and for a reason worth stating
