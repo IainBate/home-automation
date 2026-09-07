@@ -1274,6 +1274,61 @@ def _alert_insufficient_duration(
         print(f"Failed to send 'heating window insufficient' alert email ({kind}) - see logs above")
 
 
+def _notify_legionella_completed(
+    config: dict[str, Any],
+    hw_config: dict[str, Any],
+    *,
+    tank_temperature: float | None,
+    completed_at: datetime,
+    source: str,
+    dry_run: bool,
+    quiet: bool,
+) -> None:
+    """Log and email that a legionella cycle has just completed.
+
+    Called from both places last_completed_at gets newly set to "now" -
+    _run_legionella_progress_check_locked (a forced cycle reaching its
+    disinfection threshold) and _run_legionella_natural_completion_check_locked
+    (the tank observed hot enough on its own, no cycle involved) - each only
+    calls this on an actual fresh completion, so no extra dedupe is needed
+    here (unlike check_legionella_due_warning's once-per-interval stamp).
+
+    States the next-due date directly in this email rather than firing a
+    second, separate "next due" notification - check_legionella_due_warning
+    already re-derives "due in <=legionella_due_warning_days" independently
+    each interval, so a second immediate email here would just be a ~90-day-
+    early duplicate of no practical use.
+    """
+    interval_days = hw_config.get("legionella_interval_days", DEFAULT_LEGIONELLA_INTERVAL_DAYS)
+    next_due = completed_at + timedelta(days=interval_days)
+    logger.info(
+        "Legionella cycle completed (%s) at %sC - next due around %s",
+        source,
+        tank_temperature,
+        next_due.date().isoformat(),
+    )
+
+    if dry_run:
+        if not quiet:
+            print(f"(dry run) would send 'legionella cycle completed' email ({source})")
+        return
+
+    subject = "Hot water: legionella cycle completed"
+    body = (
+        f"A legionella disinfection cycle has completed ({source}), tank observed at "
+        f"{tank_temperature}C on {completed_at:%d %B %Y}.\n\n"
+        f"The next cycle will become due around {next_due:%d %B %Y} "
+        f"({interval_days}-day interval) - you'll get a separate heads-up "
+        f"{hw_config.get('legionella_due_warning_days', DEFAULT_LEGIONELLA_DUE_WARNING_DAYS)} "
+        "day(s) before then."
+    )
+    if send_email(config, subject, body):
+        if not quiet:
+            print(f"Sent 'legionella cycle completed' email ({source})")
+    elif not quiet:
+        print(f"Failed to send 'legionella cycle completed' email ({source}) - see logs above")
+
+
 async def run_revert_check(
     config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
