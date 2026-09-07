@@ -781,9 +781,15 @@ async def _run_force_heat_check_locked(
         battery_prediction_deadline_hour = hw_config.get(
             "battery_prediction_deadline_hour", DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR
         )
-        battery_prediction_deadline_time = hour_float_to_time(battery_prediction_deadline_hour)
+        # The window this path may still START a new heat in can close
+        # earlier than the deadline it predicts TOWARDS - see
+        # _battery_prediction_eligibility_end_hour's own docstring
+        # (forced_discharge_start_hour).
+        battery_prediction_eligibility_end_time = hour_float_to_time(
+            _battery_prediction_eligibility_end_hour(hw_config)
+        )
         in_battery_prediction_window = is_in_offpeak_window(
-            now_local.time(), battery_prediction_window_start_time, battery_prediction_deadline_time
+            now_local.time(), battery_prediction_window_start_time, battery_prediction_eligibility_end_time
         )
 
         battery_soc_min_percent = hw_config.get(
