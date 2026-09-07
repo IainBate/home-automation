@@ -36,9 +36,12 @@ class HotWaterDecisionContext:
             Dominates all other conditions - if the tank needs heating, heat it
             now, regardless of trigger_hour/battery/grid.
         battery_soc_percent: Current battery state of charge (%), or None if
-            unavailable.
-        battery_soc_min_percent: Battery is considered to have spare stored
-            solar if its SoC is at or above this.
+            unavailable. Not used by this function's own decision (see
+            in_evening_window below) - carried here purely for callers that
+            want it alongside the decision, e.g. for logging.
+        battery_soc_min_percent: The threshold battery_prediction_trigger_active
+            is computed against by the caller (both batteries predicted at/above
+            this by the off-peak deadline).
         grid_is_cheap: True if the grid is currently in a cheap/off-peak tariff
             period (e.g. within the Intelligent Go 23:30-05:30 window).
         in_evening_window: True if it's currently evening/overnight - at or
