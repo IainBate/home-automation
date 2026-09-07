@@ -390,8 +390,7 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
         should_force_heat=False,
         reason=(
             f"Tank at {context.tank_temperature_c:.1f}C < threshold "
-            f"{context.tank_temp_threshold_c:.1f}C, not yet due (no battery-prediction trigger, "
-            f"grid not yet off-peak) - waiting until {"
-            f"off-peak window - waiting"
+            f"{context.tank_temp_threshold_c:.1f}C, no battery-prediction trigger and grid is "
+            f"not yet in an off-peak window - waiting"
         ),
     )
