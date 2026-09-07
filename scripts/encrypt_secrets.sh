@@ -52,7 +52,9 @@ fi
 # removed on every exit path.
 WORK_ENC="$(mktemp "${TMPDIR:-/tmp}/secrets.enc.XXXXXX")"
 WORK_PLAIN="$(mktemp "${TMPDIR:-/tmp}/secrets.plain.XXXXXX")"
-cleanup() { rm -f "$WORK_ENC" "$WORK_PLAIN"; }
+# PUSH_LOG isn't created until the commit/push step further down - unset here
+# is fine, `rm -f ""` is a harmless no-op.
+cleanup() { rm -f "$WORK_ENC" "$WORK_PLAIN" "$PUSH_LOG"; }
 trap cleanup EXIT
 
 # --- Passphrase -------------------------------------------------------------
