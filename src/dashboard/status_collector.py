@@ -370,7 +370,14 @@ async def _fetch_hot_water_status(config_path: str) -> dict[str, Any]:
 
 
 def _collect_airstage(config: dict[str, Any]) -> dict[str, Any]:
-    """Read-only Airstage snapshot for every configured zone (local network, no cloud account)."""
+    """Read-only Airstage snapshot for every configured zone (local network, no cloud account).
+
+    When hvac_automation is enabled, each available zone also gets an
+    "hvac_automation" summary attached (see _attach_hvac_automation_summary) -
+    deliberately extending these existing per-zone cards rather than adding a
+    separate "HVAC Automation" card, since mode/temperature are properties of
+    these same zones, not a distinct subsystem.
+    """
     if not config.get("airstage", {}).get("enabled", False):
         return {"available": False, "disabled": True, "error": "Airstage disabled in config.yaml"}
 
@@ -378,7 +385,37 @@ def _collect_airstage(config: dict[str, Any]) -> dict[str, Any]:
     if zones is None:
         return {"available": False, "error": "Airstage has no zones configured"}
 
+    hvac_config = config.get("hvac_automation", {})
+    if hvac_config.get("enabled", False):
+        _attach_hvac_automation_summary(zones, hvac_config)
+
     return {"available": True, "zones": zones}
+
+
+def _attach_hvac_automation_summary(zones: list[dict[str, Any]], hvac_config: dict[str, Any]) -> None:
+    """Attach hvac_mode_daemon.py's persisted automation state onto each zone, in place.
+
+    No import from scripts/* (dashboard code never imports scripts/*, same
+    convention as _collect_hot_water's identical note above) - reads
+    hvac_automation_state.json directly instead. house_target_c/hvac_target_c
+    (the schedule's target and the automation's live-tuned setpoint - see
+    src/core_logic/hvac_decision_logic.py) are only meaningful for the master
+    zone, whose target the control loop actually drives; the mirror zone gets
+    just the enabled/away-mode flags, matching what's actually true of it.
+    """
+    automation_state = read_json_state(get_hvac_automation_state_path())
+    hvac_state = automation_state.get("hvac", {})
+    away_active = bool(automation_state.get("away_mode", {}).get("active", False))
+    master_zone_name = hvac_config.get("master_zone", "Playroom")
+
+    for zone in zones:
+        if not zone.get("available"):
+            continue
+        summary: dict[str, Any] = {"enabled": True, "away_mode_active": away_active}
+        if zone.get("name", "").lower() == master_zone_name.lower():
+            summary["house_target_c"] = hvac_state.get("house_target_c")
+            summary["hvac_target_c"] = hvac_state.get("hvac_target_c")
+        zone["hvac_automation"] = summary
 
 
 def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
