@@ -386,6 +386,50 @@ CONFIG_SCHEMA = {
                 "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 60},
             },
         },
+        "hvac_automation": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "master_zone": {"type": "string", "minLength": 1},
+                "mirror_zone": {"type": "string", "minLength": 1},
+                "mirror_zone_fixed_target_c": {"type": "number", "minimum": 10, "maximum": 30},
+                "mode_temp_limits": {
+                    "type": "object",
+                    "properties": {
+                        mode: {
+                            "type": "object",
+                            "properties": {
+                                "min_c": {"type": "number", "minimum": 10, "maximum": 30},
+                                "max_c": {"type": "number", "minimum": 10, "maximum": 30},
+                            },
+                        }
+                        for mode in ("heat", "dry", "cool")
+                    },
+                },
+                "max_drift_c": {"type": "number", "minimum": 0.5, "maximum": 10},
+                "away_mode_target_c": {"type": "number", "minimum": 5, "maximum": 20},
+                "startup_default_mode": {
+                    "type": "string",
+                    "enum": ["cool", "dry", "heat"],
+                },
+                "poll_intervals": {
+                    "type": "object",
+                    "properties": {
+                        "thermostat_seconds": {"type": "number", "minimum": 60, "maximum": 3600},
+                        "hvac_target_seconds": {
+                            "type": "number",
+                            "minimum": 300,
+                            "maximum": 7200,
+                        },
+                        "hvac_time_sync_seconds": {
+                            "type": "number",
+                            "minimum": 300,
+                            "maximum": 86400,
+                        },
+                    },
+                },
+            },
+        },
         "claude_usage": {
             "type": "object",
             "properties": {
