@@ -99,14 +99,6 @@ def _run(tmp_path: Path, monkeypatch, *, hour: int, minute: int, initial_state: 
         mock.patch.object(core, "MelCloudClient", lambda config_path=None: client),
         mock.patch.object(core, "is_car_charging_confirmed", mock.AsyncMock(return_value=False)),
         mock.patch.object(core, "get_battery_soc_percent", lambda cfg: 100.0),
-        # Stands in for a confident battery-prediction, the only remaining
-        # way (besides grid_is_cheap/car-charging, neither exercised by
-        # these tests) to trigger a heat outside the off-peak window itself -
-        # isolates the daily-snapshot mechanism under test here from the
-        # actual prediction algorithm (tested separately).
-        mock.patch.object(
-            core, "get_battery_prediction_to_deadline", lambda *a, **k: (99.0, "mocked")
-        ),
     ):
         exit_code = asyncio.run(
             core.run_force_heat_check(config, hw_config, dry_run=False, quiet=True)
