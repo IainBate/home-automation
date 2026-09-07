@@ -48,6 +48,7 @@ from src.utils.paths import (
     get_battery_evening_prediction_path,
     get_claude_usage_path,
     get_hotwater_automation_state_path,
+    get_hvac_automation_state_path,
     get_mg_saic_status_path,
     get_mode_change_log_path,
     get_project_root,
