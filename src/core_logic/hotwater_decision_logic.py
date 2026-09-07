@@ -256,10 +256,21 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
         >>> determine_hotwater_decision(context).should_force_heat
         True
 
-        >>> # Evening, tank cold, battery has surplus -> heat
+        >>> # Evening, tank cold, but a high live battery SoC ALONE is not
+        >>> # enough - only battery_prediction_trigger_active or grid_is_cheap
+        >>> # may bring heating forward from stored solar/off-peak.
         >>> context = HotWaterDecisionContext(
         ...     tank_temperature_c=30.0, tank_temp_threshold_c=45.0, car_is_charging=False,
         ...     battery_soc_percent=90.0, battery_soc_min_percent=50.0, grid_is_cheap=False,
+        ...     in_evening_window=True,
+        ... )
+        >>> determine_hotwater_decision(context).should_force_heat
+        False
+
+        >>> # Evening, tank cold, grid now off-peak -> heat
+        >>> context = HotWaterDecisionContext(
+        ...     tank_temperature_c=30.0, tank_temp_threshold_c=45.0, car_is_charging=False,
+        ...     battery_soc_percent=90.0, battery_soc_min_percent=50.0, grid_is_cheap=True,
         ...     in_evening_window=True,
         ... )
         >>> determine_hotwater_decision(context).should_force_heat
