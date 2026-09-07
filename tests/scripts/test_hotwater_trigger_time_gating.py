@@ -293,7 +293,16 @@ def test_before_trigger_hour_no_car_charging_and_daytime_does_nothing(tmp_path, 
     assert client.force_calls == []
 
 
-def test_at_trigger_hour_with_battery_surplus_heats_regardless_of_car(tmp_path, monkeypatch):
+def test_at_trigger_hour_car_ignored_and_live_battery_surplus_alone_does_not_heat(
+    tmp_path, monkeypatch
+):
+    """At/after trigger_hour, car-charging is ignored (see the
+    _ohme_check_is_skipped test below) - and, separately, a high LIVE
+    battery SoC alone is deliberately no longer enough on its own either
+    (removed 2026-09-07 - see hotwater_decision_logic.py's evening-window
+    branch). Only battery_prediction_trigger_active (forward-looking,
+    exercised elsewhere) or grid_is_cheap may heat in this window now.
+    """
     exit_code, client = _run(
         tmp_path,
         monkeypatch,
@@ -303,7 +312,7 @@ def test_at_trigger_hour_with_battery_surplus_heats_regardless_of_car(tmp_path, 
         battery_soc_percent=90.0,
     )
     assert exit_code == 0
-    assert client.force_calls == [True]
+    assert client.force_calls == []
 
 
 def test_at_trigger_hour_without_battery_surplus_or_offpeak_waits(tmp_path, monkeypatch):
