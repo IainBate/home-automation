@@ -399,7 +399,12 @@ def test_legionella_progress_sends_insufficient_duration_alert_when_timed_out(tm
     assert "legionella_max_cycle_duration_hours" in body
 
 
-def test_legionella_progress_does_not_alert_when_target_reached(tmp_path):
+def test_legionella_progress_does_not_send_insufficient_duration_alert_when_target_reached(tmp_path):
+    """Reaching target must not also fire the "did not reach target in time"
+    alert (_alert_insufficient_duration) - that's a distinct, separate email
+    (see test_hotwater_legionella_completion_email.py) for the legitimate
+    "cycle completed" case, which this test isn't about.
+    """
     started_at = datetime.now(tz=UTC) - timedelta(hours=1)
     state_path = _write_state(
         tmp_path,
@@ -424,7 +429,7 @@ def test_legionella_progress_does_not_alert_when_target_reached(tmp_path):
             client,
         )
 
-    assert sent_calls == []
+    assert not any("did not reach target" in subject.lower() for subject, _ in sent_calls)
 
 
 def test_legionella_progress_reverts_at_the_natural_completion_temp_even_below_the_requested_target(
