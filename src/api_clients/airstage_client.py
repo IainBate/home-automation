@@ -144,6 +144,7 @@ async def _fetch_status_async(
 
         return {
             "mode": zone.get_operating_mode().value,
+            "powered_on": zone.get_device_on_off_state() == BooleanProperty.ON,
             "current_temperature_c": zone.get_display_temperature(),
             "target_temperature_c": zone.get_target_temperature(),
             "outdoor_temperature_c": zone.get_outdoor_temperature(),
