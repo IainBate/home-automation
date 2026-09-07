@@ -1,7 +1,7 @@
-"""HVAC Schedule Logic - spec Phase 3.
+"""HVAC Schedule Logic - spec Phase 3, extended 2026-09-07 with a per-mode-family target.
 
-Pure functions for resolving which "house target temperature" applies at a
-given moment, from the named schedules stored in schedule.yaml:
+Pure functions for resolving which comfort target applies at a given moment,
+from the named schedules stored in schedule.yaml:
 
 - ``at_home_all_day`` is the default, applying to any weekday that has no
   explicit assignment.
@@ -18,6 +18,29 @@ Period boundaries are held as minutes since midnight (0-1440) rather than
 ``datetime.time`` cannot represent it (its maximum is 23:59:59.999999).
 Storing 1440 keeps "22:00-24:00" exactly as written in schedule.yaml rather
 than fudging it to 23:59 and leaving a sliver of the day uncovered.
+
+**Deviation from the original spec, decided 2026-09-07 (not yet written up
+in docs/hvac_thermostat_automation_plan.md's numbered §8 list - see its
+"Seasonal/mode-family comfort target" note near the end)**: the spec's Phase
+3 gave each period a single ``house_target_c``. The project owner's own
+experience running the units manually is that a single number doesn't match
+comfort - around 20C feels right when cooling in summer, around 18C when
+heating in winter. Each period therefore now carries ``heat_target_c`` and
+``cool_target_c`` separately (``dry`` shares ``cool_target_c`` with ``cool`` -
+they already share the same hardware temperature range in
+hvac_decision_logic.py's ``mode_temp_limits``). Season is *not* modelled
+explicitly anywhere - it falls out for free, since heat mode is what runs in
+winter and cool/dry is what runs in summer; the two targets are simply
+whichever the schedule says for that time of day, picked by
+``heat_target_c is not None`` won't reach a point - see
+hvac_decision_logic.py's docstring for how the two targets interact
+(directional escalation trigger, deadband, "retain vs reset" on a mode
+change).
+
+``heat_target_c`` must be strictly less than ``cool_target_c`` for every
+period - see parse_periods()'s validation. This isn't just a sanity check:
+hvac_decision_logic.py's deadband guarantee against continual mode switching
+depends on that gap actually existing and being positive.
 """
 
 from __future__ import annotations
