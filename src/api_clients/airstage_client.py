@@ -87,11 +87,13 @@ def fetch_airstage_status(config: dict[str, Any]) -> list[dict[str, Any]] | None
 
     Returns:
         One dict per configured zone, each with "name" plus either
-        ("available": True, "mode", "current_temperature_c",
+        ("available": True, "mode", "powered_on", "current_temperature_c",
         "target_temperature_c", "outdoor_temperature_c") or ("available":
         False, "error") - or None if disabled or no zones are configured at
         all (fail-fast, matches this codebase's other hardware clients).
-        A single zone being unreachable never hides the others.
+        A single zone being unreachable never hides the others. "powered_on"
+        was added 2026-09-07 for hvac_decision_logic.py's HvacDecisionContext
+        (needs live power state, not just mode) - the dashboard ignores it.
 
     """
     airstage_config = config.get("airstage", {})
