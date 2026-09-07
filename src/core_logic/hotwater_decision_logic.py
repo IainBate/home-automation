@@ -360,22 +360,22 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
             reason="Tank needs heating but it's daytime (before the evening trigger hour)",
         )
 
-    battery_has_surplus = (
-        context.battery_soc_percent is not None
-        and context.battery_soc_percent >= context.battery_soc_min_percent
-    )
-
-    if battery_has_surplus:
-        return HotWaterDecision(
-            should_force_heat=True,
-            reason=(
-                f"Tank at {context.tank_temperature_c:.1f}C < threshold "
-                f"{context.tank_temp_threshold_c:.1f}C, battery SoC "
-                f"{context.battery_soc_percent:.0f}% >= {context.battery_soc_min_percent:.0f}% "
-                f"- heating from stored solar"
-            ),
-        )
-
+    # Deliberately NOT a live battery_soc_percent >= battery_soc_min_percent
+    # check here (removed 2026-09-07 - a real incident found the earlier
+    # version of this branch triggering an early heat off a live SoC snapshot
+    # that said "sufficient right now" without accounting for what heating
+    # itself, plus ongoing household load, would draw between now and the
+    # off-peak deadline - risking depleting the battery into peak-rate grid
+    # import before offpeak_start, which is exactly what heating early from
+    # stored solar is supposed to avoid). battery_prediction_trigger_active
+    # above is the only path allowed to bring heating forward from stored
+    # solar - it's forward-looking (predicts SoC AT the off-peak deadline,
+    # not just right now) and is checked every poll tick, so a
+    # currently-insufficient prediction doesn't block a later, more
+    # confident one as the day's actual usage plays out. Once
+    # grid_is_cheap is genuinely true (off-peak has started), nothing more
+    # needs predicting - the energy is already cheap, not drawn from the
+    # battery.
     if context.grid_is_cheap:
         return HotWaterDecision(
             should_force_heat=True,
@@ -390,8 +390,8 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
         should_force_heat=False,
         reason=(
             f"Tank at {context.tank_temperature_c:.1f}C < threshold "
-            f"{context.tank_temp_threshold_c:.1f}C, but battery SoC "
-            f"({context.battery_soc_percent}) is below minimum and grid is not in an "
+            f"{context.tank_temp_threshold_c:.1f}C, not yet due (no battery-prediction trigger, "
+            f"grid not yet off-peak) - waiting until {"
             f"off-peak window - waiting"
         ),
     )
