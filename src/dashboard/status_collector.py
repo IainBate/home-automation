@@ -295,6 +295,25 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
         legionella_state = automation_state.get("legionella", {})
         automation_holiday_until = _parse_holiday_until(automation_state)
 
+        # Days since/until next legionella cycle, purely from data already in
+        # hand above - no new state, no import from scripts/* (dashboard code
+        # never imports scripts/*, so the interval default is a literal
+        # fallback here rather than importing hotwater_automation_core's own
+        # DEFAULT_LEGIONELLA_INTERVAL_DAYS).
+        legionella_days_since_last: int | None = None
+        legionella_days_until_due: int | None = None
+        last_completed_str = legionella_state.get("last_completed_at")
+        if last_completed_str:
+            try:
+                last_completed = datetime.fromisoformat(last_completed_str)
+                interval_days = config.get("hotwater_automation", {}).get(
+                    "legionella_interval_days", 90
+                )
+                legionella_days_since_last = (datetime.now(tz=UTC) - last_completed).days
+                legionella_days_until_due = interval_days - legionella_days_since_last
+            except ValueError:
+                pass  # Malformed timestamp - leave both fields None rather than guess.
+
         return {
             "available": True,
             "tank_temperature_c": tank_fields.get("tank_temperature_c"),

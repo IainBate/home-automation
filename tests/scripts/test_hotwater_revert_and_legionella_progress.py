@@ -503,7 +503,7 @@ def test_natural_completion_below_threshold_is_a_noop(tmp_path):
     client = FakeMelCloudClient(tank_temp=50.0, target_temp=45.0)  # < 55C default
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_natural_completion_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -521,7 +521,7 @@ def test_natural_completion_marks_the_interval_satisfied_with_no_cycle_involved(
     client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_natural_completion_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -539,7 +539,7 @@ def test_natural_completion_does_not_rewrite_an_already_recorded_today(tmp_path)
     client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_natural_completion_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -554,7 +554,7 @@ def test_natural_completion_rewrites_a_stale_previous_day_record(tmp_path):
     client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_natural_completion_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -574,7 +574,7 @@ def test_natural_completion_runs_regardless_of_an_in_progress_cycle(tmp_path):
     client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_natural_completion_check({}, dry_run=False, quiet=True),
+        lambda: core.run_legionella_natural_completion_check({}, {}, dry_run=False, quiet=True),
         state_path,
         client,
     )
@@ -591,7 +591,7 @@ def test_natural_completion_temp_is_configurable(tmp_path):
 
     exit_code, final_state = _run(
         lambda: core.run_legionella_natural_completion_check(
-            {"legionella_natural_completion_temp_c": 50.0}, dry_run=False, quiet=True
+            {}, {"legionella_natural_completion_temp_c": 50.0}, dry_run=False, quiet=True
         ),
         state_path,
         client,
@@ -606,7 +606,7 @@ def test_natural_completion_dry_run_does_not_write(tmp_path):
     client = FakeMelCloudClient(tank_temp=56.0, target_temp=45.0)
 
     exit_code, final_state = _run(
-        lambda: core.run_legionella_natural_completion_check({}, dry_run=True, quiet=True),
+        lambda: core.run_legionella_natural_completion_check({}, {}, dry_run=True, quiet=True),
         state_path,
         client,
     )
