@@ -57,11 +57,18 @@ def test_daytime_not_evening_never_heats_without_car_charging():
     assert decision.should_force_heat is False
 
 
-def test_evening_with_battery_surplus_heats():
+def test_evening_with_high_live_battery_soc_alone_does_not_heat():
+    """A live SoC snapshot saying "sufficient right now" is deliberately NOT
+    enough to trigger an early heat on its own (removed 2026-09-07 - risked
+    depleting the battery into peak-rate import before off-peak actually
+    opens, since a live reading doesn't account for what heating itself
+    would draw). Only battery_prediction_trigger_active (forward-looking) or
+    grid_is_cheap may bring heating forward from stored solar/off-peak.
+    """
     decision = determine_hotwater_decision(
         _context(in_evening_window=True, battery_soc_percent=90.0, battery_soc_min_percent=50.0)
     )
-    assert decision.should_force_heat is True
+    assert decision.should_force_heat is False
 
 
 def test_evening_with_battery_below_minimum_does_not_heat_alone():
