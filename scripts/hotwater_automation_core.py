@@ -1954,9 +1954,10 @@ async def _run_legionella_natural_completion_check_locked(
             )
         return 0
 
+    completed_at = datetime.now(tz=UTC)
     state["legionella"] = {
         **legionella_state,
-        "last_completed_at": datetime.now(tz=UTC).isoformat(),
+        "last_completed_at": completed_at.isoformat(),
     }
     logger.info(
         "Tank observed at %sC (>= %sC disinfection threshold) with no legionella cycle "
@@ -1964,6 +1965,15 @@ async def _run_legionella_natural_completion_check_locked(
         "the interval",
         tank_temperature,
         completion_temp,
+    )
+    _notify_legionella_completed(
+        config,
+        hw_config,
+        tank_temperature=tank_temperature,
+        completed_at=completed_at,
+        source="natural completion (tank observed hot without a cycle)",
+        dry_run=dry_run,
+        quiet=quiet,
     )
     if not quiet:
         print(f"Tank at {tank_temperature}C - legionella satisfied naturally, interval reset")
