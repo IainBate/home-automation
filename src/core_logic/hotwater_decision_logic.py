@@ -51,7 +51,10 @@ class HotWaterDecisionContext:
             as the window start). The whole point is to defer heating until
             evening so the day's solar/battery can cover it, so this is
             checked even on an out-of-schedule (e.g. manual) run. Not checked
-            if car_is_charging or battery_prediction_trigger_active.
+            if car_is_charging or battery_prediction_trigger_active. Once
+            reached, only grid_is_cheap (not a live battery_soc_percent
+            check - see battery_prediction_trigger_active below) may trigger
+            heating - see this function's own evening-window branch for why.
         battery_prediction_trigger_active: True if it's currently within
             hotwater_automation.battery_prediction_window_start_hour to
             battery_prediction_deadline_hour (3pm-11:30pm by default) AND
