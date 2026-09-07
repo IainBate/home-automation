@@ -164,6 +164,69 @@ def test_collect_hot_water_includes_force_heat_and_legionella_state(tmp_path):
     assert result["legionella_cycle_in_progress"] is True
 
 
+def test_collect_hot_water_legionella_days_since_and_until_due(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    last_completed = datetime.now(tz=UTC) - timedelta(days=10)
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(
+        json.dumps({"legionella": {"last_completed_at": last_completed.isoformat()}}),
+        encoding="utf-8",
+    )
+
+    with (
+        mock.patch.object(status_collector, "read_fresh_melcloud_status", return_value=None),
+        mock.patch.object(status_collector, "MelCloudClient", _FakeMelCloudClient),
+        mock.patch.object(status_collector, "get_hotwater_automation_state_path", lambda: str(state_path)),
+    ):
+        result = status_collector._collect_hot_water(
+            {"melcloud": {"enabled": True}, "hotwater_automation": {"legionella_interval_days": 90}},
+            "config.yaml",
+        )
+
+    assert result["legionella_days_since_last"] == 10
+    assert result["legionella_days_until_due"] == 80
+
+
+def test_collect_hot_water_legionella_overdue_is_negative_days_until_due(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    last_completed = datetime.now(tz=UTC) - timedelta(days=100)
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(
+        json.dumps({"legionella": {"last_completed_at": last_completed.isoformat()}}),
+        encoding="utf-8",
+    )
+
+    with (
+        mock.patch.object(status_collector, "read_fresh_melcloud_status", return_value=None),
+        mock.patch.object(status_collector, "MelCloudClient", _FakeMelCloudClient),
+        mock.patch.object(status_collector, "get_hotwater_automation_state_path", lambda: str(state_path)),
+    ):
+        result = status_collector._collect_hot_water(
+            {"melcloud": {"enabled": True}, "hotwater_automation": {"legionella_interval_days": 90}},
+            "config.yaml",
+        )
+
+    assert result["legionella_days_since_last"] == 100
+    assert result["legionella_days_until_due"] == -10
+
+
+def test_collect_hot_water_legionella_never_completed_is_none(tmp_path):
+    state_path = tmp_path / "hotwater_automation_state.json"
+    state_path.write_text(json.dumps({}), encoding="utf-8")
+
+    with (
+        mock.patch.object(status_collector, "read_fresh_melcloud_status", return_value=None),
+        mock.patch.object(status_collector, "MelCloudClient", _FakeMelCloudClient),
+        mock.patch.object(status_collector, "get_hotwater_automation_state_path", lambda: str(state_path)),
+    ):
+        result = status_collector._collect_hot_water({"melcloud": {"enabled": True}}, "config.yaml")
+
+    assert result["legionella_days_since_last"] is None
+    assert result["legionella_days_until_due"] is None
+
+
 def test_collect_hot_water_passes_explicit_config_path_to_client(tmp_path):
     """Regression test: must not rely on MelCloudClient's cwd-relative default -
     see status_collector.collect_status()'s config_path docstring.
