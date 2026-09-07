@@ -146,12 +146,15 @@ DEFAULT_OFFPEAK_END = "05:30"
 DEFAULT_TRIGGER_HOUR = 21.5  # 9:30pm - fractional hours are supported (e.g. 21.5 = 21:30)
 # Battery-prediction trigger path (get_battery_prediction_to_deadline) - an
 # independent alternative to trigger_hour/car-charging, active across this
-# wider afternoon-through-evening span. Deadline defaults to offpeak_start
-# (23:30/11:30pm): the moment the grid's off-peak window opens anyway, so a
-# prediction that both batteries will still clear battery_soc_min_percent by
-# then means it's safe to heat from stored solar any time before that,
-# without waiting on trigger_hour first.
-DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR = 15.0  # 3pm
+# wider evening span. Deadline defaults to offpeak_start (23:30/11:30pm): the
+# moment the grid's off-peak window opens anyway, so a prediction that both
+# batteries will still clear battery_soc_min_percent by then means it's safe
+# to heat from stored solar any time before that, without waiting on
+# trigger_hour first. Deliberately starts at 6pm, not car_charging_trigger_
+# start_hour's 3pm - between 3pm and this hour, only car charging may trigger
+# a heat; the battery's state is irrelevant in that narrower window, by
+# design (confirmed 2026-09-07 - see config.yaml's own comment on this key).
+DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR = 18.0  # 6pm
 DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5  # 11:30pm
 # Car charging only counts as a force-heat trigger from this hour up to
 # trigger_hour - see is_car_charging_confirmed's docstring. Excludes the
