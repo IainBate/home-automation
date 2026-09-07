@@ -1071,7 +1071,7 @@ def _refresh_daily_snapshot_if_warm(
     if tank_temperature < threshold:
         return
     daily_check = state.get("daily_check", {})
-    today_str = now_local.date().isoformat()
+    today_str = _daily_check_lookup_date_str(hw_config, now_local)
     if daily_check.get("date") != today_str or daily_check.get("below_threshold") is not True:
         return
     state["daily_check"] = {**daily_check, "tank_temperature_c": tank_temperature, "below_threshold": False}
