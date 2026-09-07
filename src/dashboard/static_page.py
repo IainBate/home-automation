@@ -417,7 +417,15 @@ function serviceHealthCard(d) {
   const rows = d.services.map(s => {
     const badgeClass = HEALTH_STATUS_BADGE[s.health_status] ?? "";
     const badgeLabel = HEALTH_STATUS_LABEL[s.health_status] ?? titleCase(s.health_status);
-    const stateDetail = !s.installed ? "not deployed" : !s.active ? escapeHtml(s.active_state) : "";
+    // "inactive" (administratively stopped) is already conveyed by the badge
+    // above (health_status collapses any non-active state to "Disabled") - only
+    // show this row for a state that actually adds information beyond that,
+    // e.g. "failed" or "activating".
+    const stateDetail = !s.installed
+      ? "not deployed"
+      : (!s.active && s.active_state && s.active_state !== "inactive")
+        ? escapeHtml(s.active_state)
+        : "";
     const detailNote = stateDetail
       ? `<div class="row"><span class="label">Detail</span><span class="value">${stateDetail}</span></div>`
       : "";
