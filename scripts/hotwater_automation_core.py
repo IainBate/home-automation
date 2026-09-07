@@ -201,14 +201,24 @@ DEFAULT_DAILY_CHECK_HOUR = 18.0
 DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C = 55.0
 # run_safety_ceiling_check's own last-resort limits - deliberately separate
 # constants from DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS/
-# DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS/DEFAULT_LEGIONELLA_TARGET_TEMP_C
-# above, not a reuse of them. Those are the primary decision logic's own
-# tunable limits; this is an independent backstop that assumes the primary
-# logic's bookkeeping could itself be wrong (that's the whole point of it),
-# so it deliberately never reads or is defined in terms of those values. Set
-# well above every normal operating target - this should essentially never
-# fire in normal operation. See run_safety_ceiling_check's docstring.
-DEFAULT_SAFETY_CEILING_TEMP_C = 60.0
+# DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS above, not a reuse of them.
+# Those are the primary decision logic's own tunable duration limits; this
+# is an independent backstop that assumes the primary logic's bookkeeping
+# could itself be wrong (that's the whole point of it), so its duration
+# limit deliberately never reads or is defined in terms of those values -
+# set well above every normal operating duration, so it should essentially
+# never fire on duration alone in normal operation.
+#
+# The temperature ceiling is different: confirmed 2026-09-07, "the water
+# shouldn't be heated above 55 degrees" IS the household's actual absolute
+# limit (a "proper"/officially-supported legionella cycle can never be
+# triggered on this hardware, so there's no legitimate reason to ever need
+# more) - this deliberately DOES equal DEFAULT_LEGIONELLA_TARGET_TEMP_C/
+# DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C (both 55.0) rather than
+# sitting safely above them. See run_safety_ceiling_check's own docstring
+# for how it still avoids alarming on every routine legionella completion
+# despite that.
+DEFAULT_SAFETY_CEILING_TEMP_C = 55.0
 DEFAULT_SAFETY_MAX_DURATION_HOURS = 3.0
 # How long a freshly-set force_heat_activated_at may legitimately still read
 # as "not yet FORCE_HOT_WATER" before _run_force_heat_check_locked's dangling-
