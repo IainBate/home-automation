@@ -272,7 +272,7 @@ def test_airstage_zone_card_shows_automation_status_and_setpoints():
         "hvac_automation": {
             "enabled": True,
             "away_mode_active": False,
-            "house_target_c": 18.0,
+            "schedule_target_c": 18.0,
             "hvac_target_c": 19.5,
         },
     }
@@ -293,7 +293,7 @@ def test_airstage_zone_card_shows_away_mode_badge():
         "current_temperature_c": 10.5,
         "target_temperature_c": 10.0,
         "outdoor_temperature_c": 2.0,
-        "hvac_automation": {"enabled": True, "away_mode_active": True, "house_target_c": 18.0, "hvac_target_c": 10.0},
+        "hvac_automation": {"enabled": True, "away_mode_active": True, "schedule_target_c": 18.0, "hvac_target_c": 10.0},
     }
     html = _run_js(f"console.log(airstageZoneCard({json.dumps(payload)}));")
 
