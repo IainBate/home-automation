@@ -87,10 +87,17 @@ def _run(tmp_path: Path, monkeypatch, *, hour: int, minute: int, initial_state: 
     hw_config = {
         "tank_temp_threshold_c": 45.0,
         "trigger_hour": 0.0,  # Always "evening" - isolates the daily snapshot itself.
-        "battery_soc_min_percent": 0.0,  # Always has "surplus" - same reason.
         "legionella_interval_days": 90,
         "legionella_target_temp_c": 60.0,
         "daily_check_hour": 18.0,
+        # Spans virtually the whole day, so grid_is_cheap is always true
+        # regardless of which hour a given test picks - a deterministic,
+        # non-live trigger that isolates the daily-snapshot mechanism under
+        # test here from car-charging/battery-prediction (both live-reading
+        # paths that would otherwise bypass the pinned snapshot entirely -
+        # see determine_hotwater_decision's precedence order).
+        "offpeak_start": "00:00",
+        "offpeak_end": "23:59",
     }
     config = {"location": {"default_timezone_str": "UTC"}}
 
