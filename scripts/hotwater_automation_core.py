@@ -196,6 +196,17 @@ DEFAULT_DAILY_CHECK_HOUR = 18.0
 # project can't otherwise see), counts as satisfying the current legionella
 # interval - see run_legionella_natural_completion_check's docstring.
 DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C = 55.0
+# run_safety_ceiling_check's own last-resort limits - deliberately separate
+# constants from DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS/
+# DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS/DEFAULT_LEGIONELLA_TARGET_TEMP_C
+# above, not a reuse of them. Those are the primary decision logic's own
+# tunable limits; this is an independent backstop that assumes the primary
+# logic's bookkeeping could itself be wrong (that's the whole point of it),
+# so it deliberately never reads or is defined in terms of those values. Set
+# well above every normal operating target - this should essentially never
+# fire in normal operation. See run_safety_ceiling_check's docstring.
+DEFAULT_SAFETY_CEILING_TEMP_C = 60.0
+DEFAULT_SAFETY_MAX_DURATION_HOURS = 3.0
 DEFAULT_MAX_PREDICTION_AGE_HOURS = 3.0
 # How long run_force_heat_check will wait to acquire the state file lock
 # before giving up. It holds the lock across its whole MELCloud
