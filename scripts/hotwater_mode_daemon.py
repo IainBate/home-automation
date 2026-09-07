@@ -179,7 +179,9 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
         """Run one legionella-natural-completion check. Never raises."""
         try:
             asyncio.run(
-                run_legionella_natural_completion_check(hw_config, dry_run=False, quiet=True)
+                run_legionella_natural_completion_check(
+                    self.config, hw_config, dry_run=False, quiet=True
+                )
             )
         except Exception:
             self.logger.exception("Legionella natural-completion check cycle failed")
