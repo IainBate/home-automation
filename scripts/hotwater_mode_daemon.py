@@ -191,6 +191,13 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
         except Exception:
             self.logger.exception("Legionella due-warning check cycle failed")
 
+    def _run_safety_ceiling_cycle(self, hw_config: dict[str, Any]) -> None:
+        """Run one independent safety-ceiling backstop check. Never raises."""
+        try:
+            asyncio.run(run_safety_ceiling_check(self.config, hw_config, dry_run=False, quiet=True))
+        except Exception:
+            self.logger.exception("Safety ceiling check cycle failed")
+
     def _hw_config(self) -> dict[str, Any]:
         return self.config.get("hotwater_automation", {})
 
