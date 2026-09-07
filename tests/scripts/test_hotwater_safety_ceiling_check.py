@@ -1,11 +1,16 @@
 """Tests for run_safety_ceiling_check in hotwater_automation_core.py - the
-independent, one-way last-resort backstop (see its own docstring).
+independent last-resort backstop (see its own docstring).
 
 Unlike run_revert_check/run_legionella_progress_check's tests, these do NOT
 forbid read_state() - this function deliberately uses the plain unlocked
-read (it never writes to the state file at all), which is exactly the
-property under test in test_no_violation_does_not_write_state and
-test_temperature_violation_does_not_write_state below.
+read for its own violation-detection pass (it never writes to the state
+file on a PLAIN force-heat violation - see test_no_violation_does_not_write_state
+and test_temperature_violation_does_not_write_state below). The one
+exception (confirmed 2026-09-07, see run_safety_ceiling_check's own
+docstring) is a legionella cycle in progress at the moment a violation is
+found - it DOES then acquire locked_state() to complete/timeout that cycle's
+bookkeeping exactly as run_legionella_progress_check's own reached_target/
+timed_out branches would, tested separately below.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ class FakeMelCloudClient:
         self.tank_temp = tank_temp
         self.operation_mode = operation_mode
         self.force_calls: list[bool] = []
+        self.target_temp_calls: list[float] = []
 
     async def connect(self) -> None:
         return None
@@ -37,6 +43,9 @@ class FakeMelCloudClient:
     async def set_force_hot_water(self, *, enabled: bool) -> bool:
         self.force_calls.append(enabled)
         return True
+
+    async def set_target_tank_temperature(self, temp: float) -> None:
+        self.target_temp_calls.append(temp)
 
     async def close(self) -> None:
         return None
