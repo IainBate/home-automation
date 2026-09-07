@@ -69,6 +69,18 @@ def hotwater_env(tmp_path, monkeypatch, fake_solax_server_factory):  # noqa: F81
         "mode_change_retry": {"max_attempts": 2, "check_delay_seconds": 1},
     }
     config["battery_evening_prediction"] = {"enabled": False}
+    # This config dict starts as a load of the REAL project config.yaml (see
+    # above), which means its email: section is real too - enabled: true,
+    # a real to_address. Several scenarios below deliberately drive the
+    # max-duration safety-net paths, which call send_email on a real timeout.
+    # Left as-is, that would send real alert emails to a real inbox on every
+    # test run (this bit Iain for real: a full pytest run - including the
+    # nightly encrypt_secrets.sh cron's git-push pre-push hook - was emailing
+    # fabricated "3 hour"/"6 hour" timeout alerts built from this file's own
+    # fixture numbers). Belt and braces: disable email in config AND mock
+    # send_email directly, so neither one alone being insufficient can
+    # reintroduce the leak.
+    config["email"] = {"enabled": False}
 
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -79,6 +91,7 @@ def hotwater_env(tmp_path, monkeypatch, fake_solax_server_factory):  # noqa: F81
     # The shared Ohme cache belongs to the real machine, not this test - force
     # the direct-read path so the fake Ohme server is what answers.
     monkeypatch.setattr(core, "read_fresh_status", lambda *a, **k: None)
+    monkeypatch.setattr(core, "send_email", lambda *a, **k: True)
 
     def seed_recent_legionella_cycle():
         """Mark a cycle as just completed, so force-heat takes the NORMAL path.
