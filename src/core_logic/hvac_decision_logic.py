@@ -94,7 +94,7 @@ Deliberate design decisions recorded in the plan doc's §8, implemented here
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 #: Normal cycle, coldest to warmest. "Minimum heat" is deliberately absent -
