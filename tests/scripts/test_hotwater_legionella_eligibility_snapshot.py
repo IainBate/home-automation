@@ -90,14 +90,19 @@ def _run(tmp_path: Path, monkeypatch, *, hour: int, minute: int, initial_state: 
         "legionella_interval_days": 90,
         "legionella_target_temp_c": 60.0,
         "daily_check_hour": 18.0,
-        # Spans virtually the whole day, so grid_is_cheap is always true
-        # regardless of which hour a given test picks - a deterministic,
-        # non-live trigger that isolates the daily-snapshot mechanism under
-        # test here from car-charging/battery-prediction (both live-reading
-        # paths that would otherwise bypass the pinned snapshot entirely -
-        # see determine_hotwater_decision's precedence order).
-        "offpeak_start": "00:00",
-        "offpeak_end": "23:59",
+        # Wrapping window covering every hour these tests use (17:59 through
+        # 23:00), so grid_is_cheap is always true at those hours - a
+        # deterministic, non-live trigger that isolates the daily-snapshot
+        # mechanism under test here from car-charging/battery-prediction
+        # (both live-reading paths that would otherwise bypass the pinned
+        # snapshot entirely - see determine_hotwater_decision's precedence
+        # order). offpeak_end kept at the real default (05:30), not widened -
+        # _daily_check_lookup_date_str's own yesterday/today boundary is
+        # anchored to it, and widening it here would make every one of these
+        # tests' daytime-written snapshots look like "yesterday's" to the
+        # same-tick read that immediately follows.
+        "offpeak_start": "17:00",
+        "offpeak_end": "05:30",
     }
     config = {"location": {"default_timezone_str": "UTC"}}
 
