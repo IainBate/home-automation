@@ -170,7 +170,6 @@ git commit -q -m "Update encrypted secrets backup ($(date +%Y-%m-%d))" -- secret
 # something is actually wrong) - the captured output is only surfaced below
 # if the push doesn't succeed, which is exactly when it's worth reading.
 PUSH_LOG="$(mktemp "${TMPDIR:-/tmp}/secrets.push.XXXXXX")"
-trap 'rm -f "$WORK_ENC" "$WORK_PLAIN" "$PUSH_LOG"' EXIT
 
 if git push -q >"$PUSH_LOG" 2>&1; then
     log "secrets.yaml.enc changed - committed and pushed."
