@@ -135,7 +135,8 @@ def time_to_minutes(at_time: time) -> int:
 
 
 def parse_periods(raw_periods: list[dict[str, Any]]) -> list[SchedulePeriod]:
-    """Build SchedulePeriods from schedule.yaml's raw ``{start, end, house_target_c}`` dicts.
+    """Build SchedulePeriods from schedule.yaml's raw
+    ``{start, end, heat_target_c, cool_target_c}`` dicts.
 
     Does no normalisation - call normalise_schedule() on the result. Keeping
     parsing and normalisation separate means a malformed *file* raises here
@@ -143,19 +144,40 @@ def parse_periods(raw_periods: list[dict[str, Any]]) -> list[SchedulePeriod]:
     tidied there, exactly as the spec intends ("applied logically at runtime,
     not by editing the file").
 
+    Raises:
+        ValueError: heat_target_c is not strictly below cool_target_c for
+            some period - not just a sanity check, this gap is what
+            hvac_decision_logic.py's deadband guarantee against continual
+            mode switching actually depends on (see this module's
+            docstring). Caught here, at load time, rather than left to
+            manifest as confusing runaway mode-flapping much later.
+
     Examples:
-        >>> parse_periods([{"start": "00:00", "end": "06:00", "house_target_c": 18.0}])
-        [SchedulePeriod(start_minute=0, end_minute=360, house_target_c=18.0)]
+        >>> parse_periods(
+        ...     [{"start": "00:00", "end": "06:00", "heat_target_c": 18.0, "cool_target_c": 20.0}]
+        ... )
+        [SchedulePeriod(start_minute=0, end_minute=360, heat_target_c=18.0, cool_target_c=20.0)]
 
     """
-    return [
+    periods = [
         SchedulePeriod(
             start_minute=parse_hhmm(period["start"]),
             end_minute=parse_hhmm(period["end"]),
-            house_target_c=float(period["house_target_c"]),
+            heat_target_c=float(period["heat_target_c"]),
+            cool_target_c=float(period["cool_target_c"]),
         )
         for period in raw_periods
     ]
+    for period in periods:
+        if period.heat_target_c >= period.cool_target_c:
+            msg = (
+                f"Period {format_minutes(period.start_minute)}-"
+                f"{format_minutes(period.end_minute)}: heat_target_c "
+                f"({period.heat_target_c}) must be strictly less than cool_target_c "
+                f"({period.cool_target_c}) - see hvac_schedule_logic.py's module docstring"
+            )
+            raise ValueError(msg)
+    return periods
 
 
 def normalise_schedule(periods: list[SchedulePeriod]) -> list[SchedulePeriod]:
