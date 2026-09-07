@@ -1317,6 +1317,7 @@ async def _run_revert_check_locked(
         status = await client.get_tank_status()
         tank_temperature = status["tank_temperature"]
         target_temperature = status["target_tank_temperature"]
+        _refresh_daily_snapshot_if_warm(hw_config, state, tank_temperature, now_local)
 
         reached_target = (
             tank_temperature is not None
