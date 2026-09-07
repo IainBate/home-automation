@@ -117,6 +117,72 @@ def test_enabled_valid_config_runs_all_checks_on_first_tick(tmp_path, monkeypatc
     assert len(daemon.legionella_natural_completion_calls) == 1
 
 
+def test_service_mode_active_skips_all_checks_including_safety_ceiling(tmp_path, monkeypatch):
+    """Confirmed 2026-09-07: a service visit means the engineer has full,
+    uncontested control - nothing in this module should touch MELCloud at
+    all, including run_safety_ceiling_check (which has no service/holiday
+    awareness of its own by design - see its own docstring - so gating the
+    whole tick here is what actually stops it).
+    """
+    config_dir = tmp_path / "config"
+    config_path = _write_config(
+        config_dir,
+        {
+            "hotwater_automation": {
+                "enabled": True,
+                "poll_interval_seconds": 600,
+                "revert_check_interval_seconds": 3600,
+            },
+            "melcloud": {"enabled": True, "email": "test@example.com", "password": "dummy"},
+        },
+    )
+    daemon = _make_daemon(config_path, monkeypatch, tmp_path)
+    daemon.safety_ceiling_calls = []
+    daemon._run_safety_ceiling_cycle = lambda hw_config: daemon.safety_ceiling_calls.append(hw_config)
+    monkeypatch.setattr(hotwater_mode_daemon, "is_service_mode_active", lambda state: True)
+
+    daemon._run_one_tick()
+
+    assert daemon.force_heat_calls == []
+    assert daemon.revert_calls == []
+    assert daemon.legionella_progress_calls == []
+    assert daemon.legionella_natural_completion_calls == []
+    assert daemon.safety_ceiling_calls == []
+
+
+def test_holiday_mode_does_not_skip_the_safety_ceiling_check(tmp_path, monkeypatch):
+    """Deliberately the opposite of service mode: a holiday means the
+    household is away and unattended, not an engineer standing by - the
+    safety watchdog must keep running. Only the decision logic itself
+    (HotWaterDecisionContext.holiday_mode_active) defers to holiday mode;
+    should_run_checks_this_tick does not.
+    """
+    config_dir = tmp_path / "config"
+    config_path = _write_config(
+        config_dir,
+        {
+            "hotwater_automation": {
+                "enabled": True,
+                "poll_interval_seconds": 600,
+                "revert_check_interval_seconds": 3600,
+            },
+            "melcloud": {"enabled": True, "email": "test@example.com", "password": "dummy"},
+        },
+    )
+    daemon = _make_daemon(config_path, monkeypatch, tmp_path)
+    daemon.safety_ceiling_calls = []
+    daemon._run_safety_ceiling_cycle = lambda hw_config: daemon.safety_ceiling_calls.append(hw_config)
+    monkeypatch.setattr(
+        hotwater_mode_daemon,
+        "read_state",
+        lambda: {"holiday": {"until": "2099-01-01T00:00:00+00:00"}},
+    )
+
+    daemon._run_one_tick()
+
+    assert len(daemon.safety_ceiling_calls) == 1
+
+
 def test_checks_do_not_rerun_before_their_interval_elapses(tmp_path, monkeypatch):
     config_dir = tmp_path / "config"
     config_path = _write_config(
