@@ -667,7 +667,29 @@ async def _run_force_heat_check_locked(
         now_local = datetime.now(tz=UTC).astimezone(pytz.timezone(tz_name))
 
         _update_daily_threshold_snapshot(hw_config, state, tank_temperature, now_local)
-        _refresh_daily_snapshot_if_warm(hw_config, state, tank_temperature, now_local)
+
+        # A dangling force_heat_activated_at with the tank not actually
+        # force-heating (per this live read) and already proven warm enough
+        # is what's left after run_safety_ceiling_check's independent,
+        # one-way cutoff - it never touches this state file, so nothing else
+        # clears this marker or corrects the (now stale) daily snapshot until
+        # this tick or the next run_revert_check does. Clean both up here,
+        # before the decision below, so this same tick can't immediately
+        # re-trigger off state that's about to be shown stale.
+        #
+        # Deliberately narrow: gated on a dangling force_heat_activated_at,
+        # NOT on "the live tank happens to be warm" alone - a plain warm
+        # reading with no dangling activation must NOT correct the pinned
+        # snapshot (see test_hotwater_legionella_eligibility_snapshot.py's
+        # test_snapshot_is_only_taken_once_per_day_and_the_pinned_reading_
+        # still_drives_the_decision - the daily pin is deliberately immune to
+        # incidental live readings from an unrelated source, e.g. solar).
+        if (
+            status["operation_mode"] != HotWaterOperationMode.FORCE_HOT_WATER
+            and state.get("force_heat_activated_at")
+        ):
+            state.pop("force_heat_activated_at", None)
+            _refresh_daily_snapshot_if_warm(hw_config, state, tank_temperature, now_local)
 
         # "Evening" spans from trigger_hour through midnight to offpeak_end.
         # Deliberately NOT is_in_offpeak_window() here: that function infers
