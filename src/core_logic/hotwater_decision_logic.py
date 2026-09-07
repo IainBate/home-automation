@@ -68,8 +68,8 @@ class HotWaterDecisionContext:
             window opens anyway, without waiting for trigger_hour to arrive
             first. Computed by the caller (not derived from
             battery_soc_percent/battery_soc_min_percent here), since it needs
-            its own forward-looking prediction rather than the live/current
-            SoC in_evening_window's own battery_has_surplus check uses.
+            its own forward-looking prediction of SoC AT the off-peak
+            deadline, not a live/current reading.
         holiday_mode_active: True if scripts/holiday_mode.py has an active
             holiday period recorded (see hotwater_automation_core.py's
             is_holiday_active). Dominates every other condition, including
