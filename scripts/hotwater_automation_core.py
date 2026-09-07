@@ -210,6 +210,15 @@ DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C = 55.0
 # fire in normal operation. See run_safety_ceiling_check's docstring.
 DEFAULT_SAFETY_CEILING_TEMP_C = 60.0
 DEFAULT_SAFETY_MAX_DURATION_HOURS = 3.0
+# How long a freshly-set force_heat_activated_at may legitimately still read
+# as "not yet FORCE_HOT_WATER" before _run_force_heat_check_locked's dangling-
+# marker cleanup is allowed to treat that as genuine staleness rather than
+# ordinary MELCloud propagation delay. Comfortably above
+# melcloud.mode_change_retry's own documented worst case (max_attempts *
+# check_delay_seconds, ~60s at its defaults) - not tied to that config value
+# directly, since this must stay safe even if that retry budget is tuned up
+# later.
+MODE_CHANGE_GRACE_SECONDS = 120.0
 DEFAULT_MAX_PREDICTION_AGE_HOURS = 3.0
 # How long run_force_heat_check will wait to acquire the state file lock
 # before giving up. It holds the lock across its whole MELCloud
