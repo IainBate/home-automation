@@ -317,6 +317,73 @@ def test_collect_airstage_unavailable_when_client_returns_none():
     assert result["available"] is False
 
 
+def test_collect_airstage_no_automation_summary_when_hvac_automation_disabled():
+    fake_zones = [
+        {"name": "Playroom", "available": True, "mode": "HEAT", "current_temperature_c": 21.0, "target_temperature_c": 22.0, "outdoor_temperature_c": 8.0},
+    ]
+    config = {"airstage": {"enabled": True}, "hvac_automation": {"enabled": False}}
+    with mock.patch.object(status_collector, "fetch_airstage_status", return_value=fake_zones):
+        result = status_collector._collect_airstage(config)
+
+    assert "hvac_automation" not in result["zones"][0]
+
+
+def test_collect_airstage_attaches_automation_summary_to_master_zone_only():
+    fake_zones = [
+        {"name": "Playroom", "available": True, "mode": "HEAT", "current_temperature_c": 21.0, "target_temperature_c": 22.0, "outdoor_temperature_c": 8.0},
+        {"name": "Landing", "available": True, "mode": "HEAT", "current_temperature_c": 20.0, "target_temperature_c": 18.0, "outdoor_temperature_c": 8.0},
+    ]
+    config = {
+        "airstage": {"enabled": True},
+        "hvac_automation": {"enabled": True, "master_zone": "Playroom", "mirror_zone": "Landing"},
+    }
+    automation_state = {"hvac": {"house_target_c": 18.0, "hvac_target_c": 19.5}, "away_mode": {"active": False}}
+
+    with mock.patch.object(
+        status_collector, "fetch_airstage_status", return_value=fake_zones
+    ), mock.patch.object(status_collector, "read_json_state", return_value=automation_state):
+        result = status_collector._collect_airstage(config)
+
+    playroom, landing = result["zones"]
+    assert playroom["hvac_automation"] == {
+        "enabled": True,
+        "away_mode_active": False,
+        "house_target_c": 18.0,
+        "hvac_target_c": 19.5,
+    }
+    assert landing["hvac_automation"] == {"enabled": True, "away_mode_active": False}
+
+
+def test_collect_airstage_automation_summary_reflects_away_mode():
+    fake_zones = [
+        {"name": "Playroom", "available": True, "mode": "HEAT", "current_temperature_c": 21.0, "target_temperature_c": 10.0, "outdoor_temperature_c": 8.0},
+    ]
+    config = {
+        "airstage": {"enabled": True},
+        "hvac_automation": {"enabled": True, "master_zone": "Playroom"},
+    }
+    automation_state = {"hvac": {"house_target_c": 18.0, "hvac_target_c": 10.0}, "away_mode": {"active": True}}
+
+    with mock.patch.object(
+        status_collector, "fetch_airstage_status", return_value=fake_zones
+    ), mock.patch.object(status_collector, "read_json_state", return_value=automation_state):
+        result = status_collector._collect_airstage(config)
+
+    assert result["zones"][0]["hvac_automation"]["away_mode_active"] is True
+
+
+def test_collect_airstage_automation_summary_skips_unavailable_zone():
+    fake_zones = [{"name": "Playroom", "available": False, "error": "Could not read from Airstage unit"}]
+    config = {"airstage": {"enabled": True}, "hvac_automation": {"enabled": True, "master_zone": "Playroom"}}
+
+    with mock.patch.object(
+        status_collector, "fetch_airstage_status", return_value=fake_zones
+    ), mock.patch.object(status_collector, "read_json_state", return_value={}):
+        result = status_collector._collect_airstage(config)
+
+    assert "hvac_automation" not in result["zones"][0]
+
+
 def test_collect_resideo_disabled():
     result = status_collector._collect_resideo({"resideo": {"enabled": False}})
 
