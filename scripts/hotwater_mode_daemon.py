@@ -120,17 +120,40 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
             self.logger.exception("Failed to reload config - keeping old config")
 
     def should_run_checks_this_tick(self) -> bool:
-        """Gate all checks on hotwater_automation.enabled and config validity.
+        """Gate all checks on hotwater_automation.enabled, service mode, and config validity.
 
         A tick skipped here doesn't count against any check's own due-time
         bookkeeping (see TwoTierPollingDaemon.should_run_checks_this_tick),
         so checks resume on their normal cadence as soon as this returns
         True again - no catch-up burst after being re-enabled or fixed.
+
+        Service mode (scripts/service_mode.py) is gated here too, not just in
+        the decision logic - the whole point of a service visit is that the
+        engineer has full, uncontested control, which means NOTHING in this
+        module should touch MELCloud at all, including run_safety_ceiling_check
+        (confirmed 2026-09-07: that watchdog's temperature/duration limits are
+        deliberately independent of the normal decision logic, which also
+        means independent of holiday/service mode - it doesn't check them
+        itself, so gating it individually there would be one more place to
+        forget). Gating the whole tick here, the same way hotwater_automation.
+        enabled already does, is simpler and can't be half-applied.
+
+        Deliberately NOT gated on holiday_mode_active - a holiday means the
+        household is away and unattended, not an engineer standing by to
+        catch a real problem, so the safety watchdog must stay active. Only
+        the decision logic itself defers to holiday mode (see
+        HotWaterDecisionContext.holiday_mode_active) - normal heating is
+        paused, but the safety net is not.
         """
         hw_config = self.config.get("hotwater_automation", {})
 
         if not hw_config.get("enabled", False):
             self.logger.debug("Hot water automation disabled, idling")
+            self._config_error_logged = None
+            return False
+
+        if is_service_mode_active(read_state()):
+            self.logger.debug("Service mode active, idling (engineer has full control)")
             self._config_error_logged = None
             return False
 
