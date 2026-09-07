@@ -135,8 +135,7 @@ def test_service_mode_dominates_evening_window():
     decision = determine_hotwater_decision(
         _context(
             in_evening_window=True,
-            battery_soc_percent=90.0,
-            battery_soc_min_percent=50.0,
+            grid_is_cheap=True,
             service_mode_active=True,
         )
     )
