@@ -44,6 +44,7 @@ from src.core_logic.battery_simulation.constants_and_models import (
     BatteryMode,
     battery_mode_to_display_string,
 )
+from src.core_logic.hvac_decision_logic import family_target_c
 from src.utils.paths import (
     get_battery_evening_prediction_path,
     get_claude_usage_path,
