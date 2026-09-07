@@ -7,8 +7,11 @@ hot water tank should be force-heated:
   Intelligent Go off-peak window or solar surplus, so hot water piggybacks on
   that decision without re-deriving it).
 - Otherwise, at or after a configured evening trigger hour, if the tank has
-  cooled below a threshold, and cheap energy is available (battery has surplus
-  stored solar, or the grid is currently in the tariff's off-peak window).
+  cooled below a threshold, and the grid is currently in the tariff's
+  off-peak window (a separate, forward-looking battery-prediction path -
+  see HotWaterDecisionContext.battery_prediction_trigger_active - is what
+  allows heating from stored solar earlier than that, deliberately not a
+  live battery-SoC check here).
 
 Design Principles (mirrors ohme_charging_logic.py):
 - Pure function: No side effects, no API calls, testable
