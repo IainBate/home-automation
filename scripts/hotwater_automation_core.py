@@ -1668,7 +1668,7 @@ async def _run_revert_check_locked(
 async def run_safety_ceiling_check(
     config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
-    """Last-resort, one-way safety backstop - independent of the normal decision path.
+    """Last-resort, independent safety backstop for the normal decision path.
 
     Deliberately does NOT call determine_hotwater_decision, does not reuse
     run_revert_check's/run_legionella_progress_check's already-computed
@@ -1678,21 +1678,62 @@ async def run_safety_ceiling_check(
     also be able to fool this check - it has to arrive at "is this actually
     too hot / has this actually been heating too long" on its own.
 
-    ONE-WAY BY CONSTRUCTION: the only action this can ever take is
-    client.set_force_hot_water(enabled=False). It never enables heating, and
-    it never writes to hotwater_automation_state.json at all - it calls
-    read_state(), never locked_state() - so it cannot clear/reset
-    force_heat_activated_at, legionella.cycle_in_progress, or anything else
-    the normal logic uses to decide when to start again. There is nothing for
-    the two to fight over: once this reverts the physical mode, the normal
-    logic's own next run_revert_check/run_legionella_progress_check tick finds
-    the tank already off (or still past its own, shorter, limit) and finishes
-    the bookkeeping normally, exactly as if it had reverted it itself.
+    safety_ceiling_temp_c (confirmed 2026-09-07) is the household's actual
+    absolute limit - "the water shouldn't be heated above 55 degrees",
+    full stop, since a "proper" (officially MELCloud-supported) legionella
+    cycle can never actually be triggered on this hardware, so there is no
+    higher temperature a legitimate cycle could ever need. That means this
+    ceiling now exactly equals legionella_natural_completion_temp_c/
+    legionella_target_temp_c (both 55 by default) - every normal, successful
+    legionella cycle finishes AT this ceiling, not below it. See the
+    "one-way, but not silent about legitimate completions" note below for
+    how that's handled without alarming on routine operation.
 
-    Both limits (safety_ceiling_temp_c, safety_max_duration_hours) are
-    deliberately configured well above the normal operating targets/limits -
-    see DEFAULT_SAFETY_CEILING_TEMP_C's docstring - so in normal operation
-    this should never fire at all.
+    ONE-WAY BY CONSTRUCTION FOR NORMAL FORCE-HEAT: on a plain force-heat
+    (no legionella cycle involved), the only action this can ever take is
+    client.set_force_hot_water(enabled=False), and it never writes to
+    hotwater_automation_state.json - it reads state fresh but doesn't hold a
+    lock unless a legionella cycle needs cleanup (see below), so it cannot
+    clear/reset force_heat_activated_at or anything else the normal logic
+    uses to decide when to start again. The normal logic's own next
+    run_revert_check tick finds the tank already off and finishes that
+    bookkeeping normally, exactly as if it had reverted it itself.
+
+    LEGIONELLA CYCLES ARE THE ONE EXCEPTION, AND DELIBERATELY SO: because
+    this ceiling now equals the legionella completion temperature, this
+    check runs far more often (poll_interval_seconds, ~10 min) than
+    run_legionella_progress_check's own cadence (revert_check_interval_seconds,
+    ~1h), so it will usually be the first to notice a legionella cycle has
+    genuinely finished. Leaving that half-finished (heat cut, but the raised
+    target never restored and the cycle never marked complete) would be
+    worse than not having this check catch it at all - the tank's target
+    would stay wrong until run_legionella_progress_check's next tick, and
+    if THAT also has a bug, could stay wrong indefinitely. So: when a
+    legionella cycle is in progress at the moment a violation is found, this
+    check DOES acquire locked_state() and perform the same completion/
+    timeout bookkeeping run_legionella_progress_check's own
+    reached_target/timed_out branches would - restoring
+    original_target_temp_c always, and crediting last_completed_at only when
+    it was genuinely the temperature ceiling (not just a duration timeout)
+    that triggered. Two independent checks converging on the identical,
+    already-tested completion logic isn't "fighting" - run_legionella_
+    progress_check's own next tick will simply find cycle_in_progress
+    already False and no-op, the same guard it already has for a concurrent
+    run_force_heat_check start.
+
+    A genuine temperature violation with NO legionella cycle in progress, or
+    a duration violation on a plain force-heat, still gets the loud
+    CRITICAL log + alert email exactly as before - those really are
+    unexpected. A legionella cycle reaching its own completion temperature
+    is not; it's logged at INFO and gets the same calm completion email
+    check_legionella_due_warning's sibling functions already send, not a
+    "SAFETY CEILING" alarm - so this doesn't turn every routine ~90-day
+    legionella cycle into a false alarm.
+
+    safety_max_duration_hours is unaffected by any of the above - still
+    configured well above the normal operating limits (see
+    DEFAULT_SAFETY_MAX_DURATION_HOURS's docstring), so a duration-only
+    violation should still be rare in normal operation.
 
     Duration source: whichever of state["legionella"]["cycle_started_at"] (if
     a legionella cycle is in progress) or state["force_heat_activated_at"] is
@@ -1713,6 +1754,8 @@ async def run_safety_ceiling_check(
         "safety_max_duration_hours", DEFAULT_SAFETY_MAX_DURATION_HOURS
     )
     state = read_state()
+    legionella_state_snapshot = state.get("legionella", {})
+    legionella_in_progress = bool(legionella_state_snapshot.get("cycle_in_progress"))
 
     client = MelCloudClient(config_path=get_config_path())
     try:
@@ -1725,9 +1768,8 @@ async def run_safety_ceiling_check(
         duration_violation = False
         elapsed_hours: float | None = None
         if status["operation_mode"] == HotWaterOperationMode.FORCE_HOT_WATER:
-            legionella_state = state.get("legionella", {})
-            if legionella_state.get("cycle_in_progress"):
-                started_at_str = legionella_state.get("cycle_started_at")
+            if legionella_in_progress:
+                started_at_str = legionella_state_snapshot.get("cycle_started_at")
             else:
                 started_at_str = state.get("force_heat_activated_at")
 
@@ -1754,21 +1796,37 @@ async def run_safety_ceiling_check(
                 )
             return 0
 
-        if temp_violation:
-            logger.critical(
-                "SAFETY_CEILING_TEMP: tank at %sC >= safety ceiling %sC - cutting force-heat "
-                "regardless of mode/cause (hotwater_automation.safety_ceiling_temp_c)",
-                tank_temperature,
+        # A temperature violation while a legionella cycle is in progress is
+        # exactly what a successful cycle looks like now the ceiling equals
+        # its completion temperature - not an alarm. A duration-only
+        # violation during one is a genuine timeout (like
+        # run_legionella_progress_check's own timed_out branch) - still
+        # cleaned up below, but not credited as complete, and still alarmed.
+        quiet_legionella_completion = temp_violation and legionella_in_progress
+
+        if quiet_legionella_completion:
+            logger.info(
+                "Legionella cycle reached its %sC disinfection temperature (caught by the "
+                "independent safety check, ahead of run_legionella_progress_check's own next "
+                "tick) - completing normally",
                 ceiling_temp,
             )
-        if duration_violation:
-            logger.critical(
-                "SAFETY_CEILING_DURATION: force-heat/legionella cycle has been active for "
-                "%s >= safety limit %sh - cutting force-heat regardless of the normal revert "
-                "logic's own conclusion (hotwater_automation.safety_max_duration_hours)",
-                f"{elapsed_hours:.1f}h" if elapsed_hours is not None else "an unknown duration",
-                max_duration_hours,
-            )
+        else:
+            if temp_violation:
+                logger.critical(
+                    "SAFETY_CEILING_TEMP: tank at %sC >= safety ceiling %sC - cutting force-heat "
+                    "regardless of mode/cause (hotwater_automation.safety_ceiling_temp_c)",
+                    tank_temperature,
+                    ceiling_temp,
+                )
+            if duration_violation:
+                logger.critical(
+                    "SAFETY_CEILING_DURATION: force-heat/legionella cycle has been active for "
+                    "%s >= safety limit %sh - cutting force-heat regardless of the normal revert "
+                    "logic's own conclusion (hotwater_automation.safety_max_duration_hours)",
+                    f"{elapsed_hours:.1f}h" if elapsed_hours is not None else "an unknown duration",
+                    max_duration_hours,
+                )
         if not quiet:
             print(
                 f"SAFETY CEILING VIOLATION: temp={temp_violation} ({tank_temperature}C), "
@@ -1780,9 +1838,49 @@ async def run_safety_ceiling_check(
                 print("(dry run - not actually cutting force-heat)")
             return 0
 
+        original_target_temp = legionella_state_snapshot.get("original_target_temp_c")
+        if legionella_in_progress and original_target_temp is not None:
+            await client.set_target_tank_temperature(original_target_temp)
         success = await client.set_force_hot_water(enabled=False)
     finally:
         await client.close()
+
+    completed_at = datetime.now(tz=UTC)
+    if legionella_in_progress and success:
+        # Mirrors run_legionella_progress_check's own reached_target/
+        # timed_out state update exactly - see this function's own
+        # docstring for why converging on it here is safe, not a fight.
+        with locked_state(timeout=DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS) as state:
+            current_legionella = state.get("legionella", {})
+            if current_legionella.get("cycle_in_progress"):
+                state["legionella"] = {
+                    **current_legionella,
+                    "cycle_in_progress": False,
+                    "last_completed_at": (
+                        completed_at.isoformat()
+                        if quiet_legionella_completion
+                        else current_legionella.get("last_completed_at")
+                    ),
+                }
+
+    if quiet_legionella_completion:
+        if success:
+            _notify_legionella_completed(
+                config,
+                hw_config,
+                tank_temperature=tank_temperature,
+                completed_at=completed_at,
+                source="forced cycle (caught by the independent safety check)",
+                dry_run=dry_run,
+                quiet=quiet,
+            )
+            if not quiet:
+                print("Safety ceiling: legionella cycle completed, target restored")
+            return 0
+        logger.error("SAFETY_CEILING: failed to confirm force-heat was cut")
+        if not quiet:
+            print("Safety ceiling: failed to confirm force-heat was cut")
+        return 1
 
     subject = "Hot water: SAFETY CEILING triggered - force-heat cut"
     reasons = []
@@ -1801,9 +1899,16 @@ async def run_safety_ceiling_check(
         "This is separate from, and independent of, the normal force-heat/revert/legionella "
         "logic and its own (shorter) limits - it exists specifically to catch a case where "
         "that normal logic itself failed to stop heating in time. It never re-enables "
-        "heating and never touches the normal automation's state, so the usual automation "
-        "will simply pick up from here (already off) on its own next check.\n\n"
-        "Worth investigating why the normal logic didn't stop this itself."
+        "heating, so the usual automation will simply pick up from here (already off) on its "
+        "own next check."
+        + (
+            "\n\nA legionella cycle was in progress and timed out without reaching its "
+            "disinfection temperature - its target has been restored to normal, but it has "
+            "NOT been credited as complete and will be retried at the next due opportunity."
+            if legionella_in_progress
+            else ""
+        )
+        + "\n\nWorth investigating why the normal logic didn't stop this itself."
     )
     send_email(config, subject, body)
 
