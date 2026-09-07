@@ -205,6 +205,21 @@ hotwater_automation:
                                             # a later tick from firing once conditions (or the day's
                                             # actual usage so far) make it confident - see
                                             # get_battery_prediction_to_deadline's own docstring.
+  forced_discharge_start_hour: 22.5        # 10:30pm - the battery system enters a forced-discharge
+                                            # mode at this fixed clock time (confirmed 2026-09-07),
+                                            # after which the battery-prediction forecast above is
+                                            # meaningless (SoC is no longer driven by normal usage).
+                                            # Closes the battery-prediction path's own eligibility to
+                                            # START a new heat one full heating cycle's worth of time
+                                            # before this (see
+                                            # _battery_prediction_eligibility_end_hour) - currently
+                                            # 21:30/9:30pm, since both force_heat_max_duration_hours
+                                            # and legionella_max_cycle_duration_hours are 1h - so
+                                            # nothing this path starts is still running when forced
+                                            # discharge begins. Does NOT change
+                                            # battery_prediction_deadline_hour itself (still 11:30pm) -
+                                            # that's still a sensible forecast target, just no longer
+                                            # one new heats may be started against this close to it.
   poll_interval_seconds: 600               # hotwater_mode_daemon.py: how often to run the
                                             # force-heat check (10 min - frequent enough to catch
                                             # EV charging starting)
