@@ -428,21 +428,39 @@ unchanged by this plan.
      wasted. §9 already accepted this as a known cost with a possible future
      refinement; noting the actual duration here so it isn't a surprise in
      the logs.
-5. Build `scripts/hvac_mode_daemon.py` on `TwoTierPollingDaemon`, and
-   `scripts/hvac_away_mode.py` mirroring `holiday_mode.py`. Reads room
-   temperature via the already-live `fetch_resideo_status()` — no
-   thermostat work left to do at this step.
+5. ~~Build `scripts/hvac_mode_daemon.py` on `TwoTierPollingDaemon`, and
+   `scripts/hvac_away_mode.py` mirroring `holiday_mode.py`~~ — **DONE
+   2026-09-07.** `hvac_automation_core.py` (schedule loading, the
+   read-decide-apply-persist cycle, and §8.7's per-unit mode-change
+   retry/revert), `hvac_mode_daemon.py` (three checks: `thermostat_poll`,
+   `hvac_target_update`, `hvac_time_sync`), `hvac_away_mode.py` (plain
+   `--start/--cancel/--status`, no `--start-days` — the spec gives Away mode
+   no expiry). `hvac_automation:` config section, schema, and
+   `home_automation_hvac.service` added; unit-tested throughout with mocked
+   `airstage_client`/`resideo_client` calls — not yet run against real
+   hardware (see step 6).
 6. Wire `hvac_automation.enabled: true` and exercise end-to-end against the
    real Airstage units. The T6R read path is already live (§3), so this is
    the first point the *full* loop — schedule, mode cycling, temperature
    adjustment, Away, and the room-temperature input — runs for real; it's
-   not gated on any further thermostat work.
-7. Extend `status_collector.py`/`dashboard_server.py` with the automation
-   status card.
-8. Decide the fate of `heating_automation`: once step 2 is ported and
-   verified in `home_automation`, either delete it or leave it as an inert
-   reference for `EvohomeClient` (its own CLAUDE.md/tests keep working
-   standalone either way — nothing here depends on it continuing to exist).
+   not gated on any further thermostat work. **Not started** - nothing built
+   in step 5 has touched real hardware yet.
+7. ~~Extend `status_collector.py`/`dashboard_server.py` with the automation
+   status card~~ — **DONE 2026-09-07.** Deliberately extended the *existing*
+   per-zone Airstage cards (`_attach_hvac_automation_summary` in
+   `status_collector.py`, rendered in `airstageZoneCard`) rather than adding
+   a separate card - mode/temperature are properties of those same zones.
+   Master zone's card gets schedule target + automation setpoint rows and an
+   Active/Away-mode badge; mirror zone gets just the badge.
+8. ~~Decide the fate of `heating_automation`~~ — **DONE 2026-09-07: deleted.**
+   Both copies (`~/heating_automation` on this Mac and on HomePI4) removed
+   entirely, including their `.git` history — confirmed first that both were
+   clean and fully pushed to `git@github.com:IainBate/heating-automation.git`
+   (recoverable from there if ever needed), that nothing on either machine
+   (cron, systemd, shell profile) referenced the folder, and that the
+   HomeKit pairing credentials it once used for T6R setup
+   (`~/.local/share/aiohomekit/pairing.json`) live independently of it and
+   were unaffected.
 
 Each step above is independently testable and independently useful. Step 1
 is deliberately first: it's the cheapest possible way to retire the one open
