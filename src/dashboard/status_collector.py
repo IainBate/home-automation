@@ -330,6 +330,8 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
             "force_heat_activated_at": automation_state.get("force_heat_activated_at"),
             "legionella_cycle_in_progress": bool(legionella_state.get("cycle_in_progress")),
             "legionella_last_completed_at": legionella_state.get("last_completed_at"),
+            "legionella_days_since_last": legionella_days_since_last,
+            "legionella_days_until_due": legionella_days_until_due,
             "automation_holiday_active": (
                 automation_holiday_until is not None
                 and datetime.now(tz=UTC) < automation_holiday_until
