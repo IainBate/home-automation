@@ -298,7 +298,9 @@ def test_legionella_duration_timeout_cleans_up_without_crediting(tmp_path):
 
     final_state = json.loads(state_bytes)
     assert final_state["legionella"]["cycle_in_progress"] is False
-    assert "last_completed_at" not in final_state["legionella"]
+    # Matches run_legionella_progress_check's own timed_out branch: the key
+    # is always present, just left falsy rather than credited.
+    assert not final_state["legionella"].get("last_completed_at")
 
 
 def test_temperature_violation_without_a_legionella_cycle_is_unaffected(tmp_path):
