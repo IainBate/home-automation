@@ -210,18 +210,18 @@ def normalise_schedule(periods: list[SchedulePeriod]) -> list[SchedulePeriod]:
 
     Examples:
         >>> # Rule 1 (first period forced to midnight) and rule 2 (gap closed):
-        >>> periods = [SchedulePeriod(120, 360, 18.0), SchedulePeriod(480, 600, 19.0)]
+        >>> periods = [SchedulePeriod(120, 360, 18.0, 20.0), SchedulePeriod(480, 600, 17.0, 19.0)]
         >>> [(p.start_minute, p.end_minute) for p in normalise_schedule(periods)]
         [(0, 360), (360, 600)]
 
         >>> # Rule 3 (overlap) and rule 4 (fully-swallowed period deleted):
         >>> periods = [
-        ...     SchedulePeriod(0, 600, 18.0),
-        ...     SchedulePeriod(480, 540, 19.0),
-        ...     SchedulePeriod(540, 720, 20.0),
+        ...     SchedulePeriod(0, 600, 18.0, 20.0),
+        ...     SchedulePeriod(480, 540, 17.0, 19.0),
+        ...     SchedulePeriod(540, 720, 16.0, 18.0),
         ... ]
-        >>> [(p.start_minute, p.end_minute, p.house_target_c) for p in normalise_schedule(periods)]
-        [(0, 600, 18.0), (600, 720, 20.0)]
+        >>> [(p.start_minute, p.end_minute, p.heat_target_c) for p in normalise_schedule(periods)]
+        [(0, 600, 18.0), (600, 720, 16.0)]
 
     """
     normalised: list[SchedulePeriod] = []
