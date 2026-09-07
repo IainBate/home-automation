@@ -73,6 +73,29 @@ def get_hotwater_automation_state_path() -> str:
     return get_config_path("hotwater_automation_state.json")
 
 
+def get_hvac_automation_state_path() -> str:
+    """Get absolute path to the HVAC automation state file.
+
+    Tracks scripts/hvac_mode_daemon.py's persisted control-loop state
+    (hvac_target_c, dwell timers, last mode/target change times, away mode)
+    across restarts - see src/core_logic/hvac_decision_logic.py's HvacState.
+    Entirely separate from hotwater_automation_state.json (different file,
+    different lock) even though both live under config/ - no shared state,
+    no collision.
+    """
+    return get_config_path("hvac_automation_state.json")
+
+
+def get_schedule_path() -> str:
+    """Get absolute path to schedule.yaml, the HVAC house-target schedule.
+
+    Lives at the project root next to config.yaml (a human-edited definition
+    file, not a runtime state/cache file - see
+    src/core_logic/hvac_schedule_logic.py's module docstring for its shape).
+    """
+    return str(Path(get_project_root()) / "schedule.yaml")
+
+
 def get_data_dir() -> str:
     """Get absolute path to the data directory."""
     return str(Path(get_project_root()) / "data")
