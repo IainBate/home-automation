@@ -68,16 +68,21 @@ class SchedulePeriod:
         start_minute: Start of the period, minutes since midnight (inclusive).
         end_minute: End of the period, minutes since midnight (exclusive).
             1440 represents 24:00 - see the module docstring.
-        house_target_c: The house target temperature during this period. This
-            is the temperature the automation tries to bring the *room* to
-            (as read from the T6R), not a value written to any device
-            directly - see hvac_decision_logic.py.
+        heat_target_c: The comfort target while the automation is in heat
+            mode during this period - the temperature it tries to bring the
+            *room* to (as read from the T6R), not a value written to any
+            device directly. See the module docstring for why this differs
+            from cool_target_c.
+        cool_target_c: The comfort target while in cool or dry mode (they
+            share one target - see the module docstring). Always strictly
+            greater than heat_target_c - see parse_periods().
 
     """
 
     start_minute: int
     end_minute: int
-    house_target_c: float
+    heat_target_c: float
+    cool_target_c: float
 
 
 def parse_hhmm(text: str) -> int:
