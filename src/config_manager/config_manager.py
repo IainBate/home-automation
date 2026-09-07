@@ -350,6 +350,15 @@ CONFIG_SCHEMA = {
                     "minimum": 0,
                     "maximum": 23.99,
                 },
+                # Optional - see _battery_prediction_eligibility_end_hour's
+                # docstring. Omit entirely for a system with no forced-
+                # discharge behavior (the battery-prediction window then
+                # simply runs to battery_prediction_deadline_hour, as before).
+                "forced_discharge_start_hour": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 23.99,
+                },
                 "battery_prediction_min_sample_days": {
                     "type": "integer",
                     "minimum": 1,
