@@ -243,7 +243,7 @@ def active_period_for(
     None means the schedule genuinely says nothing about this time of day (its
     last period ends before midnight - see normalise_schedule). Callers must
     treat that as "no scheduled target, make no change" rather than
-    substituting a default: silently inventing a house target for an
+    substituting a default: silently inventing a comfort target for an
     unscheduled part of the day would have the automation heating or cooling
     to a number the user never actually chose.
 
@@ -255,15 +255,15 @@ def active_period_for(
     Examples:
         >>> from datetime import time
         >>> periods = normalise_schedule(
-        ...     [SchedulePeriod(0, 360, 18.0), SchedulePeriod(360, 1440, 21.0)]
+        ...     [SchedulePeriod(0, 360, 18.0, 20.0), SchedulePeriod(360, 1440, 16.0, 22.0)]
         ... )
-        >>> active_period_for(periods, time(3, 0)).house_target_c
+        >>> active_period_for(periods, time(3, 0)).heat_target_c
         18.0
-        >>> active_period_for(periods, time(7, 0)).house_target_c
-        21.0
+        >>> active_period_for(periods, time(7, 0)).heat_target_c
+        16.0
 
         >>> # A schedule that stops before midnight leaves the rest uncovered:
-        >>> partial = normalise_schedule([SchedulePeriod(0, 360, 18.0)])
+        >>> partial = normalise_schedule([SchedulePeriod(0, 360, 18.0, 20.0)])
         >>> active_period_for(partial, time(9, 0)) is None
         True
 
