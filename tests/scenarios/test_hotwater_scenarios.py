@@ -313,22 +313,30 @@ async def test_completed_force_heat_does_not_immediately_retrigger(hotwater_env)
     snapshot taken hours earlier - nothing had told it the tank had since
     been heated. _refresh_daily_snapshot_if_warm (called from
     run_revert_check on a successful revert) is what's under test here.
+
+    Deliberately in the off-peak window (not just "after trigger_hour" -
+    see AFTER_TRIGGER) so every decision in this test goes through the
+    daily-snapshot path via grid_is_cheap, not a live reading via
+    battery_prediction_trigger_active (also active in this fixture's
+    18:00-23:30 default prediction window) - a live-reading trigger would
+    make the retry-check pass for the wrong reason (the tank happening to
+    read warm live too) rather than proving the snapshot was corrected.
     """
     env = hotwater_env
     melcloud = FakeMelCloudServer(tank_temperature=38.0, target_tank_temperature=45.0)
     ohme = FakeOhmeServer(power_watts=0.0)  # car not charging - normal evening/battery path
     env["seed_recent_legionella_cycle"]()
+    off_peak = datetime(2026, 9, 3, 23, 45, tzinfo=UTC)
 
-    # Cold tank triggers a normal force-heat (battery SoC has surplus - see
-    # test_stored_solar_triggers_heating_after_the_trigger_hour). This is also
+    # Cold tank triggers a normal force-heat via grid_is_cheap. This is also
     # what takes the daily_check_hour (18:00) snapshot for the first time
     # today, at 38.0C - below the 45.0C threshold.
-    await _force_heat(env, melcloud, ohme, at=AFTER_TRIGGER)
+    await _force_heat(env, melcloud, ohme, at=off_peak)
     assert melcloud.state["ForcedHotWaterMode"] is True
 
     # Tank reaches target - reverts normally, exactly as designed.
     melcloud.state["TankWaterTemperature"] = 45.5
-    await _revert(env, melcloud, at=AFTER_TRIGGER + timedelta(minutes=10))
+    await _revert(env, melcloud, at=off_peak + timedelta(minutes=10))
     assert melcloud.state["ForcedHotWaterMode"] is False
     assert "force_heat_activated_at" not in core.read_state()
 
@@ -336,7 +344,7 @@ async def test_completed_force_heat_does_not_immediately_retrigger(hotwater_env)
     # the daily snapshot otherwise unchanged since 18:00 - this must NOT
     # re-trigger. Before the fix, run_force_heat_check decided from the
     # frozen 38.0C snapshot every time and force-heated again here.
-    await _force_heat(env, melcloud, ohme, at=AFTER_TRIGGER + timedelta(minutes=20))
+    await _force_heat(env, melcloud, ohme, at=off_peak + timedelta(minutes=20))
     assert melcloud.state["ForcedHotWaterMode"] is False
     assert "force_heat_activated_at" not in core.read_state()
 
