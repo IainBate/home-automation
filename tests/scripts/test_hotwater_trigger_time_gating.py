@@ -105,10 +105,16 @@ def _run(
     }
     config = {"location": {"default_timezone_str": "UTC"}}
 
-    offpeak_start = "23:30" if not grid_is_cheap else "00:00"
-    offpeak_end = "05:30" if not grid_is_cheap else "23:59"
+    # offpeak_end deliberately always stays at the real default (05:30), not
+    # widened to force grid_is_cheap=True for an arbitrary hour -
+    # _daily_check_lookup_date_str's own yesterday/today boundary is
+    # anchored to it, and widening it would make same-day snapshot lookups
+    # incorrectly look for "yesterday" at these tests' own afternoon/evening
+    # hours. offpeak_start moved earlier instead, which still covers every
+    # hour these tests use without disturbing that boundary.
+    offpeak_start = "23:30" if not grid_is_cheap else "12:00"
     hw_config["offpeak_start"] = offpeak_start
-    hw_config["offpeak_end"] = offpeak_end
+    hw_config["offpeak_end"] = "05:30"
 
     with (
         mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)),
