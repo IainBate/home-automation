@@ -687,9 +687,34 @@ async def _run_force_heat_check_locked(
         # test_snapshot_is_only_taken_once_per_day_and_the_pinned_reading_
         # still_drives_the_decision - the daily pin is deliberately immune to
         # incidental live readings from an unrelated source, e.g. solar).
+        #
+        # Also gated on the marker being older than MODE_CHANGE_GRACE_SECONDS
+        # (regression found 2026-09-07: a freshly-activated force-heat - this
+        # tick's own live status read landing inside MELCloud's normal
+        # request-then-verify propagation delay, up to mode_change_retry's
+        # own worst case of ~60s - still legitimately reads as "not yet
+        # FORCE_HOT_WATER" for a few seconds after activation. Without this
+        # grace period, that ordinary delay looked identical to a genuinely
+        # dangling marker and got cleaned up here, which then made
+        # run_safety_ceiling_check's own "can't tell how long this has been
+        # running" fail-safe treat the resulting missing timestamp as a
+        # duration violation and revert a heating window that had only just
+        # legitimately started - the exact "two safety mechanisms fighting
+        # each other" failure mode this whole design is supposed to avoid).
+        # A malformed (unparseable) timestamp is left alone here too - that's
+        # run_revert_check's own error-recovery path to handle, not this one.
+        force_heat_activated_at_str = state.get("force_heat_activated_at")
+        activated_at_age_seconds: float | None = None
+        if force_heat_activated_at_str:
+            with contextlib.suppress(ValueError):
+                activated_at_age_seconds = (
+                    datetime.now(tz=UTC) - datetime.fromisoformat(force_heat_activated_at_str)
+                ).total_seconds()
+
         if (
             status["operation_mode"] != HotWaterOperationMode.FORCE_HOT_WATER
-            and state.get("force_heat_activated_at")
+            and activated_at_age_seconds is not None
+            and activated_at_age_seconds >= MODE_CHANGE_GRACE_SECONDS
         ):
             state.pop("force_heat_activated_at", None)
             _refresh_daily_snapshot_if_warm(hw_config, state, tank_temperature, now_local)
