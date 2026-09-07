@@ -245,6 +245,18 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
                 "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
             ),
         )
+        # Independent safety backstop (run_safety_ceiling_check) - deliberately
+        # on the frequent force_heat cadence, not the slower revert cadence:
+        # this is the check that exists specifically to catch the normal
+        # revert/legionella-progress logic itself failing to stop heating in
+        # time, so it shouldn't share their own polling interval.
+        self.register_check(
+            "safety_ceiling",
+            lambda: self._run_safety_ceiling_cycle(self._hw_config()),
+            lambda: self._hw_config().get(
+                "poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS
+            ),
+        )
 
     def run(self) -> None:
         """Register the hot water checks, then run the shared two-tier polling loop."""
