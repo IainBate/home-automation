@@ -576,6 +576,35 @@ def get_hotwater_melcloud_config_error(config_data: dict[str, Any]) -> str | Non
     return None
 
 
+def get_hvac_automation_config_error(config_data: dict[str, Any]) -> str | None:
+    """Return an error message if hvac_automation can't actually run, else None.
+
+    Mirrors get_hotwater_melcloud_config_error()'s shape and role: pure
+    condition check, no opinion on enforcement. hvac_automation depends on
+    BOTH airstage (the units it writes to) and resideo (the room-temperature
+    input it reads) - either being disabled or misconfigured means the whole
+    control loop has nothing to act on. Used as a hard startup gate by
+    scripts/hvac_automation_core.py's own get_hvac_automation_config_error()
+    (once hvac_automation.enabled is already known true) and as a warning by
+    validate_business_rules() below.
+    """
+    airstage_config = config_data.get("airstage", {})
+    if not airstage_config.get("enabled", False):
+        return (
+            "hvac_automation.enabled is true but airstage.enabled is false - "
+            "hvac automation requires the Airstage units to be enabled and configured"
+        )
+    if not airstage_config.get("zones"):
+        return "hvac_automation.enabled is true but airstage.zones is empty"
+    resideo_config = config_data.get("resideo", {})
+    if not resideo_config.get("enabled", False):
+        return (
+            "hvac_automation.enabled is true but resideo.enabled is false - "
+            "hvac automation requires the T6R (resideo) to be enabled and paired"
+        )
+    return None
+
+
 def validate_business_rules(  # pylint: disable=too-many-locals
     config_data: dict[str, Any],
 ) -> list[str]:
