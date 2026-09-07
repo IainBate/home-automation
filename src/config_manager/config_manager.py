@@ -324,11 +324,15 @@ CONFIG_SCHEMA = {
                 # run_safety_ceiling_check's own independent last-resort limits
                 # - deliberately separate from force_heat_max_duration_hours/
                 # legionella_max_cycle_duration_hours/legionella_target_temp_c
-                # above. The minimums here are set so this can never be
-                # configured at or below the primary logic's own limits
-                # (legionella_target_temp_c tops out at 55; the two duration
-                # limits above top out at 1h) - this is meant to sit above all
-                # of them as a backstop, not duplicate or undercut them.
+                # above, not a reuse of them. safety_ceiling_temp_c's minimum
+                # (55) is the household's actual absolute limit, not just a
+                # margin above legionella_target_temp_c - they're allowed to
+                # be equal (confirmed 2026-09-07, see run_safety_ceiling_
+                # check's own docstring for why that doesn't turn every
+                # routine legionella completion into a false alarm).
+                # safety_max_duration_hours's minimum still sits strictly
+                # above the two duration limits above (both 1h) - that one
+                # IS meant purely as a backstop above them.
                 "safety_ceiling_temp_c": {"type": "number", "minimum": 55, "maximum": 70},
                 "safety_max_duration_hours": {
                     "type": "number",
