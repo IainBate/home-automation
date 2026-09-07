@@ -656,6 +656,7 @@ async def _run_force_heat_check_locked(
         now_local = datetime.now(tz=UTC).astimezone(pytz.timezone(tz_name))
 
         _update_daily_threshold_snapshot(hw_config, state, tank_temperature, now_local)
+        _refresh_daily_snapshot_if_warm(hw_config, state, tank_temperature, now_local)
 
         # "Evening" spans from trigger_hour through midnight to offpeak_end.
         # Deliberately NOT is_in_offpeak_window() here: that function infers
