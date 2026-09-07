@@ -61,8 +61,9 @@ by hvac_schedule_logic.parse_periods), rule 2 creates a genuine deadband: a
 room between the two targets is "fine" by whichever mode is currently
 running and never triggers escalation in either direction purely from being
 in that band - only a *sustained* excursion past the *other* family's own
-target does. See docs/hvac_thermostat_automation_plan.md's note on this
-decision for the full reasoning against continual mode switching (the
+target does. See docs/hvac_thermostat_automation_plan.md §8.9 for the full
+reasoning against continual mode switching, including the three alternative
+designs considered and rejected (the
 existing 60-minute strict-debounce dwell and the drift-cap gate below both
 still apply on top of this and were not changed).
 
