@@ -46,6 +46,7 @@ from hotwater_automation_core import (
     run_legionella_natural_completion_check,
     run_legionella_progress_check,
     run_revert_check,
+    run_safety_ceiling_check,
 )
 
 from src.config_manager.config_manager import load_static_config
