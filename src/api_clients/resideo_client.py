@@ -10,10 +10,11 @@ Resideo account, cloud, or developer-portal API key involved - the path
 this module uses, via `aiohomekit` (the same library Home Assistant's
 local "HomeKit Controller" integration uses).
 
-Pairing is a one-time manual step done outside this module (see the
-~/heating_automation project, where it was first established) - this
-module only ever reads from an already-paired accessory, using the
-credentials cached at resideo.pairing_file (default
+Pairing is a one-time manual step done outside this module (originally
+established 2026-09-04 in the now-retired ~/heating_automation project - see
+docs/hvac_thermostat_automation_plan.md for that migration) - this module
+only ever reads from an already-paired accessory, using the credentials
+cached at resideo.pairing_file (default
 ~/.local/share/aiohomekit/pairing.json on the Pi). It never writes to
 Target Temperature or Target Heating Cooling State, even though the
 paired accessory technically permits it: controlling the ASHP via the T6R
