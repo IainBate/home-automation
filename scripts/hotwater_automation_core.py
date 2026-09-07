@@ -1909,12 +1909,12 @@ async def run_legionella_natural_completion_check(
     """
     with locked_state(timeout=DEFAULT_HOTWATER_LOCK_TIMEOUT_SECONDS) as state:
         return await _run_legionella_natural_completion_check_locked(
-            hw_config, state, dry_run=dry_run, quiet=quiet
+            config, hw_config, state, dry_run=dry_run, quiet=quiet
         )
 
 
 async def _run_legionella_natural_completion_check_locked(
-    hw_config: dict[str, Any], state: dict[str, Any], *, dry_run: bool, quiet: bool
+    config: dict[str, Any], hw_config: dict[str, Any], state: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
     """Body of run_legionella_natural_completion_check() inside its locked_state() block."""
     completion_temp = hw_config.get(
