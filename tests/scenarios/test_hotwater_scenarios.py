@@ -230,15 +230,22 @@ async def test_max_duration_safety_net_ends_a_window_the_tank_never_finishes(hot
 @pytest.mark.asyncio
 async def test_stored_solar_triggers_heating_after_the_trigger_hour(hotwater_env):
     """After trigger_hour the car is ignored entirely and the decision switches
-    to battery SoC / off-peak."""
+    to the battery-prediction/off-peak paths.
+
+    A live battery SoC snapshot alone deliberately no longer triggers this
+    (removed 2026-09-07 - risked depleting the battery into peak-rate import
+    before off-peak actually opens) - only a genuine forward-looking
+    prediction (mocked here, since this scenario doesn't set up the
+    historical data the real predictor needs) or grid_is_cheap can.
+    """
     env = hotwater_env
     melcloud = FakeMelCloudServer(tank_temperature=38.0, target_tank_temperature=45.0)
     ohme = FakeOhmeServer(power_watts=0.0)  # car not charging at all
     env["seed_recent_legionella_cycle"]()
 
-    await _force_heat(env, melcloud, ohme, at=AFTER_TRIGGER)
+    with mock.patch.object(core, "get_battery_prediction_to_deadline", lambda *a, **k: (99.0, "mocked")):
+        await _force_heat(env, melcloud, ohme, at=AFTER_TRIGGER)
 
-    # Battery SoC is 80% (fake inverter), above the 50% minimum.
     assert melcloud.state["ForcedHotWaterMode"] is True
 
 
