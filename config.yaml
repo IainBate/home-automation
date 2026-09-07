@@ -248,6 +248,28 @@ hotwater_automation:
                                             # see), counts as satisfying the current interval -
                                             # resets legionella_interval_days from that moment.
 
+  # Independent last-resort backstop (run_safety_ceiling_check, scripts/
+  # hotwater_automation_core.py) - checked on the same poll_interval_seconds
+  # cadence as the normal force-heat check, but deliberately does not call the
+  # normal decision logic or trust its conclusions: it takes its own live
+  # tank reading and its own wall-clock duration, and can only ever cut
+  # force-heat (never re-enable it, never touch this project's own state
+  # file) if either limit below is breached. Exists specifically to catch the
+  # normal force_heat_max_duration_hours/legionella_max_cycle_duration_hours/
+  # revert logic itself failing to stop heating in time - both limits are set
+  # well above every normal operating target/limit above so this should
+  # essentially never fire in practice.
+  safety_ceiling_temp_c: 60                # Hard temperature ceiling - independent of and above
+                                            # legionella_target_temp_c (max 55 above). If the tank is
+                                            # ever read at or above this, force-heat is cut
+                                            # immediately regardless of mode or cause.
+  safety_max_duration_hours: 3             # Hard duration cap - independent of and above
+                                            # force_heat_max_duration_hours/
+                                            # legionella_max_cycle_duration_hours (both 1h above). If
+                                            # force-heat/a legionella cycle is still active this long,
+                                            # something has failed to stop it and this cuts it off
+                                            # directly.
+
   max_prediction_age_hours: 3              # How old battery_evening_prediction.json (below) may
                                             # be before the force-heat check ignores it and falls
                                             # back to a live SoC reading instead
