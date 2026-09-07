@@ -1468,6 +1468,159 @@ async def _run_revert_check_locked(
     return 1
 
 
+async def run_safety_ceiling_check(
+    config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
+) -> int:
+    """Last-resort, one-way safety backstop - independent of the normal decision path.
+
+    Deliberately does NOT call determine_hotwater_decision, does not reuse
+    run_revert_check's/run_legionella_progress_check's already-computed
+    elapsed_hours/timed_out conclusions, and takes its own fresh MELCloud tank
+    reading. The whole point is that a bug in that normal path (e.g. the
+    daily-snapshot staleness that caused a real reheat/revert loop) must not
+    also be able to fool this check - it has to arrive at "is this actually
+    too hot / has this actually been heating too long" on its own.
+
+    ONE-WAY BY CONSTRUCTION: the only action this can ever take is
+    client.set_force_hot_water(enabled=False). It never enables heating, and
+    it never writes to hotwater_automation_state.json at all - it calls
+    read_state(), never locked_state() - so it cannot clear/reset
+    force_heat_activated_at, legionella.cycle_in_progress, or anything else
+    the normal logic uses to decide when to start again. There is nothing for
+    the two to fight over: once this reverts the physical mode, the normal
+    logic's own next run_revert_check/run_legionella_progress_check tick finds
+    the tank already off (or still past its own, shorter, limit) and finishes
+    the bookkeeping normally, exactly as if it had reverted it itself.
+
+    Both limits (safety_ceiling_temp_c, safety_max_duration_hours) are
+    deliberately configured well above the normal operating targets/limits -
+    see DEFAULT_SAFETY_CEILING_TEMP_C's docstring - so in normal operation
+    this should never fire at all.
+
+    Duration source: whichever of state["legionella"]["cycle_started_at"] (if
+    a legionella cycle is in progress) or state["force_heat_activated_at"] is
+    set - the same timestamps the normal logic already writes, read fresh
+    here rather than trusting anyone else's already-computed elapsed time. A
+    missing/unparseable timestamp while the tank is actively force-heating
+    (per this function's own live MELCloud read) is treated as a duration
+    violation, not skipped - "can't tell how long this has been running" must
+    never be read as permission to leave it alone.
+
+    Returns:
+        0 on success (including "no violation found"), 1 if a violation was
+        found but the revert request couldn't be confirmed.
+
+    """
+    ceiling_temp = hw_config.get("safety_ceiling_temp_c", DEFAULT_SAFETY_CEILING_TEMP_C)
+    max_duration_hours = hw_config.get(
+        "safety_max_duration_hours", DEFAULT_SAFETY_MAX_DURATION_HOURS
+    )
+    state = read_state()
+
+    client = MelCloudClient(config_path=get_config_path())
+    try:
+        await client.connect()
+        status = await client.get_tank_status()
+        tank_temperature = status["tank_temperature"]
+
+        temp_violation = tank_temperature is not None and tank_temperature >= ceiling_temp
+
+        duration_violation = False
+        elapsed_hours: float | None = None
+        if status["operation_mode"] == HotWaterOperationMode.FORCE_HOT_WATER:
+            legionella_state = state.get("legionella", {})
+            if legionella_state.get("cycle_in_progress"):
+                started_at_str = legionella_state.get("cycle_started_at")
+            else:
+                started_at_str = state.get("force_heat_activated_at")
+
+            started_at = None
+            if started_at_str:
+                try:
+                    started_at = datetime.fromisoformat(started_at_str)
+                except ValueError:
+                    started_at = None
+
+            if started_at is None:
+                # Actively heating with no (or an unreadable) start time to
+                # measure against - can't confirm this is within limits, so
+                # fail toward reverting rather than toward permitting it.
+                duration_violation = True
+            else:
+                elapsed_hours = (datetime.now(tz=UTC) - started_at).total_seconds() / 3600.0
+                duration_violation = elapsed_hours >= max_duration_hours
+
+        if not temp_violation and not duration_violation:
+            if not quiet:
+                print(
+                    f"Safety ceiling check: {tank_temperature}C (ceiling {ceiling_temp}C) - no violation"
+                )
+            return 0
+
+        if temp_violation:
+            logger.critical(
+                "SAFETY_CEILING_TEMP: tank at %sC >= safety ceiling %sC - cutting force-heat "
+                "regardless of mode/cause (hotwater_automation.safety_ceiling_temp_c)",
+                tank_temperature,
+                ceiling_temp,
+            )
+        if duration_violation:
+            logger.critical(
+                "SAFETY_CEILING_DURATION: force-heat/legionella cycle has been active for "
+                "%s >= safety limit %sh - cutting force-heat regardless of the normal revert "
+                "logic's own conclusion (hotwater_automation.safety_max_duration_hours)",
+                f"{elapsed_hours:.1f}h" if elapsed_hours is not None else "an unknown duration",
+                max_duration_hours,
+            )
+        if not quiet:
+            print(
+                f"SAFETY CEILING VIOLATION: temp={temp_violation} ({tank_temperature}C), "
+                f"duration={duration_violation} - cutting force-heat"
+            )
+
+        if dry_run:
+            if not quiet:
+                print("(dry run - not actually cutting force-heat)")
+            return 0
+
+        success = await client.set_force_hot_water(enabled=False)
+    finally:
+        await client.close()
+
+    subject = "Hot water: SAFETY CEILING triggered - force-heat cut"
+    reasons = []
+    if temp_violation:
+        reasons.append(f"tank temperature {tank_temperature}C reached/exceeded the {ceiling_temp}C safety ceiling")
+    if duration_violation:
+        elapsed_str = f"{elapsed_hours:.1f}h" if elapsed_hours is not None else "an unrecorded duration"
+        reasons.append(
+            f"force-heat/legionella has been active for {elapsed_str}, past the "
+            f"{max_duration_hours}h safety limit"
+        )
+    body = (
+        "The independent hot water safety backstop has cut force-heat because "
+        + " and ".join(reasons)
+        + ".\n\n"
+        "This is separate from, and independent of, the normal force-heat/revert/legionella "
+        "logic and its own (shorter) limits - it exists specifically to catch a case where "
+        "that normal logic itself failed to stop heating in time. It never re-enables "
+        "heating and never touches the normal automation's state, so the usual automation "
+        "will simply pick up from here (already off) on its own next check.\n\n"
+        "Worth investigating why the normal logic didn't stop this itself."
+    )
+    send_email(config, subject, body)
+
+    if success:
+        if not quiet:
+            print("Safety ceiling: force-heat cut and confirmed")
+        return 0
+
+    logger.error("SAFETY_CEILING: failed to confirm force-heat was cut")
+    if not quiet:
+        print("Safety ceiling: failed to confirm force-heat was cut")
+    return 1
+
+
 async def run_legionella_progress_check(
     config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
