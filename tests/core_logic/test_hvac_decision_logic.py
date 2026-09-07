@@ -3,7 +3,8 @@
 Covers the spec's Phase 4 rules plus every decision recorded in the plan
 doc's §8, including the scenarios §7 calls out as required: windup, debounce,
 mode ceilings, restart mid-cycle, Away entry/exit, and the two mode-consistency
-verification conditions (§8.7).
+verification conditions (§8.7) - plus (2026-09-07) the heat_target_c/
+cool_target_c split and its directional escalation trigger/deadband.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from src.core_logic.hvac_decision_logic import (
     ModeTempLimits,
     allowed_target_range,
     determine_hvac_decision,
+    family_target_c,
     next_colder_mode,
     next_warmer_mode,
 )
@@ -30,11 +32,14 @@ LIMITS = {
 
 
 def _context(**overrides) -> HvacDecisionContext:
-    """A steady, controllable baseline: both units on in heat, schedule at 21C."""
+    """A steady, controllable baseline: both units on in heat, heat_target 21C
+    (cool_target 24C - unused by most heat-mode tests, just needs to be
+    validly above heat_target_c)."""
     defaults = {
         "now": NOW,
         "room_temperature_c": 21.0,
-        "house_target_c": 21.0,
+        "heat_target_c": 21.0,
+        "cool_target_c": 24.0,
         "playroom_mode": "heat",
         "landing_mode": "heat",
         "playroom_powered_on": True,
@@ -43,7 +48,8 @@ def _context(**overrides) -> HvacDecisionContext:
         "away_mode_active": False,
         "state": HvacState(
             hvac_target_c=21.0,
-            house_target_c=21.0,
+            heat_target_c=21.0,
+            cool_target_c=24.0,
             last_observed_mode="heat",
         ),
         "mode_temp_limits": LIMITS,
@@ -76,6 +82,12 @@ def test_drift_cap_tightens_the_mode_limits_but_never_widens_them():
     assert allowed_target_range("heat", 17.0, LIMITS, max_drift_c=3.0) == (16.0, 20.0)
 
 
+def test_family_target_c_picks_heat_for_heat_and_cool_for_everything_else():
+    assert family_target_c("heat", 18.0, 20.0) == 18.0
+    assert family_target_c("dry", 18.0, 20.0) == 20.0
+    assert family_target_c("cool", 18.0, 20.0) == 20.0
+
+
 # ---------------------------------------------------------------------------
 # §8.7 Mode consistency between units
 # ---------------------------------------------------------------------------
@@ -96,8 +108,12 @@ def test_mode_divergence_correction_does_not_wait_for_a_dwell_timer():
         _context(
             playroom_mode="dry",
             landing_mode="heat",
+            heat_target_c=18.0,
+            cool_target_c=21.0,
             room_temperature_c=21.0,
-            state=HvacState(hvac_target_c=21.0, house_target_c=21.0, last_observed_mode="dry"),
+            state=HvacState(
+                hvac_target_c=21.0, heat_target_c=18.0, cool_target_c=21.0, last_observed_mode="dry"
+            ),
         )
     )
 
@@ -167,11 +183,14 @@ def test_away_re_asserts_itself_if_the_units_have_drifted():
 
 def test_away_exit_restores_the_schedule_target_immediately_not_at_the_next_tick():
     """§8.4: leaving the house at 10C for up to an hour after someone gets home
-    is clearly not the intent."""
+    is clearly not the intent. Resumes at heat_target_c since Playroom's live
+    mode (from the state carried into this check) is heat."""
     decision = determine_hvac_decision(
         _context(
             away_mode_active=False,
-            house_target_c=21.0,
+            playroom_mode="heat",
+            heat_target_c=21.0,
+            cool_target_c=24.0,
             state=HvacState(hvac_target_c=10.0, away_active=True, last_observed_mode="heat"),
         )
     )
@@ -181,6 +200,20 @@ def test_away_exit_restores_the_schedule_target_immediately_not_at_the_next_tick
     assert decision.landing_target_c == 18.0
     assert decision.state.away_active is False
     assert decision.state.hvac_target_c == 21.0
+
+
+def test_away_exit_resumes_at_the_cool_target_when_playroom_is_in_a_cooling_mode():
+    decision = determine_hvac_decision(
+        _context(
+            away_mode_active=False,
+            playroom_mode="dry",
+            heat_target_c=18.0,
+            cool_target_c=20.0,
+            state=HvacState(hvac_target_c=10.0, away_active=True, last_observed_mode="dry"),
+        )
+    )
+
+    assert decision.playroom_target_c == 20.0  # cool_target_c, not heat_target_c
 
 
 def test_away_exit_never_powers_units_off():
@@ -211,7 +244,7 @@ def test_powered_off_master_unit_is_left_alone():
 
 
 def test_unscheduled_time_of_day_makes_no_changes():
-    decision = determine_hvac_decision(_context(house_target_c=None))
+    decision = determine_hvac_decision(_context(heat_target_c=None, cool_target_c=None))
 
     assert decision.playroom_target_c is None
     assert "does not cover" in decision.reason
@@ -229,7 +262,9 @@ def test_a_mode_outside_the_cycle_is_left_to_a_human():
         _context(
             playroom_mode="fan",
             landing_mode="fan",
-            state=HvacState(hvac_target_c=21.0, house_target_c=21.0, last_observed_mode="fan"),
+            state=HvacState(
+                hvac_target_c=21.0, heat_target_c=21.0, cool_target_c=24.0, last_observed_mode="fan"
+            ),
         )
     )
 
@@ -245,8 +280,11 @@ def test_a_mode_outside_the_cycle_is_left_to_a_human():
 def test_new_schedule_period_propagates_its_target_to_the_units():
     decision = determine_hvac_decision(
         _context(
-            house_target_c=19.0,
-            state=HvacState(hvac_target_c=21.0, house_target_c=21.0, last_observed_mode="heat"),
+            heat_target_c=19.0,
+            cool_target_c=22.0,
+            state=HvacState(
+                hvac_target_c=21.0, heat_target_c=21.0, cool_target_c=24.0, last_observed_mode="heat"
+            ),
         )
     )
 
@@ -267,9 +305,12 @@ def test_first_ever_run_seeds_the_setpoint_from_the_schedule():
 def test_landing_holds_its_fixed_target_regardless_of_playrooms():
     decision = determine_hvac_decision(
         _context(
-            house_target_c=24.0,
+            heat_target_c=24.0,
+            cool_target_c=27.0,
             mirror_zone_fixed_target_c=18.0,
-            state=HvacState(hvac_target_c=21.0, house_target_c=21.0, last_observed_mode="heat"),
+            state=HvacState(
+                hvac_target_c=21.0, heat_target_c=21.0, cool_target_c=24.0, last_observed_mode="heat"
+            ),
         )
     )
 
@@ -288,8 +329,9 @@ def test_setpoint_rises_after_thirty_minutes_below_target():
             room_temperature_c=20.0,
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=30),
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(minutes=30),
                 last_observed_mode="heat",
             ),
         )
@@ -305,8 +347,9 @@ def test_setpoint_falls_after_thirty_minutes_above_target():
             room_temperature_c=22.0,
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                above_target_since=NOW - timedelta(minutes=30),
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                above_heat_target_since=NOW - timedelta(minutes=30),
                 last_observed_mode="heat",
             ),
         )
@@ -321,8 +364,9 @@ def test_setpoint_does_not_move_before_the_dwell_completes():
             room_temperature_c=20.0,
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=29),
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(minutes=29),
                 last_observed_mode="heat",
             ),
         )
@@ -339,14 +383,15 @@ def test_strict_debounce_a_single_contrary_sample_resets_the_dwell_clock():
             room_temperature_c=21.5,  # crossed back above target
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=55),
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(minutes=55),
                 last_observed_mode="heat",
             ),
         )
     )
 
-    assert decision.state.below_target_since is None
+    assert decision.state.below_heat_target_since is None
     assert decision.playroom_target_c is None
 
 
@@ -356,16 +401,17 @@ def test_room_exactly_at_target_clears_both_dwell_timers():
             room_temperature_c=21.0,
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=55),
-                above_target_since=None,
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(minutes=55),
+                above_heat_target_since=None,
                 last_observed_mode="heat",
             ),
         )
     )
 
-    assert decision.state.below_target_since is None
-    assert decision.state.above_target_since is None
+    assert decision.state.below_heat_target_since is None
+    assert decision.state.above_heat_target_since is None
 
 
 # ---------------------------------------------------------------------------
@@ -380,12 +426,14 @@ def test_setpoint_stops_at_the_drift_cap_on_a_weather_limited_day():
     decision = determine_hvac_decision(
         _context(
             room_temperature_c=15.0,
-            house_target_c=21.0,
+            heat_target_c=21.0,
+            cool_target_c=24.0,
             max_drift_c=3.0,
             state=HvacState(
-                hvac_target_c=24.0,  # already at house_target + max_drift
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(hours=6),
+                hvac_target_c=24.0,  # already at heat_target + max_drift
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(hours=6),
                 last_observed_mode="heat",
             ),
         )
@@ -400,12 +448,14 @@ def test_setpoint_is_clamped_to_the_cap_rather_than_overshooting_it():
     decision = determine_hvac_decision(
         _context(
             room_temperature_c=15.0,
-            house_target_c=21.0,
+            heat_target_c=21.0,
+            cool_target_c=24.0,
             max_drift_c=3.0,
             state=HvacState(
                 hvac_target_c=23.8,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=30),
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(minutes=30),
                 last_observed_mode="heat",
             ),
         )
@@ -420,12 +470,14 @@ def test_cooling_direction_is_capped_symmetrically():
             playroom_mode="cool",
             landing_mode="cool",
             room_temperature_c=30.0,
-            house_target_c=21.0,
+            heat_target_c=18.0,
+            cool_target_c=21.0,
             max_drift_c=3.0,
             state=HvacState(
-                hvac_target_c=18.0,  # house_target - drift, and also cool's own floor
-                house_target_c=21.0,
-                above_target_since=NOW - timedelta(hours=6),
+                hvac_target_c=18.0,  # cool_target - drift, and also cool's own floor
+                heat_target_c=18.0,
+                cool_target_c=21.0,
+                above_cool_target_since=NOW - timedelta(hours=6),
                 last_observed_mode="cool",
             ),
         )
@@ -436,7 +488,8 @@ def test_cooling_direction_is_capped_symmetrically():
 
 
 # ---------------------------------------------------------------------------
-# Mode escalation - §8.1's symmetric gate, and the ceilings/floors
+# Mode escalation - §8.1's symmetric gate, the ceilings/floors, and the
+# directional destination-target trigger that creates the deadband
 # ---------------------------------------------------------------------------
 
 
@@ -449,11 +502,40 @@ def test_warming_escalation_requires_the_setpoint_to_be_maxed_first():
             playroom_mode="dry",
             landing_mode="dry",
             room_temperature_c=18.0,
-            house_target_c=21.0,
+            heat_target_c=19.0,
+            cool_target_c=22.0,
             state=HvacState(
-                hvac_target_c=21.0,  # nowhere near the 24.0 cap
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=90),
+                hvac_target_c=21.0,  # nowhere near dry's cap (22 + 3 = 25)
+                heat_target_c=19.0,
+                cool_target_c=22.0,
+                below_heat_target_since=NOW - timedelta(minutes=90),
+                last_observed_mode="dry",
+            ),
+        )
+    )
+
+    assert decision.target_mode is None
+
+
+def test_warming_escalation_uses_heats_own_target_not_dry_or_cools():
+    """The directional trigger: escalating dry -> heat is gated on the room
+    being below heat_target_c specifically, not merely below cool_target_c
+    (dry's own family) - this is what creates the deadband against continual
+    switching. Room here is below cool_target_c (22) but NOT below
+    heat_target_c (19), so escalation must not even be considered, regardless
+    of dwell duration or the drift cap."""
+    decision = determine_hvac_decision(
+        _context(
+            playroom_mode="dry",
+            landing_mode="dry",
+            room_temperature_c=20.0,  # below cool_target_c(22), above heat_target_c(19)
+            heat_target_c=19.0,
+            cool_target_c=22.0,
+            state=HvacState(
+                hvac_target_c=25.0,  # dry's cap (22 + 3) - gate alone would pass
+                heat_target_c=19.0,
+                cool_target_c=22.0,
+                below_cool_target_since=NOW - timedelta(minutes=90),
                 last_observed_mode="dry",
             ),
         )
@@ -468,11 +550,13 @@ def test_warming_escalation_fires_once_the_setpoint_is_capped():
             playroom_mode="dry",
             landing_mode="dry",
             room_temperature_c=18.0,
-            house_target_c=21.0,
+            heat_target_c=19.0,
+            cool_target_c=22.0,
             state=HvacState(
-                hvac_target_c=24.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=90),
+                hvac_target_c=25.0,  # dry's cap: cool_target(22) + drift(3)
+                heat_target_c=19.0,
+                cool_target_c=22.0,
+                below_heat_target_since=NOW - timedelta(minutes=90),
                 last_observed_mode="dry",
             ),
         )
@@ -487,17 +571,44 @@ def test_cooling_escalation_fires_when_the_setpoint_is_at_its_floor():
             playroom_mode="heat",
             landing_mode="heat",
             room_temperature_c=25.0,
-            house_target_c=21.0,
+            heat_target_c=21.0,
+            cool_target_c=23.0,
             state=HvacState(
-                hvac_target_c=18.0,
-                house_target_c=21.0,
-                above_target_since=NOW - timedelta(minutes=90),
+                hvac_target_c=18.0,  # heat's own floor: heat_target(21) - drift(3)
+                heat_target_c=21.0,
+                cool_target_c=23.0,
+                above_cool_target_since=NOW - timedelta(minutes=90),
                 last_observed_mode="heat",
             ),
         )
     )
 
     assert decision.target_mode == "dry"
+
+
+def test_cooling_escalation_uses_dry_or_cools_own_target_not_heats():
+    """Symmetric to the warming-direction test above: de-escalating heat ->
+    dry is gated on the room being above cool_target_c (dry's own family),
+    not merely above heat_target_c. Room here is above heat_target_c (21)
+    but NOT above cool_target_c (23)."""
+    decision = determine_hvac_decision(
+        _context(
+            playroom_mode="heat",
+            landing_mode="heat",
+            room_temperature_c=22.0,  # above heat_target_c(21), below cool_target_c(23)
+            heat_target_c=21.0,
+            cool_target_c=23.0,
+            state=HvacState(
+                hvac_target_c=18.0,  # heat's own floor - gate alone would pass
+                heat_target_c=21.0,
+                cool_target_c=23.0,
+                above_heat_target_since=NOW - timedelta(minutes=90),
+                last_observed_mode="heat",
+            ),
+        )
+    )
+
+    assert decision.target_mode is None
 
 
 def test_never_escalates_past_heat_at_the_warm_ceiling():
@@ -507,11 +618,13 @@ def test_never_escalates_past_heat_at_the_warm_ceiling():
             playroom_mode="heat",
             landing_mode="heat",
             room_temperature_c=15.0,
-            house_target_c=21.0,
+            heat_target_c=21.0,
+            cool_target_c=25.0,
             state=HvacState(
                 hvac_target_c=24.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(hours=6),
+                heat_target_c=21.0,
+                cool_target_c=25.0,
+                below_heat_target_since=NOW - timedelta(hours=6),
                 last_observed_mode="heat",
             ),
         )
@@ -527,11 +640,13 @@ def test_never_escalates_past_cool_at_the_cold_floor():
             playroom_mode="cool",
             landing_mode="cool",
             room_temperature_c=30.0,
-            house_target_c=21.0,
+            heat_target_c=15.0,
+            cool_target_c=21.0,
             state=HvacState(
                 hvac_target_c=18.0,
-                house_target_c=21.0,
-                above_target_since=NOW - timedelta(hours=6),
+                heat_target_c=15.0,
+                cool_target_c=21.0,
+                above_cool_target_since=NOW - timedelta(hours=6),
                 last_observed_mode="cool",
             ),
         )
@@ -540,36 +655,34 @@ def test_never_escalates_past_cool_at_the_cold_floor():
     assert decision.target_mode is None
 
 
-def test_heat_to_cooler_mode_resets_the_target_to_eighteen():
-    """Spec: "except when moving from heat to dry/cool - set target to 18C"."""
+def test_heat_to_cooler_mode_resets_the_target_to_the_new_familys_own_target():
+    """Spec: "except when moving from heat to dry/cool - set target to 18C" -
+    generalised to whichever cool_target_c the period configures, which need
+    not be 18 any more. Chosen deliberately not-18 here to prove that."""
     decision = determine_hvac_decision(
         _context(
             playroom_mode="heat",
             landing_mode="heat",
             room_temperature_c=26.0,
-            house_target_c=21.0,
+            heat_target_c=21.0,
+            cool_target_c=23.0,
             state=HvacState(
                 hvac_target_c=18.0,
-                house_target_c=21.0,
-                above_target_since=NOW - timedelta(minutes=90),
+                heat_target_c=21.0,
+                cool_target_c=23.0,
+                above_cool_target_since=NOW - timedelta(minutes=90),
                 last_observed_mode="heat",
             ),
         )
     )
 
     assert decision.target_mode == "dry"
-    assert decision.playroom_target_c == 18.0
+    assert decision.playroom_target_c == 23.0  # cool_target_c, not a hardcoded 18
 
 
-def test_mode_change_raises_a_target_below_the_new_modes_minimum():
-    """Spec Phase 1: "On a mode change, if the current target is below the new
-    mode's minimum, raise it to that minimum immediately."
-
-    With the spec's default limits this rule is unreachable (heat -> dry/cool is
-    already forced to 18C by its own rule, and cool -> dry share a floor), so
-    this uses custom limits - mode_temp_limits is configurable per plan doc §5,
-    and the rule has to hold for whatever the user configures.
-    """
+def test_mode_change_retains_the_setpoint_within_the_same_family():
+    """cool <-> dry share cool_target_c - a mode tick between them must not
+    lose a drift-adjusted setpoint just because mode ticked over."""
     limits = {
         "heat": ModeTempLimits(16.0, 30.0),
         "dry": ModeTempLimits(22.0, 30.0),  # deliberately above cool's floor
@@ -580,13 +693,15 @@ def test_mode_change_raises_a_target_below_the_new_modes_minimum():
             playroom_mode="cool",
             landing_mode="cool",
             room_temperature_c=15.0,
-            house_target_c=19.0,
+            heat_target_c=16.0,
+            cool_target_c=19.0,
             max_drift_c=3.0,
             mode_temp_limits=limits,
             state=HvacState(
                 hvac_target_c=22.0,  # at cool's ceiling (19 + 3), so escalation fires
-                house_target_c=19.0,
-                below_target_since=NOW - timedelta(minutes=90),
+                heat_target_c=16.0,
+                cool_target_c=19.0,
+                below_cool_target_since=NOW - timedelta(minutes=90),
                 last_observed_mode="cool",
             ),
         )
@@ -609,13 +724,15 @@ def test_mode_change_lifts_a_retained_target_up_to_the_new_modes_floor():
             playroom_mode="cool",
             landing_mode="cool",
             room_temperature_c=15.0,
-            house_target_c=19.0,
+            heat_target_c=16.0,
+            cool_target_c=19.0,
             max_drift_c=3.0,
             mode_temp_limits=limits,
             state=HvacState(
                 hvac_target_c=22.0,
-                house_target_c=19.0,
-                below_target_since=NOW - timedelta(minutes=90),
+                heat_target_c=16.0,
+                cool_target_c=19.0,
+                below_cool_target_since=NOW - timedelta(minutes=90),
                 last_observed_mode="cool",
             ),
         )
@@ -637,8 +754,9 @@ def test_temperature_adjustment_is_suppressed_for_thirty_minutes_after_a_mode_ch
             room_temperature_c=20.0,
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=45),
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(minutes=45),
                 last_mode_change_at=NOW - timedelta(minutes=10),
                 last_observed_mode="heat",
             ),
@@ -655,8 +773,9 @@ def test_suppression_expires_after_the_full_thirty_minutes():
             room_temperature_c=20.0,
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=45),
+                heat_target_c=21.0,
+                cool_target_c=24.0,
+                below_heat_target_since=NOW - timedelta(minutes=45),
                 last_mode_change_at=NOW - timedelta(minutes=30),
                 last_observed_mode="heat",
             ),
@@ -667,18 +786,21 @@ def test_suppression_expires_after_the_full_thirty_minutes():
 
 
 def test_a_target_change_resets_the_sixty_minute_mode_timer():
-    """The room has been below target for 90 min, which alone would escalate the
-    mode - but the setpoint moved 10 minutes ago, so the mode clock restarted."""
+    """The room has been below heat_target_c for 90 min, which alone would
+    escalate dry -> heat - but the setpoint moved 10 minutes ago, so the mode
+    clock restarted."""
     decision = determine_hvac_decision(
         _context(
             playroom_mode="dry",
             landing_mode="dry",
             room_temperature_c=18.0,
-            house_target_c=21.0,
+            heat_target_c=19.0,
+            cool_target_c=22.0,
             state=HvacState(
-                hvac_target_c=24.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=90),
+                hvac_target_c=25.0,  # dry's cap - gate alone would pass
+                heat_target_c=19.0,
+                cool_target_c=22.0,
+                below_heat_target_since=NOW - timedelta(minutes=90),
                 last_target_change_at=NOW - timedelta(minutes=10),
                 last_observed_mode="dry",
             ),
@@ -696,10 +818,13 @@ def test_a_human_mode_change_starts_the_suppression_window_without_attribution()
             playroom_mode="dry",
             landing_mode="dry",
             room_temperature_c=20.0,
+            heat_target_c=18.0,
+            cool_target_c=21.0,
             state=HvacState(
                 hvac_target_c=21.0,
-                house_target_c=21.0,
-                below_target_since=NOW - timedelta(minutes=45),
+                heat_target_c=18.0,
+                cool_target_c=21.0,
+                below_cool_target_since=NOW - timedelta(minutes=45),
                 last_observed_mode="heat",  # a human moved it to dry since
             ),
         )
@@ -726,8 +851,9 @@ def test_restart_mid_cycle_preserves_state_rather_than_resetting_to_defaults():
     file is authoritative, and startup_default_mode is a first-run seed only."""
     mid_cycle = HvacState(
         hvac_target_c=23.5,
-        house_target_c=21.0,
-        below_target_since=NOW - timedelta(minutes=20),
+        heat_target_c=21.0,
+        cool_target_c=24.0,
+        below_heat_target_since=NOW - timedelta(minutes=20),
         last_mode_change_at=NOW - timedelta(minutes=50),
         last_target_change_at=NOW - timedelta(minutes=20),
         last_observed_mode="heat",
@@ -738,5 +864,5 @@ def test_restart_mid_cycle_preserves_state_rather_than_resetting_to_defaults():
     )
 
     assert decision.state.hvac_target_c == 23.5
-    assert decision.state.below_target_since == NOW - timedelta(minutes=20)
+    assert decision.state.below_heat_target_since == NOW - timedelta(minutes=20)
     assert decision.target_mode is None  # not yanked back to the "dry" seed
