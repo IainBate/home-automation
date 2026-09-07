@@ -298,6 +298,43 @@ async def test_legionella_cycle_raises_the_target_then_restores_it(hotwater_env)
 
 
 @pytest.mark.asyncio
+async def test_completed_force_heat_does_not_immediately_retrigger(hotwater_env):
+    """Regression test for a real incident: the tank cycled 43->53->52->50.5C
+    over ~90 minutes one evening because a completed, correctly-reverted
+    force-heat window was immediately re-triggered by the next poll tick,
+    which was still deciding from the SAME stale below-threshold daily
+    snapshot taken hours earlier - nothing had told it the tank had since
+    been heated. _refresh_daily_snapshot_if_warm (called from
+    run_revert_check on a successful revert) is what's under test here.
+    """
+    env = hotwater_env
+    melcloud = FakeMelCloudServer(tank_temperature=38.0, target_tank_temperature=45.0)
+    ohme = FakeOhmeServer(power_watts=0.0)  # car not charging - normal evening/battery path
+    env["seed_recent_legionella_cycle"]()
+
+    # Cold tank triggers a normal force-heat (battery SoC has surplus - see
+    # test_stored_solar_triggers_heating_after_the_trigger_hour). This is also
+    # what takes the daily_check_hour (18:00) snapshot for the first time
+    # today, at 38.0C - below the 45.0C threshold.
+    await _force_heat(env, melcloud, ohme, at=AFTER_TRIGGER)
+    assert melcloud.state["ForcedHotWaterMode"] is True
+
+    # Tank reaches target - reverts normally, exactly as designed.
+    melcloud.state["TankWaterTemperature"] = 45.5
+    await _revert(env, melcloud, at=AFTER_TRIGGER + timedelta(minutes=10))
+    assert melcloud.state["ForcedHotWaterMode"] is False
+    assert "force_heat_activated_at" not in core.read_state()
+
+    # The next poll tick, still the same day, with the tank still warm and
+    # the daily snapshot otherwise unchanged since 18:00 - this must NOT
+    # re-trigger. Before the fix, run_force_heat_check decided from the
+    # frozen 38.0C snapshot every time and force-heated again here.
+    await _force_heat(env, melcloud, ohme, at=AFTER_TRIGGER + timedelta(minutes=20))
+    assert melcloud.state["ForcedHotWaterMode"] is False
+    assert "force_heat_activated_at" not in core.read_state()
+
+
+@pytest.mark.asyncio
 async def test_legionella_timeout_reverts_without_marking_it_complete(hotwater_env):
     """A cycle that never reaches temperature must still release the tank, but
     must not count as done - it has to be retried."""
