@@ -923,6 +923,56 @@ def _update_daily_threshold_snapshot(
     )
 
 
+def _refresh_daily_snapshot_if_warm(
+    hw_config: dict[str, Any],
+    state: dict[str, Any],
+    tank_temperature: float | None,
+    now_local: datetime,
+) -> None:
+    """Correct today's daily-check snapshot the moment a live reading proves it stale.
+
+    _update_daily_threshold_snapshot deliberately writes state["daily_check"]
+    only once per day, at daily_check_hour - see its own docstring for why. The
+    problem: that snapshot is what every non-live force-heat trigger path
+    decides from for the rest of the day, so it never reflects reality again
+    once the tank is actually heated - a completed force-heat/legionella cycle
+    (or this module's own safety-ceiling backstop in run_safety_ceiling_check,
+    which deliberately never writes state at all) would otherwise leave the
+    very next check still reading "below threshold" from hours earlier and
+    re-triggering another cycle immediately. That is the Friday-night
+    reheat/revert loop this function exists to prevent.
+
+    Deliberately narrow and one-directional to avoid reintroducing the
+    incidental-timing problem _update_daily_threshold_snapshot was written to
+    solve:
+    - Only ever corrects an EXISTING today's snapshot, never creates one early
+      - if daily_check_hour hasn't run yet today, this is a no-op, so a warm
+        reading at (say) 9am can't freeze "at/above threshold" for the whole
+        day if the tank happens to be cold again by the real daily_check_hour
+        reading.
+      - Only ever moves the snapshot from below-threshold to at/above-threshold
+        on live proof of warmth, never the reverse - a live reading that's
+        merely cold doesn't get to override an existing at/above-threshold
+        snapshot the same day.
+    """
+    if tank_temperature is None:
+        return
+    threshold = hw_config.get("tank_temp_threshold_c", DEFAULT_TANK_TEMP_THRESHOLD_C)
+    if tank_temperature < threshold:
+        return
+    daily_check = state.get("daily_check", {})
+    today_str = now_local.date().isoformat()
+    if daily_check.get("date") != today_str or daily_check.get("below_threshold") is not True:
+        return
+    state["daily_check"] = {**daily_check, "tank_temperature_c": tank_temperature, "below_threshold": False}
+    logger.info(
+        "Daily threshold snapshot corrected: live reading %sC >= threshold %sC after an earlier "
+        "below-threshold snapshot - marking today at/above threshold to avoid re-triggering",
+        tank_temperature,
+        threshold,
+    )
+
+
 def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, Any]) -> bool:
     """Return True if legionella_interval_days have passed since the last completed cycle.
 
