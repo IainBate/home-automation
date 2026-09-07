@@ -62,7 +62,7 @@ class HotWaterDecisionContext:
             battery_soc_min_percent at battery_prediction_deadline_hour (see
             hotwater_automation_core.py's get_battery_prediction_to_deadline).
             An independent trigger path alongside car_is_charging and
-            in_evening_window/battery_soc_percent - it exists precisely to
+            in_evening_window/grid_is_cheap - it exists precisely to
             allow heating earlier than trigger_hour when there's forecast to
             be plenty of stored solar left by the time the grid's off-peak
             window opens anyway, without waiting for trigger_hour to arrive
