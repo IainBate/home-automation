@@ -257,6 +257,69 @@ def test_hot_water_card_surfaces_an_active_legionella_cycle():
 
 
 @requires_node
+def test_airstage_zone_card_shows_automation_status_and_setpoints():
+    """The master zone's card gets the schedule/automation setpoint rows -
+    these extend the existing Air Conditioning card rather than a separate
+    "HVAC Automation" card (see status_collector.py's
+    _attach_hvac_automation_summary)."""
+    payload = {
+        "name": "Playroom",
+        "available": True,
+        "mode": "HEAT",
+        "current_temperature_c": 17.5,
+        "target_temperature_c": 19.5,
+        "outdoor_temperature_c": 6.0,
+        "hvac_automation": {
+            "enabled": True,
+            "away_mode_active": False,
+            "house_target_c": 18.0,
+            "hvac_target_c": 19.5,
+        },
+    }
+    html = _run_js(f"console.log(airstageZoneCard({json.dumps(payload)}));")
+
+    assert "Automation" in html
+    assert "Schedule target" in html
+    assert "18.0&deg;C" in html
+    assert "Automation setpoint" in html
+
+
+@requires_node
+def test_airstage_zone_card_shows_away_mode_badge():
+    payload = {
+        "name": "Playroom",
+        "available": True,
+        "mode": "HEAT",
+        "current_temperature_c": 10.5,
+        "target_temperature_c": 10.0,
+        "outdoor_temperature_c": 2.0,
+        "hvac_automation": {"enabled": True, "away_mode_active": True, "house_target_c": 18.0, "hvac_target_c": 10.0},
+    }
+    html = _run_js(f"console.log(airstageZoneCard({json.dumps(payload)}));")
+
+    assert "Away mode" in html
+
+
+@requires_node
+def test_airstage_zone_card_omits_automation_row_when_disabled():
+    """The mirror zone (and any zone when hvac_automation is disabled) gets
+    no "hvac_automation" key at all - the card must not render an empty or
+    broken automation row for it."""
+    payload = {
+        "name": "Landing",
+        "available": True,
+        "mode": "HEAT",
+        "current_temperature_c": 19.0,
+        "target_temperature_c": 18.0,
+        "outdoor_temperature_c": 6.0,
+    }
+    html = _run_js(f"console.log(airstageZoneCard({json.dumps(payload)}));")
+
+    assert "Automation" not in html
+    assert "Schedule target" not in html
+
+
+@requires_node
 def test_escape_html_neutralises_markup_from_the_api():
     """Device/vehicle names come from third-party APIs and land in innerHTML."""
     out = _run_js("""console.log(escapeHtml('<img src=x onerror=alert(1)>'));""")
