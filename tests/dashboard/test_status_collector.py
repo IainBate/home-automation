@@ -365,7 +365,10 @@ def test_collect_airstage_automation_summary_reflects_away_mode():
         "airstage": {"enabled": True},
         "hvac_automation": {"enabled": True, "master_zone": "Playroom"},
     }
-    automation_state = {"hvac": {"house_target_c": 18.0, "hvac_target_c": 10.0}, "away_mode": {"active": True}}
+    automation_state = {
+        "hvac": {"heat_target_c": 18.0, "cool_target_c": 21.0, "hvac_target_c": 10.0},
+        "away_mode": {"active": True},
+    }
 
     with mock.patch.object(
         status_collector, "fetch_airstage_status", return_value=fake_zones
