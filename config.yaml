@@ -358,6 +358,52 @@ resideo:
   # pairing_alias: "heating-automation"
 
 # =============================================================================
+# HVAC AUTOMATION (scripts/hvac_mode_daemon.py)
+# =============================================================================
+# Automated Airstage mode/temperature control driven by the T6R's room
+# reading and schedule.yaml's house target - see
+# docs/hvac_thermostat_automation_plan.md for the full design. Requires both
+# airstage.enabled and resideo.enabled above (see
+# config_manager.get_hvac_automation_config_error). Starts disabled, like
+# resideo/hotwater_automation were before their own first end-to-end runs -
+# flip to true only after exercising the daemon manually against the real
+# units first.
+hvac_automation:
+  enabled: false
+  master_zone: "Playroom"                  # The unit whose target the control loop actually
+                                            # tunes - its live mode is also what Landing is
+                                            # corrected to on any mode mismatch (§8.7).
+  mirror_zone: "Landing"                   # Mirrors master_zone's mode (shared outdoor unit);
+                                            # holds its own fixed target - see below.
+  mirror_zone_fixed_target_c: 18.0
+  mode_temp_limits:
+    heat: {min_c: 16.0, max_c: 30.0}
+    dry:  {min_c: 18.0, max_c: 30.0}
+    cool: {min_c: 18.0, max_c: 30.0}
+  max_drift_c: 3.0                         # How far hvac_target may drift from schedule's
+                                            # house_target before mode escalation is considered
+                                            # (plan doc §8.2's windup fix) - not a spec value,
+                                            # a deliberate deviation the plan doc's §8.2
+                                            # recommends and the project owner approved.
+  away_mode_target_c: 10.0
+  startup_default_mode: "dry"              # Seed value for hvac_automation_state.json on a
+                                            # genuinely first-ever run only - never a reset
+                                            # applied on daemon restart (§8.6).
+  poll_intervals:
+    thermostat_seconds: 600                # How often hvac_mode_daemon.py reads the T6R's
+                                            # room temperature (10 min, matches the spec).
+    hvac_target_seconds: 1800              # How often the mode/temperature decision runs
+                                            # (30 min) - dwell timers are wall-clock based, so
+                                            # this cadence, not a separate 60-min tier, is what
+                                            # naturally implements the spec's 30-min temperature
+                                            # and 60-min mode checks (see hvac_decision_logic.py).
+    hvac_time_sync_seconds: 3600           # Registered for architectural completeness only -
+                                            # pyairstage/the local LAN API don't support setting
+                                            # date/time at all (see this project's CLAUDE.md), so
+                                            # this check logs once that it's a permanent no-op
+                                            # rather than silently doing nothing forever.
+
+# =============================================================================
 # CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
 # =============================================================================
 # Shows your Claude Code subscription's 5-hour session and weekly usage
