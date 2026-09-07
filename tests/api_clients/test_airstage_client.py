@@ -118,6 +118,7 @@ def test_fetch_status_async_maps_zone_fields():
             "name": "Landing",
             "available": True,
             "mode": "HEAT",
+            "powered_on": True,
             "current_temperature_c": 21.5,
             "target_temperature_c": 22.0,
             "outdoor_temperature_c": 8.0,
