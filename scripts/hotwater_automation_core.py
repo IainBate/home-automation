@@ -1851,6 +1851,8 @@ async def _run_legionella_progress_check_locked(
             print("Failed to confirm revert after legionella cycle")
         return 1
 
+    completed_at = datetime.now(tz=UTC)
+
     # Merge rather than replace - keeps any fields a future code version adds
     # to "legionella" that this function doesn't know about, rather than
     # silently discarding them.
@@ -1858,7 +1860,7 @@ async def _run_legionella_progress_check_locked(
         **state.get("legionella", {}),
         "cycle_in_progress": False,
         "last_completed_at": (
-            datetime.now(tz=UTC).isoformat()
+            completed_at.isoformat()
             if reached_target
             else state.get("legionella", {}).get("last_completed_at")
         ),
@@ -1866,6 +1868,18 @@ async def _run_legionella_progress_check_locked(
     logger.info("Legionella cycle reverted (reached_target=%s)", reached_target)
     if not quiet:
         print("Reverted after legionella cycle")
+
+    if reached_target:
+        _notify_legionella_completed(
+            config,
+            hw_config,
+            tank_temperature=tank_temperature,
+            completed_at=completed_at,
+            source="forced cycle",
+            dry_run=dry_run,
+            quiet=quiet,
+        )
+
     return 0
 
 
