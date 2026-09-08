@@ -1615,7 +1615,13 @@ def _decide_heating_window_outcome(
 
 
 def _alert_normal_target_mismatch(
-    config: dict[str, Any], state: dict[str, Any], *, expected: float, actual: float, quiet: bool
+    config: dict[str, Any],
+    state: dict[str, Any],
+    *,
+    expected: float,
+    actual: float,
+    dry_run: bool,
+    quiet: bool,
 ) -> None:
     """One-off (per distinct mismatch value) heads-up that the unit's own
     configured target doesn't match hotwater_automation.normal_target_temp_c
@@ -1626,7 +1632,6 @@ def _alert_normal_target_mismatch(
     """
     if state.get("normal_target_mismatch_alerted_for") == actual:
         return
-    state["normal_target_mismatch_alerted_for"] = actual
     logger.warning(
         "NORMAL_TARGET_MISMATCH: tank's configured target (%sC) does not match "
         "hotwater_automation.normal_target_temp_c (%sC) - heating to the tank's own "
@@ -1637,6 +1642,12 @@ def _alert_normal_target_mismatch(
     )
     if not quiet:
         print(f"NORMAL_TARGET_MISMATCH: tank target {actual}C != expected {expected}C")
+
+    if dry_run:
+        if not quiet:
+            print("(dry run) would send 'tank target mismatch' alert email")
+        return
+    state["normal_target_mismatch_alerted_for"] = actual
     send_email(
         config,
         "Hot water: tank target doesn't match the expected normal target",
