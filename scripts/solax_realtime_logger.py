@@ -142,28 +142,150 @@ def _build_local_modbus_snapshot(config: dict[str, Any]) -> dict[str, Any] | Non
     }
 
 
+def _wal_path(data_path: str) -> Path:
+    return Path(f"{data_path}.wal.jsonl")
+
+
+def _read_wal(wal_path: Path) -> list[dict[str, Any]]:
+    """Parse pending snapshots out of the write-ahead log, oldest first.
+
+    Tolerates a truncated trailing line (a crash mid-append) by skipping it
+    with a warning rather than failing the whole read - losing at most the
+    one reading that was mid-write, never anything already flushed.
+    """
+    if not wal_path.exists():
+        return []
+    snapshots: list[dict[str, Any]] = []
+    for line in wal_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            snapshots.append(json.loads(line))
+        except json.JSONDecodeError:
+            logger.warning("Skipping unparseable write-ahead-log line in %s", wal_path)
+    return snapshots
+
+
+def _clear_wal(wal_path: Path) -> None:
+    """Empty the write-ahead log, atomically (tmp file + rename)."""
+    tmp_path = wal_path.with_name(f"{wal_path.name}.tmp")
+    tmp_path.write_text("", encoding="utf-8")
+    os.replace(tmp_path, wal_path)
+
+
+def _append_wal(wal_path: Path, snapshot: dict[str, Any]) -> None:
+    with wal_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(snapshot) + "\n")
+
+
+def _compaction_due(data_path: Path, wal_path: Path) -> bool:
+    """Whether enough pending write-ahead-log entries have piled up to fold in now."""
+    if not wal_path.exists() or wal_path.stat().st_size == 0:
+        return False
+    if not data_path.exists():
+        return True  # bootstrap: no historical file yet, fold the WAL in immediately
+    age_seconds = time_module.time() - data_path.stat().st_mtime
+    return age_seconds >= COMPACTION_INTERVAL_SECONDS
+
+
+def _compact(data_path: Path, wal_path: Path) -> dict[str, Any]:
+    """Fold every pending write-ahead-log entry into the full historical file, then clear the log.
+
+    Caller must already hold the lock this data_path/wal_path pair shares.
+    write_json_atomic's tmp-file+rename means a crash here leaves either the
+    complete old file or the complete new one, never a partial one - the
+    only recovery case to handle is a crash *between* that successful
+    rename and _clear_wal() below, which would otherwise re-apply the same
+    batch twice on the next run. Guarded against by checking whether the
+    batch's last reading is already the file's last reading (merge_
+    realtime_snapshot returns the existing record's own list, not a new one,
+    on a duplicate) - if so, this exact batch was already merged in and
+    only the WAL cleanup didn't finish.
+    """
+    pending = _read_wal(wal_path)
+    existing = read_json_state(data_path)
+    if not pending:
+        return existing
+
+    existing_data = existing.get("data", [])
+    if existing_data and is_same_reading(existing_data[-1], pending[-1]):
+        _clear_wal(wal_path)
+        return existing
+
+    merged = existing
+    for snapshot in pending:
+        merged = merge_realtime_snapshot(merged, snapshot)
+    write_json_atomic(data_path, merged)
+    _clear_wal(wal_path)
+    return merged
+
+
 def _store_snapshot(data_path: str, snapshot: dict[str, Any]) -> tuple[bool, int]:
-    """Merge one snapshot into data_path under lock. Returns (stored, data_points).
+    """Append one snapshot to the write-ahead log; only occasionally rewrite the full file.
+
+    data/solax_historical_data.json is 11MB+ and growing without bound
+    (months of 5-minute readings, never pruned - see this file's module
+    docstring on why it can't be backfilled). The previous design
+    (locked_json_update: read the whole file, merge one row, write the
+    whole file back) meant every 5-minute tick did a full read+rewrite of
+    that entire, ever-growing file on the Pi's SD card - roughly 3GB/day of
+    flash writes for a single ~200-byte reading each time, worsening every
+    day as the file grows, with no rotation.
+
+    This instead appends the new reading to a small `.wal.jsonl` sidecar
+    (one JSON object per line, no read of the big file at all in the common
+    case) and only folds pending entries into the real historical file
+    every COMPACTION_INTERVAL_SECONDS (default: hourly) - see
+    _compaction_due(). That cuts the expensive full-file operation from
+    288/day to ~24/day, and the write volume for every other tick from
+    ~11MB to a few hundred bytes.
+
+    None of this file's readers (battery_evening_predictor.py, once daily;
+    solar_forecast_trainer.py, weekly; hotwater_automation_core.py's
+    force-heat deadline check) need to-the-minute freshness, so serving them
+    data that's at most an hour stale is a deliberate, safe trade - not an
+    oversight. A crash loses nothing: pending readings persist in the WAL
+    (it's flushed to disk on every append, same as the old file was) and
+    get folded in on the next successful compaction.
 
     Locked (not a bare read-then-write): two ticks of this same cron entry
     can overlap when a slow API call runs past the next 5-minute mark, and
-    an unlocked read-modify-write would silently drop whichever snapshot
-    finished second. locked_json_update also skips the write entirely when
-    the merge was a no-op, so a duplicate reading costs no disk I/O on an
-    8MB file. Kept network-free (the snapshot is already fetched by the
-    time this is called) so the lock is only ever held for the local
-    read-merge-write, never across a network call.
+    an unlocked append could interleave two writers' lines. The lock is
+    only ever held for local file I/O, never across the network call that
+    already happened by the time this is called.
     """
-    with locked_json_update(data_path, timeout=LOCK_TIMEOUT_SECONDS) as record:
-        updated_record = merge_realtime_snapshot(record, snapshot)
-        stored = updated_record is not record
-        if stored:
-            record.clear()
-            record.update(updated_record)
-        # .get() rather than record["meta"]: merge_realtime_snapshot returns
-        # the existing record untouched on a duplicate reading, and that
-        # record isn't guaranteed to carry a "meta" key.
-        data_points = record.get("meta", {}).get("data_points", len(record.get("data", [])))
+    path = Path(data_path)
+    wal_path = _wal_path(data_path)
+    lock_path = path.with_name(f"{path.name}.lock")
+
+    with exclusive_file_lock(lock_path, timeout=LOCK_TIMEOUT_SECONDS):
+        pending = _read_wal(wal_path)
+        if pending:
+            last_known: dict[str, Any] | None = pending[-1]
+        else:
+            existing_data = read_json_state(path).get("data", [])
+            last_known = existing_data[-1] if existing_data else None
+
+        if last_known is not None and is_same_reading(last_known, snapshot):
+            stored = False
+        else:
+            _append_wal(wal_path, snapshot)
+            stored = True
+            pending.append(snapshot)
+
+        if _compaction_due(path, wal_path):
+            merged = _compact(path, wal_path)
+            data_points = merged.get("meta", {}).get("data_points", len(merged.get("data", [])))
+        else:
+            # Cheap approximation, not an exact count - the whole point of
+            # deferring compaction is to avoid the read that would be
+            # needed to report an exact number on every tick. Good enough
+            # for the log line this feeds; nothing depends on it being
+            # precise between compactions.
+            existing_meta_points = read_json_state(path).get("meta", {}).get("data_points", 0) if path.exists() else 0
+            data_points = existing_meta_points + len(pending)
+
     return stored, data_points
 
 
