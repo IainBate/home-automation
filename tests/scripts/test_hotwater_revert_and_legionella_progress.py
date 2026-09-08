@@ -216,7 +216,7 @@ def test_revert_check_dry_run_does_not_send_alert_email(tmp_path):
         exit_code, _final_state = _run(
             lambda: core.run_revert_check(
                 {"email": {"enabled": True}},
-                {"force_heat_max_duration_hours": 3.0},
+                {"force_heat_max_duration_hours": 3.0, "normal_target_temp_c": 45.0},
                 dry_run=True,
                 quiet=True,
             ),
