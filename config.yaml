@@ -689,7 +689,6 @@ weekly_health_check:
     - "home_automation_hotwater.service"   # hotwater_mode_daemon.py
     - "home_automation_dashboard.service"  # dashboard_server.py
     - "home_automation_ohme.service"       # ohme_status_daemon.py
-    - "home_automation_hvac.service"       # hvac_mode_daemon.py
 
 # =============================================================================
 # DAILY DIGEST CHECK (scripts/daily_digest_check.py)
