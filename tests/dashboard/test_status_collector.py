@@ -707,8 +707,9 @@ def test_systemctl_show_batch_parses_multi_unit_output_by_property_name():
 def test_collect_service_health_reports_unhealthy_for_active_daemon_with_repeated_errors(tmp_path):
     (tmp_path / "logs").mkdir()
     now = status_collector.datetime.now()
+    first = now - status_collector.timedelta(minutes=status_collector.LOW_SEVERITY_SUSTAIN_MINUTES)
     lines = (
-        _log_line(now, "ERROR", "Failed to check Ohme status") + "\n"
+        _log_line(first, "ERROR", "Failed to check Ohme status") + "\n"
         + _log_line(now, "ERROR", "Failed to check Ohme status") + "\n"
     )
     (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
