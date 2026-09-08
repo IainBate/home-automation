@@ -20,9 +20,27 @@ Design Principles (mirrors ohme_charging_logic.py):
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# A handful of small default constants duplicated from
+# hotwater_automation_core.py (the definitive source - keep these in sync
+# with it) rather than imported from there, to avoid a circular import: core
+# imports these pure functions FROM this module, so this module can't import
+# anything back from core. Each is a stable, rarely-changed fallback default
+# for a config key this module's own pure functions read - moved here
+# 2026-09-08 alongside the functions themselves (see this module's own
+# architectural review) so they're testable without importing MelCloudClient/
+# state-file I/O at all.
+_DEFAULT_OFFPEAK_END = "05:30"
+_DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
+_DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5
+_DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 1.0
+_DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 1.0
 
 
 @dataclass
