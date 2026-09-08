@@ -175,8 +175,11 @@ def get_claude_usage_path() -> str:
     inline by the dashboard's own fast poll loop - the usage endpoint is
     rate-limited per-account and shared with real Claude Code sessions using
     the same login token, so this needs its own slow, independent cadence.
+
+    Lives under get_ephemeral_cache_dir(), not the plain config directory -
+    see that function's docstring for why (tmpfs on the Pi, safe to lose).
     """
-    return get_config_path("claude_usage.json")
+    return str(Path(get_ephemeral_cache_dir()) / "claude_usage.json")
 
 
 def get_mg_saic_status_path() -> str:
