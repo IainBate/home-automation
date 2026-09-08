@@ -224,7 +224,8 @@ DEFAULT_TRIGGER_HOUR = 21.5  # 9:30pm - fractional hours are supported (e.g. 21.
 # a heat; the battery's state is irrelevant in that narrower window, by
 # design (confirmed 2026-09-07 - see config.yaml's own comment on this key).
 DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR = 18.0  # 6pm
-DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5  # 11:30pm
+# DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR (11:30pm) lives in
+# hotwater_decision_logic.py - imported below.
 # Car charging only counts as a force-heat trigger from this hour up to
 # trigger_hour - see is_car_charging_confirmed's docstring. Excludes the
 # morning/midday specifically (not just "before this hour is fine too") -
