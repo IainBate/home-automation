@@ -168,7 +168,10 @@ def test_revert_check_sends_insufficient_duration_alert_when_timed_out(tmp_path)
         exit_code, final_state = _run(
             lambda: core.run_revert_check(
                 {"email": {"enabled": True}},
-                {"force_heat_max_duration_hours": 3.0},
+                # normal_target_temp_c matches the fake's target_temp so the
+                # new mismatch-alert (unrelated to what this test covers)
+                # doesn't add an extra email.
+                {"force_heat_max_duration_hours": 3.0, "normal_target_temp_c": 45.0},
                 dry_run=False,
                 quiet=True,
             ),
