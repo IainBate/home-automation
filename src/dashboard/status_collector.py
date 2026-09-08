@@ -341,6 +341,7 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
         # DEFAULT_LEGIONELLA_INTERVAL_DAYS).
         legionella_days_since_last: int | None = None
         legionella_days_until_due: int | None = None
+        legionella_due_date: str | None = None
         last_completed_str = legionella_state.get("last_completed_at")
         if last_completed_str:
             try:
@@ -350,8 +351,14 @@ def _collect_hot_water(config: dict[str, Any], config_path: str) -> dict[str, An
                 )
                 legionella_days_since_last = (datetime.now(tz=UTC) - last_completed).days
                 legionella_days_until_due = interval_days - legionella_days_since_last
+                # ISO date (not the days_since/interval arithmetic redone in
+                # JS) so the dashboard can show the actual calendar date -
+                # computed here, once, from the same last_completed used
+                # above, rather than "today + days_until_due" client-side
+                # which could land on a different day around midnight.
+                legionella_due_date = (last_completed + timedelta(days=interval_days)).date().isoformat()
             except ValueError:
-                pass  # Malformed timestamp - leave both fields None rather than guess.
+                pass  # Malformed timestamp - leave all three fields None rather than guess.
 
         return {
             "available": True,
