@@ -703,13 +703,21 @@ def _log_file_age_seconds(log_filename: str) -> float | None:
 
 
 def _check_log_health(log_filename: str) -> str:
-    """"unhealthy" if a daemon's log shows repeated recent errors, else "healthy".
+    """"unhealthy" if a daemon's log shows a significant or sustained recent problem.
 
-    See LOG_HEALTH_ERROR_THRESHOLD's comment for why this requires 2+
-    ERROR/CRITICAL lines in the window rather than just 1 - a single one is
-    frequently the daemon's own safety check self-correcting, not a real
-    problem. A missing/unreadable log, or one with no matching recent lines,
-    reads as "healthy" (absence of evidence of a problem), matching how
+    Two severity tiers rather than one flat error count - see
+    _HIGH_SEVERITY_PATTERNS and LOW_SEVERITY_SUSTAIN_MINUTES above for the
+    full rationale:
+
+    - High-severity (CRITICAL, or an ERROR matching _HIGH_SEVERITY_PATTERNS):
+      one occurrence anywhere in LOG_HEALTH_WINDOW_MINUTES is enough.
+    - Low-severity (any other ERROR/CRITICAL... - actually any other ERROR):
+      only "unhealthy" once recent occurrences span at least
+      LOW_SEVERITY_SUSTAIN_MINUTES (first-to-last), AND the latest one is
+      still within LOW_SEVERITY_RECENT_GRACE_MINUTES of now.
+
+    A missing/unreadable log, or one with no matching recent lines, reads as
+    "healthy" (absence of evidence of a problem), matching how
     _log_file_age_seconds() already treats a missing log.
     """
     log_path = Path(get_project_root()) / "logs" / log_filename
@@ -730,8 +738,9 @@ def _check_log_health(log_filename: str) -> str:
         # is 0 the whole file was read, so there's nothing to drop.
         lines = lines[1:]
 
-    cutoff = datetime.now() - timedelta(minutes=LOG_HEALTH_WINDOW_MINUTES)  # noqa: DTZ005 - asctime is local time, must compare naive-to-naive
-    recent_issue_count = 0
+    now = datetime.now()  # noqa: DTZ005 - asctime is local time, must compare naive-to-naive
+    cutoff = now - timedelta(minutes=LOG_HEALTH_WINDOW_MINUTES)
+    low_severity_timestamps: list[datetime] = []
     for line in lines:
         match = _LOG_LINE_RE.match(line)
         if not match:
@@ -743,7 +752,23 @@ def _check_log_health(log_filename: str) -> str:
             timestamp = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")  # noqa: DTZ007 - see cutoff above
         except ValueError:
             continue
-        if timestamp >= cutoff:
-            recent_issue_count += 1
+        if timestamp < cutoff:
+            continue
 
-    return "unhealthy" if recent_issue_count >= LOG_HEALTH_ERROR_THRESHOLD else "healthy"
+        message = match.group(3)
+        is_high_severity = level == "CRITICAL" or any(
+            pattern.search(message) for pattern in _HIGH_SEVERITY_PATTERNS
+        )
+        if is_high_severity:
+            return "unhealthy"
+        low_severity_timestamps.append(timestamp)
+
+    if not low_severity_timestamps:
+        return "healthy"
+
+    most_recent = max(low_severity_timestamps)
+    if now - most_recent > timedelta(minutes=LOW_SEVERITY_RECENT_GRACE_MINUTES):
+        return "healthy"  # already recovered - no need to wait out the rest of the window
+
+    span = most_recent - min(low_severity_timestamps)
+    return "unhealthy" if span >= timedelta(minutes=LOW_SEVERITY_SUSTAIN_MINUTES) else "healthy"
