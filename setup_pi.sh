@@ -195,8 +195,35 @@ else
 fi
 echo ""
 
-# Step 8: Install and enable systemd service
-echo "Step 8: Installing systemd service..."
+# Step 8: Mount config/cache as tmpfs - the ephemeral status caches
+# (ohme_status.json/melcloud_status.json/claude_usage.json/mg_saic_status.json/
+# solar_forecast.json - see src/utils/paths.py's get_ephemeral_cache_dir())
+# used to live directly on the SD card and got rewritten every ~30s in
+# ohme_status.json's case (~2,880 writes/day) for no persistence benefit -
+# every reader already treats a missing/stale cache as "no cached answer"
+# and falls back to its own direct API call. Before Step 9's services start
+# writing there, not after - a plain directory would silently work too
+# (write_json_atomic creates it on demand) but then never get the wear
+# benefit until a manual remount.
+echo "Step 8: Mounting config/cache as tmpfs..."
+mkdir -p config/cache
+FSTAB_CACHE_LINE="tmpfs $(pwd)/config/cache tmpfs rw,nodev,nosuid,noexec,size=4m,uid=pi,gid=pi,mode=0755 0 0"
+if grep -qF "config/cache" /etc/fstab 2>/dev/null; then
+    echo "  fstab already has a config/cache entry, skipping."
+else
+    echo "$FSTAB_CACHE_LINE" | sudo tee -a /etc/fstab > /dev/null
+    echo "  Added to /etc/fstab."
+fi
+if mountpoint -q config/cache; then
+    echo "  Already mounted."
+else
+    sudo mount config/cache
+    echo "  Mounted."
+fi
+echo ""
+
+# Step 9: Install and enable systemd service
+echo "Step 9: Installing systemd service..."
 sudo cp scripts/home_automation.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE_NAME"
@@ -204,12 +231,12 @@ sudo systemctl start "$SERVICE_NAME"
 echo "  Service installed, enabled, and started."
 echo ""
 
-# Step 9: Install and enable the hot water automation service - independent
+# Step 10: Install and enable the hot water automation service - independent
 # process from the battery daemon above (base_daemon.py's TwoTierPollingDaemon
 # architecture, own state/log files), gated by config.yaml's
 # hotwater_automation.enabled so it's safe to install even before that's
 # turned on (the daemon checks the flag itself on every cycle).
-echo "Step 9: Installing hot water automation service..."
+echo "Step 10: Installing hot water automation service..."
 sudo cp scripts/home_automation_hotwater.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable "$HOTWATER_SERVICE_NAME"
@@ -217,10 +244,10 @@ sudo systemctl start "$HOTWATER_SERVICE_NAME"
 echo "  Hot water service installed, enabled, and started."
 echo ""
 
-# Step 10: Install and enable the status dashboard service - independent of
+# Step 11: Install and enable the status dashboard service - independent of
 # both daemons above; read-only, never touches battery_mode_daemon.py or
 # hotwater_mode_daemon.py's state, so it's always safe to run alongside them.
-echo "Step 10: Installing dashboard service..."
+echo "Step 11: Installing dashboard service..."
 sudo cp scripts/home_automation_dashboard.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable "$DASHBOARD_SERVICE_NAME"
@@ -228,13 +255,13 @@ sudo systemctl start "$DASHBOARD_SERVICE_NAME"
 echo "  Dashboard service installed, enabled, and started."
 echo ""
 
-# Step 11: Install and enable the Ohme status poller. Holds ONE Ohme session
+# Step 12: Install and enable the Ohme status poller. Holds ONE Ohme session
 # and caches the charger status for the battery daemon, hot water automation
 # and dashboard to read (src/api_clients/ohme_status_cache.py). Without it
 # each of those three opens its own session and performs a full Firebase
 # login on every poll - roughly 3,000 logins a day between them. Nothing
 # breaks if it's down: every reader falls back to its own direct call.
-echo "Step 11: Installing Ohme status poller service..."
+echo "Step 12: Installing Ohme status poller service..."
 sudo cp scripts/home_automation_ohme.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable "$OHME_SERVICE_NAME"
@@ -242,11 +269,11 @@ sudo systemctl start "$OHME_SERVICE_NAME"
 echo "  Ohme status poller installed, enabled, and started."
 echo ""
 
-# Step 12: Install the repo's git hooks - a pre-push test gate. Deliberately
+# Step 13: Install the repo's git hooks - a pre-push test gate. Deliberately
 # pre-push, not pre-commit: this setup auto-commits after every file edit
 # with `git commit --no-verify`, which skips pre-commit hooks entirely, and
 # push is what actually matters anyway (this Pi pulls from that remote).
-echo "Step 12: Installing git hooks (pre-push test gate)..."
+echo "Step 13: Installing git hooks (pre-push test gate)..."
 bash scripts/install_git_hooks.sh || echo "  (hook install skipped - non-fatal)"
 echo ""
 
