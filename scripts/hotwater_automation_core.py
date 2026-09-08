@@ -140,6 +140,58 @@ from src.utils.state_store import locked_json_state, read_json_state
 # observable in the log a human would actually check).
 logger = logging.getLogger("hotwater_mode_daemon.hotwater_automation_core")
 
+
+# --- hotwater_automation_state.json shape (pure static typing - the file is
+# still plain JSON at runtime, read/written as ordinary dicts; these exist so
+# an editor/type-checker can catch a typo'd key or wrong value type at the
+# many call sites that read this state, without requiring every field to be
+# present - a fresh state file starts as {} and each section is added lazily
+# by whichever check first needs it). -------------------------------------
+
+
+class DailyCheckState(TypedDict, total=False):
+    """state["daily_check"] - the once-a-day 6pm tank-temperature snapshot."""
+
+    date: str
+    tank_temperature_c: float
+    below_threshold: bool
+
+
+class LegionellaState(TypedDict, total=False):
+    """state["legionella"] - in-progress/last-completed legionella cycle tracking."""
+
+    cycle_in_progress: bool
+    cycle_started_at: str
+    target_temp_c: float
+    original_target_temp_c: float
+    last_completed_at: str | None
+    due_warning_sent_for: str
+
+
+class HolidayState(TypedDict, total=False):
+    """state["holiday"] - written by scripts/holiday_mode.py."""
+
+    until: str
+
+
+class ServiceModeState(TypedDict, total=False):
+    """state["service_mode"] - written by scripts/service_mode.py."""
+
+    active: bool
+
+
+class HotWaterAutomationState(TypedDict, total=False):
+    """The full shape of hotwater_automation_state.json, as read_state()/locked_state() return it."""
+
+    daily_check: DailyCheckState
+    legionella: LegionellaState
+    holiday: HolidayState
+    service_mode: ServiceModeState
+    force_heat_activated_at: str | None
+    ohme_charging_confirm_cycles: int
+    normal_target_mismatch_alerted_for: float
+
+
 DEFAULT_TANK_TEMP_THRESHOLD_C = 45.0
 # Minimum charge BOTH batteries (not their average) must independently clear
 # - see get_battery_soc_percent's docstring for why this is a minimum, not an
