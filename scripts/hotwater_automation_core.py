@@ -319,12 +319,12 @@ def get_config_path() -> str:
     return str(Path(get_project_root()) / "config.yaml")
 
 
-def read_state() -> dict[str, Any]:
+def read_state() -> HotWaterAutomationState:
     """Read the hot water automation state file, or {} if absent/unreadable."""
     return read_json_state(get_hotwater_automation_state_path())
 
 
-def locked_state(timeout: float = 10.0) -> contextlib.AbstractContextManager[dict[str, Any]]:
+def locked_state(timeout: float = 10.0) -> contextlib.AbstractContextManager[HotWaterAutomationState]:
     """Exclusive, race-free read-modify-write of the state file.
 
     hotwater_auto_check.py (cron) and hotwater_mode_daemon.py can both touch
