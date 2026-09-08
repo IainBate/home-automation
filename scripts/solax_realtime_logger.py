@@ -323,7 +323,8 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
     snapshot: dict[str, Any] | None = None
     source = None
     stored = False
-    data_points = 0
+    count = 0
+    compacted = False
 
     if cloud_enabled:
         snapshot = solax_cloud_get_realtime_snapshot(config)
@@ -331,25 +332,26 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
             logger.warning("Failed to fetch SolaX Cloud realtime snapshot (see logs above)")
         else:
             source = "cloud"
-            stored, data_points = _store_snapshot(data_path, snapshot)
+            stored, count, compacted = _store_snapshot(data_path, snapshot)
 
     if (snapshot is None or not stored) and modbus_enabled:
         fallback_snapshot = _build_local_modbus_snapshot(config)
         if fallback_snapshot is None:
             logger.warning("Local Modbus fallback snapshot also unavailable (see logs above)")
         else:
-            fallback_stored, fallback_data_points = _store_snapshot(data_path, fallback_snapshot)
+            fallback_stored, fallback_count, fallback_compacted = _store_snapshot(data_path, fallback_snapshot)
             # Prefer the fallback's own result whenever it actually stored
             # something new, or the cloud attempt never produced a snapshot
             # at all - but a cloud snapshot that merely duplicated the last
             # row is still real, current data, worth reporting as such even
             # if the fallback also turned out to be a duplicate.
             if fallback_stored or snapshot is None:
-                snapshot, source, stored, data_points = (
+                snapshot, source, stored, count, compacted = (
                     fallback_snapshot,
                     "modbus",
                     fallback_stored,
-                    fallback_data_points,
+                    fallback_count,
+                    fallback_compacted,
                 )
 
     if snapshot is None:
@@ -360,10 +362,11 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         return 1
 
     detail = f"stored via {source}" if stored else "duplicate reading, not stored"
+    count_detail = f"{count} total data points" if compacted else f"{count} pending in write-ahead log"
     summary = (
         f"SolaX realtime snapshot at {snapshot['timestamp']}: "
         f"PV {snapshot['pv_power_kw']:.2f}kW, SoC {snapshot['soc_percent']}% "
-        f"({detail}; {data_points} total data points)"
+        f"({detail}; {count_detail})"
     )
     logger.info(summary)
     if not quiet:
