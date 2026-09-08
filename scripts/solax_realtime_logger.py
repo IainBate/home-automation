@@ -91,6 +91,16 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         default="WARNING",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
+    parser.add_argument(
+        "--compact-now",
+        action="store_true",
+        help=(
+            "Fold any pending write-ahead-log entries into the historical file "
+            "immediately, regardless of COMPACTION_INTERVAL_SECONDS, then exit "
+            "without fetching a new snapshot. For scripts/backup_solax_historical_data.sh, "
+            "so the daily backup never carries an up-to-an-hour-stale file."
+        ),
+    )
     return parser
 
 
