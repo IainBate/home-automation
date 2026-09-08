@@ -54,6 +54,40 @@ def write_json_atomic(path: str | Path, record: dict[str, Any]) -> None:
 
 
 @contextlib.contextmanager
+def exclusive_file_lock(path: str | Path, timeout: float = DEFAULT_LOCK_TIMEOUT_SECONDS) -> Iterator[None]:
+    """Bare mutual-exclusion lock on a `<path>.lock` sidecar - no read/write of any data file.
+
+    For callers managing their own I/O under the lock (e.g.
+    scripts/solax_realtime_logger.py's write-ahead-log: most ticks should
+    only append a few bytes, never pay to read/rewrite the whole historical
+    file). locked_json_update/locked_json_state both assume the caller wants
+    the entire file read-modify-written every time, which is exactly the
+    cost this exists to avoid.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f"{path.name}.lock")
+
+    with lock_path.open("a+", encoding="utf-8") as lock_fd:
+        start_time = time_module.time()
+        while time_module.time() - start_time < timeout:
+            try:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                time_module.sleep(0.05)
+        else:
+            msg = f"Could not acquire lock on {lock_path} within {timeout} seconds"
+            raise TimeoutError(msg)
+
+        try:
+            yield
+        finally:
+            with contextlib.suppress(OSError):
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+
+
+@contextlib.contextmanager
 def locked_json_update(
     path: str | Path, timeout: float = DEFAULT_LOCK_TIMEOUT_SECONDS
 ) -> Iterator[dict[str, Any]]:
