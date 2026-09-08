@@ -220,7 +220,7 @@ def test_revert_check_mismatch_alert_deduped_across_ticks(tmp_path):
         tmp_path,
         {
             "force_heat_activated_at": datetime.now(tz=UTC).isoformat(),
-            "normal_target_mismatch_alerted_for": 52.0,
+            "normal_target_mismatch_alerted_for": {"actual": 52.0, "expected": 50.0},
         },
     )
     client = FakeMelCloudClient(tank_temp=30.0, target_temp=52.0)
