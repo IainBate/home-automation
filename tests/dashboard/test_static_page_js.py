@@ -307,6 +307,7 @@ def test_hot_water_card_omits_legionella_line_when_never_completed():
         "status": "idle",
         "legionella_days_since_last": None,
         "legionella_days_until_due": None,
+        "legionella_due_date": None,
         "power_on": True,
         "holiday_mode": False,
     }
