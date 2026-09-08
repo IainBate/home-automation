@@ -238,6 +238,10 @@ Add via `crontab -e` (as the `pi` user, so relative-to-cwd behavior like
 # historical Cloud API endpoints scripts/solax_cloud_data_logger.py uses need
 # a mobile-app session token nobody has, so that older nightly job is not
 # scheduled — see src/api_clients/solax_cloud_client.py's module docstring.
+# Each tick appends to a small .wal.jsonl write-ahead log, not the full
+# (11MB+) historical file directly - only folded in roughly hourly (see
+# solax_realtime_logger.py's _store_snapshot docstring), so this cadence no
+# longer means a full-file SD card rewrite every 5 minutes.
 */5 * * * * cd /home/pi/home_automation && venv/bin/python3 scripts/solax_realtime_logger.py --quiet
 
 # Encrypted off-site backup of secrets.yaml. A no-op on days when nothing
