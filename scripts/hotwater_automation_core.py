@@ -1614,6 +1614,46 @@ def _decide_heating_window_outcome(
     return False
 
 
+def _alert_normal_target_mismatch(
+    config: dict[str, Any], state: dict[str, Any], *, expected: float, actual: float, quiet: bool
+) -> None:
+    """One-off (per distinct mismatch value) heads-up that the unit's own
+    configured target doesn't match hotwater_automation.normal_target_temp_c
+    - see run_revert_check's own docstring for why this alerts rather than
+    silently overriding. Deduped via state["normal_target_mismatch_alerted_for"]
+    so it doesn't re-fire every poll tick for the same ongoing difference -
+    only when the mismatch first appears, or changes to a different value.
+    """
+    if state.get("normal_target_mismatch_alerted_for") == actual:
+        return
+    state["normal_target_mismatch_alerted_for"] = actual
+    logger.warning(
+        "NORMAL_TARGET_MISMATCH: tank's configured target (%sC) does not match "
+        "hotwater_automation.normal_target_temp_c (%sC) - heating to the tank's own "
+        "target regardless (see run_revert_check's docstring), but flagging in case this "
+        "wasn't intentional",
+        actual,
+        expected,
+    )
+    if not quiet:
+        print(f"NORMAL_TARGET_MISMATCH: tank target {actual}C != expected {expected}C")
+    send_email(
+        config,
+        "Hot water: tank target doesn't match the expected normal target",
+        (
+            f"The tank's own configured target is {actual}C, but "
+            f"hotwater_automation.normal_target_temp_c expects {expected}C.\n\n"
+            "The automation heats to whichever target the tank itself reports - it does "
+            "not override your own configuration - so this is only a heads-up, not an "
+            "action taken.\n\n"
+            "If you changed this deliberately (e.g. via the MELCloud app), no action "
+            f"needed - update normal_target_temp_c to {actual} in config.yaml if you'd "
+            "like this to stop being flagged. If you didn't, it's worth checking why "
+            "the tank's target changed."
+        ),
+    )
+
+
 async def run_revert_check(
     config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
@@ -1623,8 +1663,19 @@ async def run_revert_check(
     so a force-heat window started because the car was charging is never cut
     short just because the car later stops charging (or any other trigger
     condition flips) - it always runs through to one of:
-    - the tank reaching its own target_tank_temperature (the normal, expected
-      way this ends),
+    - the tank reaching hotwater_automation.normal_target_temp_c (the normal,
+      expected way this ends) - confirmed 2026-09-08, this compares against
+      OUR OWN configured expectation, not blindly against whatever MELCloud's
+      target_tank_temperature happens to report. The unit's own target lives
+      entirely outside this codebase (set via the app), so a plain
+      "reached the unit's target" comparison was blind to a target that had
+      drifted from what's actually intended. If the two disagree, this still
+      reverts once the tank reaches the UNIT's own (possibly higher) target -
+      your own choice always wins - but sends a one-off alert first (see
+      _alert_normal_target_mismatch) rather than silently either trusting or
+      overriding it. See "how does the legionella cycle differ" - legionella
+      already worked this way (an independent completion threshold, not the
+      unit's own reported target), this brings the normal path to parity,
     - force_heat_max_duration_hours elapsing regardless (a safety net in case
       MELCloud never reports the tank as having reached target, e.g. a stuck
       sensor reading or the unit silently not heating), or
@@ -1700,91 +1751,47 @@ async def _run_revert_check_locked(
     tz = pytz.timezone(tz_name)
     now = datetime.now(tz=UTC)
     now_local = now.astimezone(tz)
-    activated_at_local = activated_at.astimezone(tz)
 
     max_duration_hours = hw_config.get(
         "force_heat_max_duration_hours", DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS
     )
-    elapsed_hours = (now - activated_at).total_seconds() / 3600.0
-    offpeak_end_time = datetime.strptime(
-        hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
-    ).time()
-    deadline_passed = _overnight_deadline_passed(activated_at_local, now_local, offpeak_end_time)
-    timed_out = elapsed_hours >= max_duration_hours or deadline_passed
+    elapsed_hours, deadline_passed = _elapsed_hours_and_deadline_passed(
+        hw_config, activated_at, now, tz
+    )
 
     client = MelCloudClient(config_path=get_config_path())
     try:
         await client.connect()
         status = await client.get_tank_status()
         tank_temperature = status["tank_temperature"]
-        target_temperature = status["target_tank_temperature"]
+        unit_target = status["target_tank_temperature"]
         _refresh_daily_snapshot_if_warm(hw_config, state, tank_temperature, now_local)
 
-        reached_target = (
-            tank_temperature is not None
-            and target_temperature is not None
-            and tank_temperature >= target_temperature
+        normal_target = hw_config.get("normal_target_temp_c", DEFAULT_NORMAL_TARGET_TEMP_C)
+        if unit_target is not None and unit_target != normal_target:
+            _alert_normal_target_mismatch(
+                config, state, expected=normal_target, actual=unit_target, quiet=quiet
+            )
+        # Revert once the tank reaches the UNIT's own target (never lower than
+        # our own expectation would require anyway when they match, and never
+        # overriding your own choice when they don't - see this function's
+        # own docstring and _alert_normal_target_mismatch above).
+        completion_temp = unit_target if unit_target is not None else normal_target
+
+        reached_target = _decide_heating_window_outcome(
+            config,
+            kind="force-heat",
+            tank_temperature=tank_temperature,
+            completion_temp=completion_temp,
+            elapsed_hours=elapsed_hours,
+            deadline_passed=deadline_passed,
+            max_duration_hours=max_duration_hours,
+            duration_config_key="force_heat_max_duration_hours",
+            dry_run=dry_run,
+            quiet=quiet,
         )
-
-        if not reached_target and not timed_out:
-            if not quiet:
-                print(
-                    f"Still heating: {tank_temperature}C / {target_temperature}C "
-                    f"({elapsed_hours:.1f}h elapsed, {max_duration_hours}h limit) - leaving as is"
-                )
+        if reached_target is None:
             return 0
-
-        if reached_target:
-            logger.info(
-                "Tank reached target %sC (%.1fh elapsed), reverting to auto",
-                target_temperature,
-                elapsed_hours,
-            )
-            if not quiet:
-                print(f"Tank reached target {target_temperature}C, reverting to auto")
-        elif deadline_passed:
-            logger.warning(
-                "Force-heat active past the %s deadline (%.1fh elapsed) without reaching "
-                "target (%sC / %sC) - reverting anyway as a safety net",
-                offpeak_end_time.strftime("%H:%M"),
-                elapsed_hours,
-                tank_temperature,
-                target_temperature,
-            )
-            if not quiet:
-                print(
-                    f"Force-heat active past the {offpeak_end_time.strftime('%H:%M')} deadline "
-                    f"({elapsed_hours:.1f}h elapsed) without reaching target ({tank_temperature}C "
-                    f"/ {target_temperature}C) - reverting anyway"
-                )
-        else:
-            logger.warning(
-                "Force-heat active for %.1fh >= %sh limit without reaching target "
-                "(%sC / %sC) - reverting anyway as a safety net",
-                elapsed_hours,
-                max_duration_hours,
-                tank_temperature,
-                target_temperature,
-            )
-            if not quiet:
-                print(
-                    f"Force-heat active for {elapsed_hours:.1f}h >= {max_duration_hours}h "
-                    f"limit without reaching target ({tank_temperature}C / "
-                    f"{target_temperature}C) - reverting anyway"
-                )
-
-        if not reached_target:
-            _alert_insufficient_duration(
-                config,
-                kind="force-heat",
-                tank_temperature=tank_temperature,
-                target_temperature=target_temperature,
-                elapsed_hours=elapsed_hours,
-                max_duration_hours=max_duration_hours,
-                config_key="force_heat_max_duration_hours",
-                dry_run=dry_run,
-                quiet=quiet,
-            )
 
         if dry_run:
             if not quiet:
