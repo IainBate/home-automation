@@ -237,20 +237,25 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
                 "poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS
             ),
         )
+        # revert and legionella_progress moved onto the frequent force_heat
+        # cadence (2026-09-08, alongside unifying their shared completion
+        # logic into _decide_heating_window_outcome) - previously hourly, so
+        # a completed heat could sit unnoticed for up to an hour before this
+        # check even looked again. Both still hold their own state-file lock
+        # per invocation, so running more often doesn't change their
+        # correctness, just how promptly a genuine completion is noticed.
         self.register_check(
             "revert",
             lambda: self._run_revert_cycle(self._hw_config()),
             lambda: self._hw_config().get(
-                "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
+                "poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS
             ),
         )
-        # Legionella progress uses the same cadence as revert-if-due - both
-        # are lower-frequency lifecycle/safety checks.
         self.register_check(
             "legionella_progress",
             lambda: self._run_legionella_progress_cycle(self._hw_config()),
             lambda: self._hw_config().get(
-                "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
+                "poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS
             ),
         )
         # Same cadence again - this one has no prior state to gate on (see
