@@ -233,11 +233,19 @@ hotwater_automation:
                                             # one new heats may be started against this close to it.
   poll_interval_seconds: 600               # hotwater_mode_daemon.py: how often to run the
                                             # force-heat check (10 min - frequent enough to catch
-                                            # EV charging starting)
+                                            # EV charging starting), and, since 2026-09-08, also
+                                            # the revert-if-due check (reverts on reaching target
+                                            # temperature or timing out) and the legionella
+                                            # progress check - moved onto this frequent cadence
+                                            # from revert_check_interval_seconds below so a
+                                            # completed heat isn't left sitting for up to an hour
+                                            # before being noticed, and the independent
+                                            # safety-ceiling watchdog.
   revert_check_interval_seconds: 3600      # hotwater_mode_daemon.py: how often to run the
-                                            # revert-if-due check (which also reverts on reaching
-                                            # target temperature), and the legionella progress
-                                            # check (1 hour)
+                                            # slower, opportunistic checks - legionella natural
+                                            # completion and the legionella-due-soon warning email
+                                            # (1 hour) - see poll_interval_seconds above for the
+                                            # checks that need to be prompt.
   daily_check_hour: 18                     # Fixed local hour (24h, fractional - 6pm) at which the
                                             # tank's below-threshold state is snapshotted once a day.
                                             # Every force-heat path EXCEPT car charging (which stays
