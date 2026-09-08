@@ -187,6 +187,104 @@ def test_revert_check_sends_insufficient_duration_alert_when_timed_out(tmp_path)
     assert "force_heat_max_duration_hours" in body
 
 
+# --- normal_target_temp_c mismatch alert (2026-09-08) -----------------------
+
+
+def test_revert_check_alerts_when_unit_target_does_not_match_expected(tmp_path):
+    """The unit's own target (52C) differs from normal_target_temp_c (50C) -
+    still reverts once the tank reaches the UNIT's target (your own choice
+    always wins - see run_revert_check's docstring), but sends a one-off
+    heads-up email distinct from the normal completion behaviour.
+    """
+    state_path = _write_state(
+        tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()}
+    )
+    client = FakeMelCloudClient(tank_temp=52.0, target_temp=52.0)  # reached the UNIT's target
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        exit_code, final_state = _run(
+            lambda: core.run_revert_check(
+                {"email": {"enabled": True}}, {"normal_target_temp_c": 50.0}, dry_run=False, quiet=True
+            ),
+            state_path,
+            client,
+        )
+
+    assert exit_code == 0
+    assert client.force_calls == [False]  # still reverts - your target wins
+    assert "force_heat_activated_at" not in final_state
+    assert len(sent_calls) == 1
+    subject, body = sent_calls[0]
+    assert "doesn't match" in subject.lower()
+    assert "52.0" in body and "50.0" in body
+
+
+def test_revert_check_no_alert_when_unit_target_matches_expected(tmp_path):
+    state_path = _write_state(
+        tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()}
+    )
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=50.0)  # matches default normal_target_temp_c
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        _run(
+            lambda: core.run_revert_check({"email": {"enabled": True}}, {}, dry_run=False, quiet=True),
+            state_path,
+            client,
+        )
+
+    assert sent_calls == []
+
+
+def test_revert_check_mismatch_alert_deduped_across_ticks(tmp_path):
+    """The SAME mismatch value must not re-email on every poll tick - only
+    when it first appears, or changes to a different value.
+    """
+    state_path = _write_state(
+        tmp_path,
+        {
+            "force_heat_activated_at": datetime.now(tz=UTC).isoformat(),
+            "normal_target_mismatch_alerted_for": 52.0,
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=52.0)
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        _run(
+            lambda: core.run_revert_check(
+                {"email": {"enabled": True}},
+                {"normal_target_temp_c": 50.0, "force_heat_max_duration_hours": 3.0},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert sent_calls == []
+
+
+def test_revert_check_mismatch_dry_run_does_not_send_or_dedupe(tmp_path):
+    state_path = _write_state(
+        tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()}
+    )
+    client = FakeMelCloudClient(tank_temp=52.0, target_temp=52.0)
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        _run(
+            lambda: core.run_revert_check(
+                {"email": {"enabled": True}}, {"normal_target_temp_c": 50.0}, dry_run=True, quiet=True
+            ),
+            state_path,
+            client,
+        )
+
+    assert sent_calls == []
+
+
 def test_revert_check_does_not_alert_when_target_reached(tmp_path):
     state_path = _write_state(
         tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()}
