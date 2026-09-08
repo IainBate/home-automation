@@ -295,7 +295,7 @@ def test_hot_water_card_shows_overdue_legionella_cycle():
 
     body_html = html[: html.index('class="details"')]
     assert "100d ago" in body_html
-    assert "overdue since 29/08/26" in body_html
+    assert "overdue 29/08/26" in body_html
 
 
 @requires_node
