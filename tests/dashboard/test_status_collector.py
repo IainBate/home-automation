@@ -211,6 +211,7 @@ def test_collect_hot_water_legionella_overdue_is_negative_days_until_due(tmp_pat
 
     assert result["legionella_days_since_last"] == 100
     assert result["legionella_days_until_due"] == -10
+    assert result["legionella_due_date"] == (last_completed + timedelta(days=90)).date().isoformat()
 
 
 def test_collect_hot_water_legionella_never_completed_is_none(tmp_path):
