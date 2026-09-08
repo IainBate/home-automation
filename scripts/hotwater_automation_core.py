@@ -180,6 +180,18 @@ class ServiceModeState(TypedDict, total=False):
     active: bool
 
 
+class NormalTargetMismatchAlert(TypedDict):
+    """state["normal_target_mismatch_alerted_for"] - see _alert_normal_target_mismatch.
+
+    Both fields, not just "actual" alone (confirmed 2026-09-08) - deduping
+    on actual alone would permanently swallow a genuinely new mismatch that
+    happens to reuse a previously-alerted actual value.
+    """
+
+    actual: float
+    expected: float
+
+
 class HotWaterAutomationState(TypedDict, total=False):
     """The full shape of hotwater_automation_state.json, as read_state()/locked_state() return it."""
 
@@ -189,7 +201,7 @@ class HotWaterAutomationState(TypedDict, total=False):
     service_mode: ServiceModeState
     force_heat_activated_at: str | None
     ohme_charging_confirm_cycles: int
-    normal_target_mismatch_alerted_for: float
+    normal_target_mismatch_alerted_for: NormalTargetMismatchAlert
 
 
 DEFAULT_TANK_TEMP_THRESHOLD_C = 45.0
