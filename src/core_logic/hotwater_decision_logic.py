@@ -433,3 +433,159 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
             f"not yet in an off-peak window - waiting"
         ),
     )
+
+
+# --- Pure helpers moved from hotwater_automation_core.py (2026-09-08) ------
+#
+# Each of these takes plain data in and returns plain data out - no MELCloud
+# calls, no state-file I/O - so they belong here alongside
+# determine_hotwater_decision rather than in the module full of async I/O
+# orchestration. hotwater_automation_core.py imports them back by name, so
+# every existing call site there is unchanged.
+
+
+def _overnight_deadline_passed(
+    activated_at_local: datetime, now_local: datetime, offpeak_end_time: time
+) -> bool:
+    """Whether now_local is at/after the next offpeak_end_time on/after activated_at_local.
+
+    A hard clock deadline (default 05:30) on top of the max-duration safety
+    net - "a cycle scheduled at 6pm must be completed by 5:30am the day
+    after" - regardless of how far the tank still is from target.
+    Deliberately NOT a plain `now_local.time() >= offpeak_end_time` check:
+    that's true for the entire rest of the day once past 05:30 (e.g. 16:30 >=
+    05:30), which would wrongly cap an unrelated afternoon car-charging/
+    battery-prediction-triggered heat that has nothing to do with an
+    overnight deadline. Instead this finds the *next* offpeak_end_time at or
+    after activation (same day if activation was already before it, e.g. a
+    cycle starting at 04:50; the following day if activation was in the
+    evening, e.g. 22:00) and only compares against that.
+
+    Examples:
+        >>> from datetime import UTC
+        >>> tz = UTC
+        >>> # Started 10pm, still running past 6am the next day -> deadline passed
+        >>> _overnight_deadline_passed(
+        ...     datetime(2026, 1, 1, 22, 0, tzinfo=tz), datetime(2026, 1, 2, 6, 0, tzinfo=tz),
+        ...     time(5, 30),
+        ... )
+        True
+        >>> # Started 4:50am, still running at 5:35am the same morning -> deadline passed
+        >>> _overnight_deadline_passed(
+        ...     datetime(2026, 1, 2, 4, 50, tzinfo=tz), datetime(2026, 1, 2, 5, 35, tzinfo=tz),
+        ...     time(5, 30),
+        ... )
+        True
+        >>> # Started 4pm (afternoon path), an hour later -> nowhere near its own deadline
+        >>> _overnight_deadline_passed(
+        ...     datetime(2026, 1, 1, 16, 0, tzinfo=tz), datetime(2026, 1, 1, 17, 0, tzinfo=tz),
+        ...     time(5, 30),
+        ... )
+        False
+
+    """
+    deadline_date = activated_at_local.date()
+    if activated_at_local.time() >= offpeak_end_time:
+        deadline_date += timedelta(days=1)
+    deadline_dt = datetime.combine(
+        deadline_date, offpeak_end_time, tzinfo=activated_at_local.tzinfo
+    )
+    return now_local >= deadline_dt
+
+
+def _daily_check_lookup_date_str(hw_config: dict[str, Any], now_local: datetime) -> str:
+    """The calendar date whose daily_check snapshot governs right now.
+
+    _update_daily_threshold_snapshot always WRITES under the calendar date it
+    ran on - safe, since daily_check_hour (18:00 by default) is always in the
+    afternoon/evening, never near midnight. But every READ of that snapshot
+    (the force-heat decision, the legionella-due check, and
+    _refresh_daily_snapshot_if_warm's own correction) needs to keep finding
+    that same snapshot for the REST of that evening's session - which runs
+    through midnight to offpeak_end (05:30 by default) the following
+    calendar day.
+
+    Without this adjustment (a real gap found 2026-09-07, discovered
+    alongside the "don't re-trigger" fix elsewhere in this module): any
+    decision made between midnight and offpeak_end would compare the
+    snapshot's date against TOMORROW's date (relative to when the snapshot
+    was actually written), never match, and read the tank's temperature as
+    unavailable - silently unable to heat at all during that stretch, no
+    matter how cold the tank actually was. That's exactly the part of the
+    night (car-charging and battery-prediction have both already closed by
+    then) that's supposed to be covered by "the grid is now off-peak, heat
+    regardless" - which never got the chance to apply.
+
+    Before offpeak_end, we're still in "last night's" session - look up
+    yesterday's date. At/after it, use today's - the same offpeak_end
+    boundary _overnight_deadline_passed already uses to mark an overnight
+    session as over.
+    """
+    offpeak_end_time = datetime.strptime(
+        hw_config.get("offpeak_end", _DEFAULT_OFFPEAK_END), "%H:%M"
+    ).time()
+    if now_local.time() < offpeak_end_time:
+        return (now_local - timedelta(days=1)).date().isoformat()
+    return now_local.date().isoformat()
+
+
+def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, Any]) -> bool:
+    """Return True if legionella_interval_days have passed since the last completed cycle.
+
+    A missing/malformed last_completed_at (never run, or hand-edited state) is
+    treated as due, the same "unknown means due" stance run_legionella_check
+    took previously - it must get a chance to run at least once rather than
+    being permanently blocked by bad state.
+    """
+    last_completed_str = legionella_state.get("last_completed_at")
+    if not last_completed_str:
+        return True
+    try:
+        last_completed = datetime.fromisoformat(last_completed_str)
+    except ValueError:
+        logger.error(
+            "legionella last_completed_at (%r) is not a valid timestamp, treating "
+            "the cycle as due",
+            last_completed_str,
+        )
+        return True
+    interval_days = hw_config.get("legionella_interval_days", _DEFAULT_LEGIONELLA_INTERVAL_DAYS)
+    days_since = (datetime.now(tz=UTC) - last_completed).days
+    return days_since >= interval_days
+
+
+def _battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float:
+    """The last hour the battery-prediction path may still START a new heat.
+
+    Normally just battery_prediction_deadline_hour itself - the window stays
+    open right up to the moment it's forecasting towards. But if
+    hotwater_automation.forced_discharge_start_hour is configured (the
+    battery system enters a forced-discharge mode at a fixed clock time -
+    confirmed 2026-09-07: from that point on, the battery's SoC trajectory is
+    no longer driven by normal household usage, so a prediction of what it'll
+    be later is meaningless), the window must close earlier than that: a heat
+    started too close to forced discharge could still be running - for up to
+    whichever of force_heat_max_duration_hours/legionella_max_cycle_duration_hours
+    is longer, since a battery-prediction trigger can be upgraded to a
+    legionella cycle - when forced discharge begins. Closing the window one
+    full heating cycle's worth of time earlier guarantees any heat this path
+    starts has definitely finished by then.
+
+    Returns whichever of the two bounds is earlier - the deadline itself is
+    still respected if forced discharge starts so late that subtracting the
+    duration doesn't bring it any earlier.
+    """
+    deadline_hour = hw_config.get(
+        "battery_prediction_deadline_hour", _DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR
+    )
+    forced_discharge_start_hour = hw_config.get("forced_discharge_start_hour")
+    if forced_discharge_start_hour is None:
+        return deadline_hour
+
+    max_duration_hours = max(
+        hw_config.get("force_heat_max_duration_hours", _DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS),
+        hw_config.get(
+            "legionella_max_cycle_duration_hours", _DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS
+        ),
+    )
+    return min(deadline_hour, forced_discharge_start_hour - max_duration_hours)
