@@ -27,20 +27,20 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# A handful of small default constants duplicated from
-# hotwater_automation_core.py (the definitive source - keep these in sync
-# with it) rather than imported from there, to avoid a circular import: core
-# imports these pure functions FROM this module, so this module can't import
-# anything back from core. Each is a stable, rarely-changed fallback default
-# for a config key this module's own pure functions read - moved here
-# 2026-09-08 alongside the functions themselves (see this module's own
-# architectural review) so they're testable without importing MelCloudClient/
-# state-file I/O at all.
-_DEFAULT_OFFPEAK_END = "05:30"
-_DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
-_DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5
-_DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 1.0
-_DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 1.0
+# Fallback defaults for config keys this module's own pure functions read.
+# This is the single source of truth for these 5 - hotwater_automation_core.py
+# imports them from here (rather than each module keeping its own copy,
+# 2026-09-08: two sources of truth for the same default risked one changing
+# without the other, silently splitting what value core.py's I/O layer uses
+# from what these pure functions fall back to). This direction only: core.py
+# already imports several names from this module (determine_hotwater_decision,
+# the four functions below, etc.), so it can freely import these too; this
+# module must never import anything back from core.py.
+DEFAULT_OFFPEAK_END = "05:30"
+DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
+DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5
+DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 1.0
+DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 1.0
 
 
 @dataclass
