@@ -84,33 +84,6 @@ def _freeze(monkeypatch, hour: int, minute: int) -> None:
     monkeypatch.setattr(core, "datetime", frozen)
 
 
-class FakeMelCloudClient:
-    def __init__(self, *, tank_temp: float = 30.0) -> None:
-        self.tank_temp = tank_temp
-        self.force_calls: list[bool] = []
-
-    async def connect(self) -> None:
-        return None
-
-    async def get_tank_status(self) -> dict:
-        return {
-            "tank_temperature": self.tank_temp,
-            "target_tank_temperature": 45.0,
-            "target_tank_temperature_max": 65.0,
-            "operation_mode": core.HotWaterOperationMode.AUTO,
-        }
-
-    async def set_force_hot_water(self, *, enabled: bool) -> bool:
-        self.force_calls.append(enabled)
-        return True
-
-    async def set_target_tank_temperature(self, temp: float) -> None:
-        return None
-
-    async def close(self) -> None:
-        return None
-
-
 def _run(tmp_path: Path, monkeypatch, *, hour: int, minute: int):
     _freeze(monkeypatch, hour, minute)
     state_path = tmp_path / "hotwater_automation_state.json"
