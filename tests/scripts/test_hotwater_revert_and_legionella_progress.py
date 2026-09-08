@@ -196,7 +196,9 @@ def test_revert_check_does_not_alert_when_target_reached(tmp_path):
 
     with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
         _run(
-            lambda: core.run_revert_check({"email": {"enabled": True}}, {}, dry_run=False, quiet=True),
+            lambda: core.run_revert_check(
+                {"email": {"enabled": True}}, {"normal_target_temp_c": 45.0}, dry_run=False, quiet=True
+            ),
             state_path,
             client,
         )
