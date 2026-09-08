@@ -316,41 +316,11 @@ def get_battery_soc_percent(config: dict[str, Any]) -> float | None:
     return min(soc_data["master"], soc_data["slave"])
 
 
-def _battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float:
-    """The last hour the battery-prediction path may still START a new heat.
-
-    Normally just battery_prediction_deadline_hour itself - the window stays
-    open right up to the moment it's forecasting towards. But if
-    hotwater_automation.forced_discharge_start_hour is configured (the
-    battery system enters a forced-discharge mode at a fixed clock time -
-    confirmed 2026-09-07: from that point on, the battery's SoC trajectory is
-    no longer driven by normal household usage, so a prediction of what it'll
-    be later is meaningless), the window must close earlier than that: a heat
-    started too close to forced discharge could still be running - for up to
-    whichever of force_heat_max_duration_hours/legionella_max_cycle_duration_hours
-    is longer, since a battery-prediction trigger can be upgraded to a
-    legionella cycle - when forced discharge begins. Closing the window one
-    full heating cycle's worth of time earlier guarantees any heat this path
-    starts has definitely finished by then.
-
-    Returns whichever of the two bounds is earlier - the deadline itself is
-    still respected if forced discharge starts so late that subtracting the
-    duration doesn't bring it any earlier.
-    """
-    deadline_hour = hw_config.get(
-        "battery_prediction_deadline_hour", DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR
-    )
-    forced_discharge_start_hour = hw_config.get("forced_discharge_start_hour")
-    if forced_discharge_start_hour is None:
-        return deadline_hour
-
-    max_duration_hours = max(
-        hw_config.get("force_heat_max_duration_hours", DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS),
-        hw_config.get(
-            "legionella_max_cycle_duration_hours", DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS
-        ),
-    )
-    return min(deadline_hour, forced_discharge_start_hour - max_duration_hours)
+# _battery_prediction_eligibility_end_hour moved to
+# src/core_logic/hotwater_decision_logic.py (2026-09-08, see this module's
+# own architectural review) - it's pure (plain data in, plain data out, no
+# I/O), so it belongs alongside determine_hotwater_decision. Imported back in
+# below; every call site here is unchanged.
 
 
 def get_battery_prediction_to_deadline(
