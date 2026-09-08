@@ -158,20 +158,34 @@ is written to treat that as a safe default)**:
 - `config/battery_evening_prediction.json` — missing means the force-heat
   check falls back to a live SoC reading instead of the evening forecast
   (documented fallback, not a crash).
-- `config/solar_forecast.json` — missing means the dashboard shows no solar
-  forecast until the predictor's next cron run.
 Starting these fresh on the Pi (i.e., *not* copying them) is the simpler and
 recommended default — continuity here buys little and copying a stale mode-
 change-log timestamp from a different machine's clock is a needless risk to
 reason about.
 
-**`logs/` and `cache/`** — don't copy; both are regenerated automatically
-(`logs/` via `Path("logs").mkdir(exist_ok=True)` in
-`src/daemon_support/base_daemon.py`, rotating with 7-day retention built in;
-`cache/` similarly). Note `.gitignore`'s comment that `logs/` is expected to
-be a symlink on the target machine, not a plain directory — that's optional
-(e.g. if you want logs on external storage to spare the Pi's SD card), skip
-it if you don't need it.
+**`config/cache/`** (`ohme_status.json`, `melcloud_status.json`,
+`claude_usage.json`, `mg_saic_status.json`, `solar_forecast.json` — see
+`src/utils/paths.py`'s `get_ephemeral_cache_dir()`) — a **tmpfs mount**, set
+up by `setup_pi.sh`'s Step 8 before the systemd services (Step 9+) start
+writing to it, so don't create it as a plain directory by hand first. Never
+copy it, never expect it to survive a reboot — every reader already treats
+a missing/stale cache as "no cached answer yet" and falls back to its own
+direct API call, which is exactly what happens after every reboot by
+design. These used to live directly on the SD card and were the largest
+write-count contributor to card wear after `data/solax_historical_data.json`
+(`ohme_status.json` alone: ~2,880 rewrites/day) for zero persistence
+benefit - moved off it entirely rather than just written less often.
+
+**`logs/`** (project-root level, unrelated to the `config/cache/` above)
+and the separate project-root **`cache/`** directory (OAuth token caches -
+Solcast, BMW, Nest, Blink; `src/utils/paths.py`'s `get_cache_dir()`) —
+don't copy either; both are regenerated automatically (`logs/` via
+`Path("logs").mkdir(exist_ok=True)` in `src/daemon_support/base_daemon.py`,
+rotating with 7-day retention built in; `cache/` similarly). Note
+`.gitignore`'s comment that `logs/` is expected to be a symlink on the
+target machine, not a plain directory — that's optional (e.g. if you want
+logs on external storage to spare the Pi's SD card), skip it if you don't
+need it.
 
 ## 4. systemd units
 
