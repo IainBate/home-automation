@@ -455,7 +455,7 @@ def determine_hotwater_decision(context: HotWaterDecisionContext) -> HotWaterDec
 # every existing call site there is unchanged.
 
 
-def _overnight_deadline_passed(
+def overnight_deadline_passed(
     activated_at_local: datetime, now_local: datetime, offpeak_end_time: time
 ) -> bool:
     """Whether now_local is at/after the next offpeak_end_time on/after activated_at_local.
@@ -476,19 +476,19 @@ def _overnight_deadline_passed(
         >>> from datetime import UTC
         >>> tz = UTC
         >>> # Started 10pm, still running past 6am the next day -> deadline passed
-        >>> _overnight_deadline_passed(
+        >>> overnight_deadline_passed(
         ...     datetime(2026, 1, 1, 22, 0, tzinfo=tz), datetime(2026, 1, 2, 6, 0, tzinfo=tz),
         ...     time(5, 30),
         ... )
         True
         >>> # Started 4:50am, still running at 5:35am the same morning -> deadline passed
-        >>> _overnight_deadline_passed(
+        >>> overnight_deadline_passed(
         ...     datetime(2026, 1, 2, 4, 50, tzinfo=tz), datetime(2026, 1, 2, 5, 35, tzinfo=tz),
         ...     time(5, 30),
         ... )
         True
         >>> # Started 4pm (afternoon path), an hour later -> nowhere near its own deadline
-        >>> _overnight_deadline_passed(
+        >>> overnight_deadline_passed(
         ...     datetime(2026, 1, 1, 16, 0, tzinfo=tz), datetime(2026, 1, 1, 17, 0, tzinfo=tz),
         ...     time(5, 30),
         ... )
@@ -504,7 +504,7 @@ def _overnight_deadline_passed(
     return now_local >= deadline_dt
 
 
-def _daily_check_lookup_date_str(hw_config: dict[str, Any], now_local: datetime) -> str:
+def daily_check_lookup_date_str(hw_config: dict[str, Any], now_local: datetime) -> str:
     """The calendar date whose daily_check snapshot governs right now.
 
     _update_daily_threshold_snapshot always WRITES under the calendar date it
@@ -529,7 +529,7 @@ def _daily_check_lookup_date_str(hw_config: dict[str, Any], now_local: datetime)
 
     Before offpeak_end, we're still in "last night's" session - look up
     yesterday's date. At/after it, use today's - the same offpeak_end
-    boundary _overnight_deadline_passed already uses to mark an overnight
+    boundary overnight_deadline_passed already uses to mark an overnight
     session as over.
     """
     offpeak_end_time = datetime.strptime(
@@ -540,7 +540,7 @@ def _daily_check_lookup_date_str(hw_config: dict[str, Any], now_local: datetime)
     return now_local.date().isoformat()
 
 
-def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, Any]) -> bool:
+def is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, Any]) -> bool:
     """Return True if legionella_interval_days have passed since the last completed cycle.
 
     A missing/malformed last_completed_at (never run, or hand-edited state) is
@@ -565,7 +565,7 @@ def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, An
     return days_since >= interval_days
 
 
-def _battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float:
+def battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float:
     """The last hour the battery-prediction path may still START a new heat.
 
     Normally just battery_prediction_deadline_hour itself - the window stays

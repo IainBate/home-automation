@@ -387,7 +387,7 @@ def get_battery_soc_percent(config: dict[str, Any]) -> float | None:
     return min(soc_data["master"], soc_data["slave"])
 
 
-# _battery_prediction_eligibility_end_hour moved to
+# battery_prediction_eligibility_end_hour moved to
 # src/core_logic/hotwater_decision_logic.py (2026-09-08, see this module's
 # own architectural review) - it's pure (plain data in, plain data out, no
 # I/O), so it belongs alongside determine_hotwater_decision. Imported back in
@@ -719,7 +719,7 @@ async def run_force_heat_check(
     A legionella cycle is due to the exact same trigger as a normal
     force-heat (see determine_hotwater_decision) - the only difference is a
     minimum-interval gate: if legionella_interval_days have passed since the
-    last completed cycle (_is_legionella_due), this force-heat is done as a
+    last completed cycle (is_legionella_due), this force-heat is done as a
     legionella cycle (raised target temperature, via _start_legionella_cycle)
     instead of a normal one. There is no separate schedule or condition check
     for legionella.
@@ -880,10 +880,10 @@ async def _run_force_heat_check_locked(
         )
         # The window this path may still START a new heat in can close
         # earlier than the deadline it predicts TOWARDS - see
-        # _battery_prediction_eligibility_end_hour's own docstring
+        # battery_prediction_eligibility_end_hour's own docstring
         # (forced_discharge_start_hour).
         battery_prediction_eligibility_end_time = hour_float_to_time(
-            _battery_prediction_eligibility_end_hour(hw_config)
+            battery_prediction_eligibility_end_hour(hw_config)
         )
         in_battery_prediction_window = is_in_offpeak_window(
             now_local.time(), battery_prediction_window_start_time, battery_prediction_eligibility_end_time
@@ -914,11 +914,11 @@ async def _run_force_heat_check_locked(
         # default daily_check_hour) reads as "not below threshold" - the same
         # safe default as an unavailable live reading gets.
         daily_check = state.get("daily_check", {})
-        # _daily_check_lookup_date_str, not a plain now_local.date() - a
+        # daily_check_lookup_date_str, not a plain now_local.date() - a
         # decision made between midnight and offpeak_end is still part of
         # LAST evening's session and must still find that snapshot (see its
         # own docstring for the real gap this closes).
-        today_str = _daily_check_lookup_date_str(hw_config, now_local)
+        today_str = daily_check_lookup_date_str(hw_config, now_local)
         if car_is_charging or battery_prediction_trigger_active:
             decision_tank_temperature = tank_temperature
         elif daily_check.get("date") == today_str:
@@ -988,7 +988,7 @@ async def _run_force_heat_check_locked(
 
         legionella_state = state.get("legionella", {})
         legionella_due = (
-            _is_legionella_due(hw_config, legionella_state)
+            is_legionella_due(hw_config, legionella_state)
             and daily_check.get("date") == today_str
             and daily_check.get("below_threshold") is True
         )
@@ -1044,7 +1044,7 @@ async def _run_force_heat_check_locked(
     return 1
 
 
-# _daily_check_lookup_date_str moved to
+# daily_check_lookup_date_str moved to
 # src/core_logic/hotwater_decision_logic.py (2026-09-08, see this module's
 # own architectural review) - pure, no I/O. Imported back in below; every
 # call site here is unchanged.
@@ -1144,7 +1144,7 @@ def _refresh_daily_snapshot_if_warm(
     if tank_temperature < threshold:
         return
     daily_check = state.get("daily_check", {})
-    today_str = _daily_check_lookup_date_str(hw_config, now_local)
+    today_str = daily_check_lookup_date_str(hw_config, now_local)
     if daily_check.get("date") != today_str or daily_check.get("below_threshold") is not True:
         return
     state["daily_check"] = {**daily_check, "tank_temperature_c": tank_temperature, "below_threshold": False}
@@ -1156,7 +1156,7 @@ def _refresh_daily_snapshot_if_warm(
     )
 
 
-# _is_legionella_due moved to src/core_logic/hotwater_decision_logic.py
+# is_legionella_due moved to src/core_logic/hotwater_decision_logic.py
 # (2026-09-08, see this module's own architectural review) - pure, no I/O
 # (its one logger.error call is a validation warning, not a side effect that
 # needed this module's own logger setup). Imported back in below; every call
@@ -1168,7 +1168,7 @@ def check_legionella_due_warning(
 ) -> int:
     """Send a warning email once a legionella cycle is within legionella_due_warning_days of due.
 
-    Purely a heads-up, sent well before _is_legionella_due would actually
+    Purely a heads-up, sent well before is_legionella_due would actually
     start upgrading a force-heat to a legionella cycle - no MELCloud call, no
     effect on the automation itself. Sends at most once per interval: stamps
     state["legionella"]["due_warning_sent_for"] with the last_completed_at
@@ -1179,7 +1179,7 @@ def check_legionella_due_warning(
     approaching-due warning fires normally.
 
     A never-yet-completed cycle (legionella_state has no last_completed_at)
-    is skipped rather than warned about - _is_legionella_due already treats
+    is skipped rather than warned about - is_legionella_due already treats
     that as immediately due, so there's no "coming due in N days" state to
     warn about; it'll simply run at the next opportunity.
 
@@ -1266,7 +1266,7 @@ async def _start_legionella_cycle(
 
     Called in place of a normal force-heat once the shared trigger conditions
     fire and a cycle is due - see determine_hotwater_decision and
-    _is_legionella_due. run_legionella_progress_check later restores the
+    is_legionella_due. run_legionella_progress_check later restores the
     original target once the tank reaches it (or a safety timeout is hit).
     """
     status = await client.get_tank_status()
@@ -1319,7 +1319,7 @@ async def _start_legionella_cycle(
     return 0
 
 
-# _overnight_deadline_passed moved to
+# overnight_deadline_passed moved to
 # src/core_logic/hotwater_decision_logic.py (2026-09-08, see this module's
 # own architectural review) - pure, no I/O, already had its own doctests
 # there. Imported back in below; every call site here is unchanged.
@@ -1446,7 +1446,7 @@ def _elapsed_hours_and_deadline_passed(
     """Shared by run_revert_check/run_legionella_progress_check: how long a
     heating window has been running, and whether the overnight completion
     deadline (offpeak_end) has passed since it started - see
-    _overnight_deadline_passed. Pulled out specifically because this was
+    overnight_deadline_passed. Pulled out specifically because this was
     previously implemented twice, identically - see this module's own
     architectural review (2026-09-08) for why that duplication mattered.
     """
@@ -1454,7 +1454,7 @@ def _elapsed_hours_and_deadline_passed(
     offpeak_end_time = datetime.strptime(
         hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
     ).time()
-    deadline_passed = _overnight_deadline_passed(started_at.astimezone(tz), now.astimezone(tz), offpeak_end_time)
+    deadline_passed = overnight_deadline_passed(started_at.astimezone(tz), now.astimezone(tz), offpeak_end_time)
     return elapsed_hours, deadline_passed
 
 
@@ -1660,7 +1660,7 @@ async def run_revert_check(
       sensor reading or the unit silently not heating), or
     - the offpeak_end (05:30 by default) clock deadline passing since
       activation, whichever of the two comes first - see
-      _overnight_deadline_passed.
+      overnight_deadline_passed.
 
     Not gated on holiday_mode_active/service_mode_active: an already-active
     force-heat window when either starts is deliberately left to finish/

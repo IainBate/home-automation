@@ -68,7 +68,7 @@ def _run(tmp_path: Path, monkeypatch, *, hour: int, minute: int, initial_state: 
         # (both live-reading paths that would otherwise bypass the pinned
         # snapshot entirely - see determine_hotwater_decision's precedence
         # order). offpeak_end kept at the real default (05:30), not widened -
-        # _daily_check_lookup_date_str's own yesterday/today boundary is
+        # daily_check_lookup_date_str's own yesterday/today boundary is
         # anchored to it, and widening it here would make every one of these
         # tests' daytime-written snapshots look like "yesterday's" to the
         # same-tick read that immediately follows.

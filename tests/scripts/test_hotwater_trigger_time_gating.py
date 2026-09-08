@@ -80,7 +80,7 @@ def _run(
 
     # offpeak_end deliberately always stays at the real default (05:30), not
     # widened to force grid_is_cheap=True for an arbitrary hour -
-    # _daily_check_lookup_date_str's own yesterday/today boundary is
+    # daily_check_lookup_date_str's own yesterday/today boundary is
     # anchored to it, and widening it would make same-day snapshot lookups
     # incorrectly look for "yesterday" at these tests' own afternoon/evening
     # hours. offpeak_start moved earlier instead, which still covers every

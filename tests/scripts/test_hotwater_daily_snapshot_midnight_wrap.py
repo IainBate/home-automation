@@ -1,4 +1,4 @@
-"""Regression tests for _daily_check_lookup_date_str and its use in
+"""Regression tests for daily_check_lookup_date_str and its use in
 _run_force_heat_check_locked / _refresh_daily_snapshot_if_warm.
 
 Real gap found 2026-09-07: every read of the once-a-day daily_check snapshot
@@ -70,25 +70,25 @@ def _run(tmp_path: Path, monkeypatch, *, moment, initial_state: dict, tank_temp:
     return exit_code, client, final_state
 
 
-# --- _daily_check_lookup_date_str (pure) ------------------------------------
+# --- daily_check_lookup_date_str (pure) ------------------------------------
 
 
 def test_lookup_date_before_offpeak_end_is_yesterday():
     hw_config = {"offpeak_end": "05:30"}
     now_local = datetime_module.datetime(2026, 1, 16, 2, 0)
-    assert core._daily_check_lookup_date_str(hw_config, now_local) == "2026-01-15"
+    assert core.daily_check_lookup_date_str(hw_config, now_local) == "2026-01-15"
 
 
 def test_lookup_date_at_offpeak_end_is_today():
     hw_config = {"offpeak_end": "05:30"}
     now_local = datetime_module.datetime(2026, 1, 16, 5, 30)
-    assert core._daily_check_lookup_date_str(hw_config, now_local) == "2026-01-16"
+    assert core.daily_check_lookup_date_str(hw_config, now_local) == "2026-01-16"
 
 
 def test_lookup_date_in_the_afternoon_is_today():
     hw_config = {"offpeak_end": "05:30"}
     now_local = datetime_module.datetime(2026, 1, 16, 18, 0)
-    assert core._daily_check_lookup_date_str(hw_config, now_local) == "2026-01-16"
+    assert core.daily_check_lookup_date_str(hw_config, now_local) == "2026-01-16"
 
 
 # --- end-to-end via run_force_heat_check ------------------------------------

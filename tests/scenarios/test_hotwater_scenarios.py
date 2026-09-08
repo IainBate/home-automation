@@ -96,7 +96,7 @@ def hotwater_env(tmp_path, monkeypatch, fake_solax_server_factory):  # noqa: F81
     def seed_recent_legionella_cycle():
         """Mark a cycle as just completed, so force-heat takes the NORMAL path.
 
-        "Never completed" is treated as due (see _is_legionella_due), which
+        "Never completed" is treated as due (see is_legionella_due), which
         means the very first force-heat on a fresh state file is always a
         legionella cycle - correct, but not what the normal-path scenarios
         below are about.

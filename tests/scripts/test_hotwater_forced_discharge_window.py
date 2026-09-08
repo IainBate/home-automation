@@ -1,4 +1,4 @@
-"""Tests for _battery_prediction_eligibility_end_hour and its wiring into
+"""Tests for battery_prediction_eligibility_end_hour and its wiring into
 _run_force_heat_check_locked's battery-prediction window.
 
 Confirmed 2026-09-07: the battery system enters a forced-discharge mode at a
@@ -23,12 +23,12 @@ import hotwater_automation_core as core
 from _fakes import FakeMelCloudClient
 
 
-# --- _battery_prediction_eligibility_end_hour (pure) ------------------------
+# --- battery_prediction_eligibility_end_hour (pure) ------------------------
 
 
 def test_no_forced_discharge_configured_uses_deadline_hour_unchanged():
     hw_config = {"battery_prediction_deadline_hour": 23.5}
-    assert core._battery_prediction_eligibility_end_hour(hw_config) == 23.5
+    assert core.battery_prediction_eligibility_end_hour(hw_config) == 23.5
 
 
 def test_forced_discharge_closes_window_one_full_heating_cycle_earlier():
@@ -38,7 +38,7 @@ def test_forced_discharge_closes_window_one_full_heating_cycle_earlier():
         "force_heat_max_duration_hours": 1.0,
         "legionella_max_cycle_duration_hours": 1.0,
     }
-    assert core._battery_prediction_eligibility_end_hour(hw_config) == 21.5
+    assert core.battery_prediction_eligibility_end_hour(hw_config) == 21.5
 
 
 def test_forced_discharge_uses_the_longer_of_the_two_duration_limits():
@@ -49,7 +49,7 @@ def test_forced_discharge_uses_the_longer_of_the_two_duration_limits():
         "legionella_max_cycle_duration_hours": 3.0,  # longer - a legionella
         # upgrade must also definitely finish before forced discharge
     }
-    assert core._battery_prediction_eligibility_end_hour(hw_config) == 19.5
+    assert core.battery_prediction_eligibility_end_hour(hw_config) == 19.5
 
 
 def test_forced_discharge_starting_late_falls_back_to_the_deadline():
@@ -64,7 +64,7 @@ def test_forced_discharge_starting_late_falls_back_to_the_deadline():
         "force_heat_max_duration_hours": 0.1,
         "legionella_max_cycle_duration_hours": 0.1,
     }
-    assert core._battery_prediction_eligibility_end_hour(hw_config) == 23.5
+    assert core.battery_prediction_eligibility_end_hour(hw_config) == 23.5
 
 
 # --- end-to-end via run_force_heat_check ------------------------------------

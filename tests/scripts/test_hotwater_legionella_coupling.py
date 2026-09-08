@@ -2,7 +2,7 @@
 
 A legionella cycle has no schedule of its own - it rides on the exact same
 force-heat trigger as a normal heat (see determine_hotwater_decision), gated
-only by a minimum days-since-last-cycle check (_is_legionella_due). These
+only by a minimum days-since-last-cycle check (is_legionella_due). These
 tests exercise run_force_heat_check end-to-end with a fake MELCloud client
 (no real hardware/network) to pin down that coupling:
 - never run before / overdue -> starts a legionella cycle instead of a
@@ -37,11 +37,11 @@ def _run_force_heat_check(tmp_path: Path, *, legionella_last_completed_days_ago:
     # midnight local time: run any time between 00:00 and offpeak_end, a
     # plain today's-date stamp would mismatch the "still last evening's
     # session" date _run_force_heat_check_locked actually looks up (see
-    # _daily_check_lookup_date_str), silently failing the legionella-due
+    # daily_check_lookup_date_str), silently failing the legionella-due
     # check's own daily_check.get("date") == today_str condition - a real
     # gap found running this suite for real past midnight 2026-09-08.
     now_local = datetime.now(tz=UTC).astimezone(pytz.timezone("Europe/London"))
-    today_str = core._daily_check_lookup_date_str({}, now_local)
+    today_str = core.daily_check_lookup_date_str({}, now_local)
     legionella_state: dict = {"cycle_in_progress": False}
     if legionella_last_completed_days_ago is not None:
         completed_at = datetime.now(tz=UTC) - timedelta(days=legionella_last_completed_days_ago)
@@ -117,8 +117,8 @@ def test_legionella_never_runs_sooner_than_the_interval():
         "last_completed_at": (datetime.now(tz=UTC) - timedelta(days=90)).isoformat()
     }
     hw_config = {"legionella_interval_days": 90}
-    assert core._is_legionella_due(hw_config, not_due_state) is False
-    assert core._is_legionella_due(hw_config, due_state) is True
+    assert core.is_legionella_due(hw_config, not_due_state) is False
+    assert core.is_legionella_due(hw_config, due_state) is True
 
 
 def test_legionella_due_but_unit_cannot_reach_target_falls_back_to_normal_heat(tmp_path):
