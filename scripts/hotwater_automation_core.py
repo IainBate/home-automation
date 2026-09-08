@@ -2111,9 +2111,13 @@ async def _run_legionella_progress_check_locked(
         return 0
 
     started_at_str = legionella_state.get("cycle_started_at")
-    target_temp = legionella_state.get("target_temp_c")
     original_target_temp = legionella_state.get("original_target_temp_c")
-    if started_at_str is None or target_temp is None or original_target_temp is None:
+    # target_temp_c (the raised target this cycle originally requested) is
+    # checked for presence here as part of validating the state is well-formed,
+    # but not used below - completion is decided against
+    # legionella_natural_completion_temp_c instead (see below), independent
+    # of whatever was actually requested.
+    if started_at_str is None or legionella_state.get("target_temp_c") is None or original_target_temp is None:
         # Malformed state (e.g. hand-edited, or written by a different code
         # version) - clear cycle_in_progress rather than raising the same
         # KeyError forever on every future check, which would leave the tank
