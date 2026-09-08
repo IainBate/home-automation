@@ -294,6 +294,7 @@ function hotWaterCard(d) {
     <div class="row"><span class="label">Tank temperature</span><span class="value">${fmtTemp(d.tank_temperature_c)}</span></div>
     <div class="row"><span class="label">Target</span><span class="value">${fmtTemp(d.target_tank_temperature_c)}</span></div>
     <div class="row"><span class="label">Activity</span><span class="value">${escapeHtml(titleCase(d.status))}</span></div>
+    ${d.legionella_days_since_last != null && d.legionella_days_until_due != null ? `<div class="row"><span class="label">Legionella cycle</span><span class="value">${d.legionella_days_since_last}d ago · ${d.legionella_days_until_due > 0 ? `due in ${d.legionella_days_until_due}d` : `overdue by ${-d.legionella_days_until_due}d`}</span></div>` : ""}
     ${d.force_heat_active ? `<div class="row"><span class="label">Force heat</span><span class="value"><span class="badge warn">Active</span></span></div>` : ""}
     ${d.legionella_cycle_in_progress ? `<div class="row"><span class="label">Legionella cycle</span><span class="value"><span class="badge warn">In progress</span></span></div>` : ""}
     ${d.automation_holiday_active ? `<div class="row"><span class="label">Automation holiday</span><span class="value"><span class="badge warn">Active until ${escapeHtml(d.automation_holiday_until ?? "")}</span></span></div>` : ""}
@@ -303,7 +304,6 @@ function hotWaterCard(d) {
     <div class="row"><span class="label">Device holiday mode</span><span class="value">${d.holiday_mode ? "On" : "Off"}</span></div>
     ${d.force_heat_activated_at ? `<div class="row"><span class="label">Force heat since</span><span class="value">${escapeHtml(d.force_heat_activated_at)}</span></div>` : ""}
     ${d.legionella_last_completed_at ? `<div class="row"><span class="label">Last legionella cycle</span><span class="value">${escapeHtml(d.legionella_last_completed_at)}</span></div>` : ""}
-    ${d.legionella_days_until_due != null ? `<div class="row"><span class="label">Next legionella cycle</span><span class="value">${d.legionella_days_until_due > 0 ? `due in ${d.legionella_days_until_due}d` : `overdue by ${-d.legionella_days_until_due}d`}</span></div>` : ""}
   `;
   return card("Hot Water", body, details);
 }
