@@ -183,6 +183,36 @@ def test_holiday_mode_does_not_skip_the_safety_ceiling_check(tmp_path, monkeypat
     assert len(daemon.safety_ceiling_calls) == 1
 
 
+def test_safety_ceiling_is_registered_before_legionella_progress(tmp_path, monkeypatch):
+    """Found 2026-09-08 code review: safety_ceiling and legionella_progress
+    now share the same poll_interval_seconds cadence, and
+    TwoTierPollingDaemon runs registered checks in order within one tick
+    (see base_daemon.py's _run_one_tick). If legionella_progress ran first,
+    it would complete+clear a cycle that just reached temperature before
+    safety_ceiling ever saw cycle_in_progress=True, and safety_ceiling would
+    then misread the still-hot tank as an unexplained violation - a false
+    "SAFETY CEILING" alarm email on every routine legionella completion.
+    safety_ceiling must run first so it's the one to (quietly) complete the
+    cycle if it gets there first, and legionella_progress's own next read
+    simply no-ops on an already-cleared cycle - see
+    run_safety_ceiling_check's own docstring.
+    """
+    config_dir = tmp_path / "config"
+    config_path = _write_config(
+        config_dir,
+        {
+            "hotwater_automation": {"enabled": True, "poll_interval_seconds": 600},
+            "melcloud": {"enabled": True, "email": "test@example.com", "password": "dummy"},
+        },
+    )
+    daemon = _make_daemon(config_path, monkeypatch, tmp_path)
+
+    names = [check.name for check in daemon._checks]
+
+    assert names.index("safety_ceiling") < names.index("legionella_progress")
+    assert names.index("safety_ceiling") < names.index("revert")
+
+
 def test_checks_do_not_rerun_before_their_interval_elapses(tmp_path, monkeypatch):
     config_dir = tmp_path / "config"
     config_path = _write_config(
