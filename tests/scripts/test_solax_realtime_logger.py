@@ -88,6 +88,26 @@ def test_run_compacts_wal_into_main_file_once_compaction_is_due(tmp_path):
     assert wal_path.read_text(encoding="utf-8") == ""
 
 
+def test_compact_now_folds_wal_in_regardless_of_age(tmp_path, capsys):
+    """--compact-now (via compact_now()) must fold in pending entries even when the
+    main file is fresh (i.e. an ordinary tick would have deferred compaction)."""
+    data_path = tmp_path / "solax_historical_data.json"
+    data_path.write_text(
+        json.dumps({"meta": {"data_points": 1}, "data": [{"timestamp": "2026-09-01 12:00:00"}]}), encoding="utf-8"
+    )
+    wal_path = logger_script._wal_path(str(data_path))
+    wal_path.write_text(json.dumps({"timestamp": "2026-09-02 08:00:00", "soc_percent": 90}) + "\n", encoding="utf-8")
+
+    with mock.patch.object(logger_script, "get_solax_historical_data_path", lambda: str(data_path)):
+        exit_code = logger_script.compact_now(quiet=False)
+
+    assert exit_code == 0
+    saved = json.loads(data_path.read_text(encoding="utf-8"))
+    assert saved["meta"]["data_points"] == 2
+    assert wal_path.read_text(encoding="utf-8") == ""
+    assert "Compacted 1 pending reading" in capsys.readouterr().out
+
+
 def test_compact_is_idempotent_if_wal_clear_did_not_complete(tmp_path):
     """Simulates a crash between the main-file write succeeding and the WAL being
     cleared: the WAL still holds the already-applied entry. Compacting again must not
