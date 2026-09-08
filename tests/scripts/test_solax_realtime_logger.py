@@ -101,8 +101,6 @@ def test_compact_is_idempotent_if_wal_clear_did_not_complete(tmp_path):
     wal_path = logger_script._wal_path(str(data_path))
     wal_path.write_text(json.dumps(already_applied) + "\n", encoding="utf-8")
 
-    from pathlib import Path
-
     merged = logger_script._compact(Path(data_path), wal_path)
 
     assert len(merged["data"]) == 2  # not duplicated
