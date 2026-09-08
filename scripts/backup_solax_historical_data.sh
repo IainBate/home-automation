@@ -36,6 +36,8 @@ if [ ! -f "data/solax_historical_data.json" ]; then
     exit 1
 fi
 
+venv/bin/python3 scripts/solax_realtime_logger.py --compact-now --quiet
+
 if git diff --quiet -- data/solax_historical_data.json && git diff --quiet --cached -- data/solax_historical_data.json; then
     log "data/solax_historical_data.json is unchanged since the last backup - nothing to do."
     exit 0
