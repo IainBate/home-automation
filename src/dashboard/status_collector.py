@@ -85,22 +85,59 @@ SERVICE_HEALTH_CHECKS = [
     {"key": "ohme_poller", "label": "Ohme Poller", "unit": "home_automation_ohme.service", "log_filename": "ohme_status_daemon.log"},
 ]
 
-# How far back _check_log_health() looks for ERROR/CRITICAL lines, and how
-# many it requires before calling a service "unhealthy" rather than
-# "healthy". Tuned against ~15 days of real battery_mode_daemon.log history
-# (2026-06-27 to 07-04 and 2026-08-26 onward, pulled from the Pi): a
-# threshold of 1 flags the daemon's own min_command_interval safety check
-# (_modbus_mode_controller.py's "please wait N more seconds" message, logged
-# at ERROR by battery_mode_daemon.py) as unhealthy even though it's expected,
-# self-correcting behavior - 3 of the only 5 ERROR incidents in that history
-# were exactly this. Requiring 2+ within the window drops those isolated,
-# non-repeating incidents while still catching the one genuine sustained
-# problem in that history (a ~9-minute Ohme API outage that logged 7
-# consecutive "Failed to check Ohme status" errors).
+# How far back _check_log_health() looks for ERROR/CRITICAL lines at all.
+# Tuned against ~15 days of real battery_mode_daemon.log history (2026-06-27
+# to 07-04 and 2026-08-26 onward, pulled from the Pi) - see
+# LOW_SEVERITY_SUSTAIN_MINUTES below for how those candidate lines then get
+# turned into a health verdict.
 LOG_HEALTH_WINDOW_MINUTES = 60
-LOG_HEALTH_ERROR_THRESHOLD = 2
+
+# A single-shot client call (Airstage/Resideo local network reads, etc.) with
+# no internal retry logs at ERROR on its very first failure - one occurrence
+# is expected background noise (a brief Wi-Fi drop), not a problem, so it
+# only counts as "unhealthy" once low-severity errors have kept recurring for
+# at least this long (the span between the earliest and latest one currently
+# in the window). Using a span - not just "did the single most recent poll
+# fail" - means a lone fresh error never trips this regardless of exactly
+# when the dashboard happens to be checked (a solitary error has a span of
+# 0), which was the actual failure mode observed 2026-09-08: two
+# airstage_client ERRORs ~2m10s apart from a Playroom Wi-Fi blip that had
+# already recovered by the time anyone looked at the dashboard. Tuned so that
+# same 2-minute blip stays "healthy" while the ~9-minute, 7-error Ohme API
+# outage below (the one genuine sustained problem found in the battery
+# daemon's history) still trips it.
+LOW_SEVERITY_SUSTAIN_MINUTES = 5
+
+# How stale the latest low-severity error must be before it stops counting as
+# "still ongoing" - lets a service self-heal soon after a transient issue
+# actually clears, rather than staying "unhealthy" for the rest of
+# LOG_HEALTH_WINDOW_MINUTES purely because old error lines are still inside
+# the lookback window.
+LOW_SEVERITY_RECENT_GRACE_MINUTES = 15
+
+# Errors matching one of these (case-insensitive), or logged at CRITICAL, are
+# high-severity: something already hit a hard limit - an internal retry
+# ladder exhausted itself, or a safety/auth check tripped - rather than a
+# single transient hiccup. ONE occurrence anywhere in LOG_HEALTH_WINDOW_MINUTES
+# is enough to flag "unhealthy" straight away; the sustained-span leniency
+# above is deliberately NOT applied to these. Examples already in this
+# codebase: _modbus_reader.py's "All N read attempts failed" (logged only
+# after its own 4-attempt retry ladder is exhausted), airstage_client.py's
+# write-verify exhaustion ("... did not verify as ... after N attempts"), and
+# authentication/authorization failures (OhmeAuthenticationError,
+# MelCloudAuthenticationError, _modbus_mode_controller's "UNAUTHORIZED
+# REGISTER" guard).
+_HIGH_SEVERITY_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"attempts failed",
+        r"did not verify as",
+        r"unauthorized",
+        r"authentication",
+    )
+]
 _UNHEALTHY_LOG_LEVELS = {"ERROR", "CRITICAL"}
-_LOG_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ - \S+ - (\w+) - ")
+_LOG_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ - \S+ - (\w+) - (.*)$")
 # Bounds how much of a (potentially still-growing, up to a day's worth of)
 # log file _check_log_health() reads per poll - only the tail is relevant to
 # a 60-minute-old question, so there's no need to read the whole file.
