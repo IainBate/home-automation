@@ -1797,10 +1797,17 @@ async def run_safety_ceiling_check(
 
     LEGIONELLA CYCLES ARE THE ONE EXCEPTION, AND DELIBERATELY SO: because
     this ceiling now equals the legionella completion temperature, this
-    check runs far more often (poll_interval_seconds, ~10 min) than
-    run_legionella_progress_check's own cadence (revert_check_interval_seconds,
-    ~1h), so it will usually be the first to notice a legionella cycle has
-    genuinely finished. Leaving that half-finished (heat cut, but the raised
+    check and run_legionella_progress_check both now run on
+    poll_interval_seconds (~10 min, since 2026-09-08) - see
+    hotwater_mode_daemon.py's _register_checks for why this one is
+    registered FIRST of the two: whichever runs first within a tick is the
+    one that actually completes a cycle that just reached temperature, and
+    only run_safety_ceiling_check knows to treat that as a quiet completion
+    rather than an alarm (see below) - if run_legionella_progress_check ran
+    first instead, it would clear cycle_in_progress before this check ever
+    saw it, and this check would then misread the still-hot tank as a
+    genuine, unexplained violation with no legionella cycle to credit it to.
+    Leaving a genuine completion half-finished (heat cut, but the raised
     target never restored and the cycle never marked complete) would be
     worse than not having this check catch it at all - the tank's target
     would stay wrong until run_legionella_progress_check's next tick, and
@@ -1813,9 +1820,9 @@ async def run_safety_ceiling_check(
     it was genuinely the temperature ceiling (not just a duration timeout)
     that triggered. Two independent checks converging on the identical,
     already-tested completion logic isn't "fighting" - run_legionella_
-    progress_check's own next tick will simply find cycle_in_progress
-    already False and no-op, the same guard it already has for a concurrent
-    run_force_heat_check start.
+    progress_check's own next read (later this same tick, or next tick)
+    will simply find cycle_in_progress already False and no-op, the same
+    guard it already has for a concurrent run_force_heat_check start.
 
     A genuine temperature violation with NO legionella cycle in progress, or
     a duration violation on a plain force-heat, still gets the loud
