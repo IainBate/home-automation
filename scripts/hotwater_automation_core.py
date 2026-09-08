@@ -2157,14 +2157,9 @@ async def _run_legionella_progress_check_locked(
         "legionella_max_cycle_duration_hours", DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS
     )
     now = datetime.now(tz=UTC)
-    elapsed_hours = (now - started_at).total_seconds() / 3600.0
-
     tz_name = config.get("location", {}).get("default_timezone_str", DEFAULT_TIMEZONE)
     tz = pytz.timezone(tz_name)
-    offpeak_end_time = datetime.strptime(
-        hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
-    ).time()
-    deadline_passed = _overnight_deadline_passed(started_at.astimezone(tz), now.astimezone(tz), offpeak_end_time)
+    elapsed_hours, deadline_passed = _elapsed_hours_and_deadline_passed(hw_config, started_at, now, tz)
 
     client = MelCloudClient(config_path=get_config_path())
     try:
@@ -2178,59 +2173,28 @@ async def _run_legionella_progress_check_locked(
         # reaches the (higher) target_temp the cycle originally requested
         # from MELCloud. See DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C's
         # docstring: the same threshold applies whether that heat came from
-        # this cycle's own request or arrived faster than expected.
+        # this cycle's own request or arrived faster than expected. This is
+        # exactly the "independent completion threshold, not the unit's own
+        # reported target" pattern run_revert_check now also uses for a
+        # plain force-heat - legionella just always worked this way.
         completion_temp = hw_config.get(
             "legionella_natural_completion_temp_c", DEFAULT_LEGIONELLA_NATURAL_COMPLETION_TEMP_C
         )
-        reached_target = tank_temperature is not None and tank_temperature >= completion_temp
-        timed_out = elapsed_hours >= max_duration_hours or deadline_passed
 
-        if not reached_target and not timed_out:
-            if not quiet:
-                print(
-                    f"Legionella cycle in progress: {tank_temperature}C / {completion_temp}C "
-                    f"disinfection threshold ({target_temp}C requested target, "
-                    f"{elapsed_hours:.1f}h elapsed)"
-                )
+        reached_target = _decide_heating_window_outcome(
+            config,
+            kind="legionella cycle",
+            tank_temperature=tank_temperature,
+            completion_temp=completion_temp,
+            elapsed_hours=elapsed_hours,
+            deadline_passed=deadline_passed,
+            max_duration_hours=max_duration_hours,
+            duration_config_key="legionella_max_cycle_duration_hours",
+            dry_run=dry_run,
+            quiet=quiet,
+        )
+        if reached_target is None:
             return 0
-
-        if timed_out and not reached_target:
-            logger.warning(
-                "Legionella cycle timed out after %.1fh (deadline_passed=%s) without reaching "
-                "the %sC disinfection threshold (currently %sC, %sC requested target) - "
-                "reverting without marking complete, will retry next due check",
-                elapsed_hours,
-                deadline_passed,
-                completion_temp,
-                tank_temperature,
-                target_temp,
-            )
-            if not quiet:
-                print(
-                    f"Legionella cycle timed out at {tank_temperature}C "
-                    f"(disinfection threshold {completion_temp}C) - reverting, will retry later"
-                )
-            _alert_insufficient_duration(
-                config,
-                kind="legionella cycle",
-                tank_temperature=tank_temperature,
-                target_temperature=completion_temp,
-                elapsed_hours=elapsed_hours,
-                max_duration_hours=max_duration_hours,
-                config_key="legionella_max_cycle_duration_hours",
-                dry_run=dry_run,
-                quiet=quiet,
-            )
-        else:
-            logger.info(
-                "Legionella cycle: tank at %sC reached the %sC disinfection threshold "
-                "(%sC requested target), reverting",
-                tank_temperature,
-                completion_temp,
-                target_temp,
-            )
-            if not quiet:
-                print(f"Legionella cycle reached {tank_temperature}C, reverting")
 
         if dry_run:
             if not quiet:
