@@ -227,6 +227,7 @@ def test_collect_hot_water_legionella_never_completed_is_none(tmp_path):
 
     assert result["legionella_days_since_last"] is None
     assert result["legionella_days_until_due"] is None
+    assert result["legionella_due_date"] is None
 
 
 def test_collect_hot_water_passes_explicit_config_path_to_client(tmp_path):
