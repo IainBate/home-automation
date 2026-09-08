@@ -711,10 +711,10 @@ def _check_log_health(log_filename: str) -> str:
 
     - High-severity (CRITICAL, or an ERROR matching _HIGH_SEVERITY_PATTERNS):
       one occurrence anywhere in LOG_HEALTH_WINDOW_MINUTES is enough.
-    - Low-severity (any other ERROR/CRITICAL... - actually any other ERROR):
-      only "unhealthy" once recent occurrences span at least
-      LOW_SEVERITY_SUSTAIN_MINUTES (first-to-last), AND the latest one is
-      still within LOW_SEVERITY_RECENT_GRACE_MINUTES of now.
+    - Low-severity (any other ERROR): only "unhealthy" once recent
+      occurrences span at least LOW_SEVERITY_SUSTAIN_MINUTES (first-to-last),
+      AND the latest one is still within LOW_SEVERITY_RECENT_GRACE_MINUTES of
+      now.
 
     A missing/unreadable log, or one with no matching recent lines, reads as
     "healthy" (absence of evidence of a problem), matching how
