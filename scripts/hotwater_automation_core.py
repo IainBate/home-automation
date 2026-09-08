@@ -106,6 +106,10 @@ from src.config_manager.config_manager import get_hotwater_melcloud_config_error
 from src.core_logic.battery_evening_prediction_logic import predict_evening_soc
 from src.core_logic.hotwater_decision_logic import (
     HotWaterDecisionContext,
+    _battery_prediction_eligibility_end_hour,
+    _daily_check_lookup_date_str,
+    _is_legionella_due,
+    _overnight_deadline_passed,
     determine_hotwater_decision,
     hour_float_to_time,
     is_in_evening_window,
