@@ -246,7 +246,8 @@ DEFAULT_OHME_CHARGING_THRESHOLD_WATTS = 500.0
 # trusted or silently overridden.
 DEFAULT_NORMAL_TARGET_TEMP_C = 50.0
 DEFAULT_TIMEZONE = "Europe/London"
-DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
+# DEFAULT_LEGIONELLA_INTERVAL_DAYS lives in hotwater_decision_logic.py -
+# imported below.
 # What a legionella cycle asks MELCloud to heat the tank to. Deliberately not
 # higher (e.g. 60C) by default - some ASHPs can't reliably reach the top of
 # their nominal range (especially in cold weather, when flow-temperature
