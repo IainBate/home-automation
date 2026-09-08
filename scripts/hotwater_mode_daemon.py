@@ -58,7 +58,10 @@ from src.config_manager.config_manager import load_static_config
 from src.daemon_support.base_daemon import TwoTierPollingDaemon, setup_rotating_logger
 
 DEFAULT_POLL_INTERVAL_SECONDS = 600  # 10 minutes - frequent enough to catch EV charging starting
-DEFAULT_REVERT_CHECK_INTERVAL_SECONDS = 3600  # 1 hour - also used for legionella progress checks
+DEFAULT_REVERT_CHECK_INTERVAL_SECONDS = 3600  # 1 hour - legionella_natural_completion and
+                                               # legionella_due_warning only (revert and
+                                               # legionella_progress moved to poll_interval_seconds
+                                               # 2026-09-08)
 FAST_POLL_INTERVAL_SECONDS = 30  # config.yaml reload cadence
 
 
