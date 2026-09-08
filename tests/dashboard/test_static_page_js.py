@@ -275,7 +275,7 @@ def test_hot_water_card_shows_days_since_and_next_due_on_one_line():
 
     body_html = html[: html.index('class="details"')]
     assert "12d ago" in body_html
-    assert "due on 27/11/26" in body_html
+    assert "due 27/11/26" in body_html
 
 
 @requires_node
