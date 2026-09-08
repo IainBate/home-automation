@@ -21,7 +21,8 @@ Design Principles (mirrors ohme_charging_logic.py):
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import time
+from datetime import datetime, time, timedelta
+from typing import Any
 
 
 @dataclass
