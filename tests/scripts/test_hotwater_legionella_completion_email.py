@@ -17,32 +17,7 @@ from pathlib import Path
 from unittest import mock
 
 import hotwater_automation_core as core
-
-
-class FakeMelCloudClient:
-    """Stand-in for MelCloudClient - records calls instead of touching MELCloud."""
-
-    def __init__(self, *, tank_temp: float, target_temp: float | None = None) -> None:
-        self.tank_temp = tank_temp
-        self.target_temp = target_temp
-        self.force_calls: list[bool] = []
-        self.target_temp_calls: list[float] = []
-
-    async def connect(self) -> None:
-        return None
-
-    async def get_tank_status(self) -> dict:
-        return {"tank_temperature": self.tank_temp, "target_tank_temperature": self.target_temp}
-
-    async def set_force_hot_water(self, *, enabled: bool) -> bool:
-        self.force_calls.append(enabled)
-        return True
-
-    async def set_target_tank_temperature(self, temp: float) -> None:
-        self.target_temp_calls.append(temp)
-
-    async def close(self) -> None:
-        return None
+from _fakes import FakeMelCloudClient
 
 
 def _write_state(tmp_path: Path, state: dict) -> Path:
