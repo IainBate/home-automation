@@ -267,6 +267,7 @@ def test_hot_water_card_shows_days_since_and_next_due_on_one_line():
         "status": "idle",
         "legionella_days_since_last": 12,
         "legionella_days_until_due": 78,
+        "legionella_due_date": "2026-11-27",
         "power_on": True,
         "holiday_mode": False,
     }
@@ -274,7 +275,7 @@ def test_hot_water_card_shows_days_since_and_next_due_on_one_line():
 
     body_html = html[: html.index('class="details"')]
     assert "12d ago" in body_html
-    assert "due in 78d" in body_html
+    assert "due on 27/11/26" in body_html
 
 
 @requires_node
