@@ -286,6 +286,13 @@ CONFIG_SCHEMA = {
                     "maximum": 10000,
                 },
                 "tank_temp_threshold_c": {"type": "number", "minimum": 30, "maximum": 60},
+                # This project's own expectation of a normal (non-legionella)
+                # heat's target - confirmed 2026-09-08, compared against
+                # directly rather than blindly trusting MELCloud's own
+                # target_tank_temperature (see run_revert_check's docstring
+                # and _alert_normal_target_mismatch). Capped below 50 - not
+                # meant to ever reach legionella_target_temp_c's range.
+                "normal_target_temp_c": {"type": "number", "minimum": 30, "maximum": 50},
                 "battery_soc_min_percent": {"type": "number", "minimum": 0, "maximum": 100},
                 "offpeak_start": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"},
                 "offpeak_end": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"},
