@@ -49,8 +49,12 @@ secrets.yaml.tmp
 secrets.yaml.bak*
 secrets.yaml.enc.tmp
 
-# Lock sidecars for locked_json_update() (src/utils/state_store.py)
+# Lock sidecars for locked_json_update()/exclusive_file_lock() (src/utils/state_store.py)
 *.json.lock
+
+# Write-ahead log for solax_realtime_logger.py's deferred-compaction writer
+# (see _store_snapshot's docstring) - transient pending state, not history.
+*.wal.jsonl
 
 # Coverage output (pytest-cov, see requirements-dev.txt)
 .coverage
