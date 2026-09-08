@@ -581,9 +581,10 @@ def test_check_log_health_healthy_with_only_info_lines(tmp_path):
 
 
 def test_check_log_health_healthy_with_single_recent_error(tmp_path):
-    """A lone recent ERROR stays "healthy" - see LOG_HEALTH_ERROR_THRESHOLD's
-    comment: this is exactly what the daemon's own self-correcting safety-
-    interval message looks like in real logs, and must not false-positive."""
+    """A lone recent low-severity ERROR stays "healthy" - see
+    LOW_SEVERITY_SUSTAIN_MINUTES's comment: this is exactly what the daemon's
+    own self-correcting safety-interval message looks like in real logs, and
+    must not false-positive."""
     (tmp_path / "logs").mkdir()
     now = status_collector.datetime.now()
     (tmp_path / "logs" / "battery_mode_daemon.log").write_text(_log_line(now, "ERROR") + "\n", encoding="utf-8")
@@ -591,13 +592,42 @@ def test_check_log_health_healthy_with_single_recent_error(tmp_path):
         assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
 
 
-def test_check_log_health_unhealthy_with_two_recent_errors(tmp_path):
+def test_check_log_health_healthy_with_two_close_together_low_severity_errors(tmp_path):
+    """Two low-severity errors seconds apart (a brief Wi-Fi blip) stay
+    "healthy" - the span between them is nowhere near LOW_SEVERITY_SUSTAIN_MINUTES,
+    matching the real 2026-09-08 Airstage incident this was tuned against."""
     (tmp_path / "logs").mkdir()
     now = status_collector.datetime.now()
     lines = _log_line(now, "ERROR") + "\n" + _log_line(now, "ERROR") + "\n"
     (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
     with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
+
+
+def test_check_log_health_unhealthy_with_sustained_low_severity_errors(tmp_path):
+    """Low-severity errors still recurring after spanning
+    LOW_SEVERITY_SUSTAIN_MINUTES count as "hasn't come back" - unhealthy."""
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    first = now - status_collector.timedelta(minutes=status_collector.LOW_SEVERITY_SUSTAIN_MINUTES)
+    lines = _log_line(first, "ERROR") + "\n" + _log_line(now, "ERROR") + "\n"
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
         assert status_collector._check_log_health("battery_mode_daemon.log") == "unhealthy"
+
+
+def test_check_log_health_healthy_once_sustained_low_severity_errors_go_quiet(tmp_path):
+    """A previously-sustained low-severity problem clears once the most
+    recent error is older than LOW_SEVERITY_RECENT_GRACE_MINUTES, instead of
+    staying "unhealthy" for the rest of the full lookback window."""
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    last_error = now - status_collector.timedelta(minutes=status_collector.LOW_SEVERITY_RECENT_GRACE_MINUTES + 1)
+    first_error = last_error - status_collector.timedelta(minutes=status_collector.LOW_SEVERITY_SUSTAIN_MINUTES)
+    lines = _log_line(first_error, "ERROR") + "\n" + _log_line(last_error, "ERROR") + "\n"
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
 
 
 def test_check_log_health_healthy_when_second_error_outside_window(tmp_path):
@@ -610,10 +640,24 @@ def test_check_log_health_healthy_when_second_error_outside_window(tmp_path):
         assert status_collector._check_log_health("battery_mode_daemon.log") == "healthy"
 
 
-def test_check_log_health_unhealthy_with_mixed_error_and_critical(tmp_path):
+def test_check_log_health_unhealthy_with_single_critical(tmp_path):
+    """CRITICAL is always high-severity - one occurrence is enough, no need
+    to wait for it to recur."""
     (tmp_path / "logs").mkdir()
     now = status_collector.datetime.now()
-    lines = _log_line(now, "ERROR") + "\n" + _log_line(now, "CRITICAL") + "\n"
+    lines = _log_line(now, "CRITICAL") + "\n"
+    (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
+    with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
+        assert status_collector._check_log_health("battery_mode_daemon.log") == "unhealthy"
+
+
+def test_check_log_health_unhealthy_with_single_high_severity_error(tmp_path):
+    """An ERROR matching a high-severity pattern (here, an exhausted retry
+    ladder) is unhealthy on its own - it already represents a hit limit, not
+    a single transient blip."""
+    (tmp_path / "logs").mkdir()
+    now = status_collector.datetime.now()
+    lines = _log_line(now, "ERROR", "All 4 read attempts failed for 192.168.68.105") + "\n"
     (tmp_path / "logs" / "battery_mode_daemon.log").write_text(lines, encoding="utf-8")
     with mock.patch.object(status_collector, "get_project_root", return_value=str(tmp_path)):
         assert status_collector._check_log_health("battery_mode_daemon.log") == "unhealthy"
