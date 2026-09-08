@@ -256,8 +256,11 @@ def get_solar_forecast_path() -> str:
     (src/dashboard/status_collector.py) for display only. Entirely decoupled
     from both battery_mode_daemon.py and hotwater_mode_daemon.py - neither
     reads nor is affected by this file.
+
+    Lives under get_ephemeral_cache_dir(), not the plain config directory -
+    see that function's docstring for why (tmpfs on the Pi, safe to lose).
     """
-    return get_config_path("solar_forecast.json")
+    return str(Path(get_ephemeral_cache_dir()) / "solar_forecast.json")
 
 
 def get_solar_forecast_model_path() -> str:
