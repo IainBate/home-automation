@@ -190,8 +190,11 @@ def get_mg_saic_status_path() -> str:
     display only. Deliberately not fetched inline by the dashboard's own
     fast poll loop - see src/api_clients/saic_client.py's module docstring
     for why (shared account session with the household's phones).
+
+    Lives under get_ephemeral_cache_dir(), not the plain config directory -
+    see that function's docstring for why (tmpfs on the Pi, safe to lose).
     """
-    return get_config_path("mg_saic_status.json")
+    return str(Path(get_ephemeral_cache_dir()) / "mg_saic_status.json")
 
 
 def get_melcloud_token_cache_path() -> str:
