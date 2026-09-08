@@ -241,8 +241,11 @@ def get_melcloud_status_path() -> str:
     already violating. Every reader falls back to its own direct MELCloud
     call when this file is missing or stale - see
     src/api_clients/melcloud_status_cache.py.
+
+    Lives under get_ephemeral_cache_dir(), not the plain config directory -
+    see that function's docstring for why (tmpfs on the Pi, safe to lose).
     """
-    return get_config_path("melcloud_status.json")
+    return str(Path(get_ephemeral_cache_dir()) / "melcloud_status.json")
 
 
 def get_solar_forecast_path() -> str:
