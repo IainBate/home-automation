@@ -210,7 +210,8 @@ DEFAULT_TANK_TEMP_THRESHOLD_C = 45.0
 # average.
 DEFAULT_BATTERY_SOC_MIN_PERCENT = 20.0
 DEFAULT_OFFPEAK_START = "23:30"
-DEFAULT_OFFPEAK_END = "05:30"
+# DEFAULT_OFFPEAK_END lives in hotwater_decision_logic.py (single source of
+# truth, 2026-09-08) - imported below alongside the other names from there.
 DEFAULT_TRIGGER_HOUR = 21.5  # 9:30pm - fractional hours are supported (e.g. 21.5 = 21:30)
 # Battery-prediction trigger path (get_battery_prediction_to_deadline) - an
 # independent alternative to trigger_hour/car-charging, active across this
