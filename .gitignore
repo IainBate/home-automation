@@ -17,19 +17,18 @@ logs/
 .claude/settings.local.json
 
 # Runtime data (generated at runtime)
-config/ohme_status.json
-config/melcloud_status.json
 config/melcloud_token.json
 config/solax_mode_change_log.json
 data/battery_mode_daemon_log.json
-config/solar_forecast.json
 config/resideo_token_state.json
-config/claude_usage.json
-config/mg_saic_status.json
 config/battery_evening_prediction.json
 config/hotwater_automation_state.json
 config/hvac_automation_state.json
 data/solar_forecast_model.joblib
+
+# Ephemeral status caches (get_ephemeral_cache_dir() in src/utils/paths.py) -
+# tmpfs on the Pi, everything under here is disposable by design.
+config/cache/
 
 # Historical zip archives (not tracked in git)
 *.zip
