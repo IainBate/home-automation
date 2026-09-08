@@ -47,6 +47,31 @@ def get_config_dir() -> str:
     return str(Path(get_project_root()) / "config")
 
 
+def get_ephemeral_cache_dir() -> str:
+    """Get absolute path to config/cache - status caches safe to lose on reboot.
+
+    On the Pi, this is a tmpfs mount point (see docs/PI4_DEPLOYMENT.md) - the
+    files that live here (get_ohme_status_path, get_melcloud_status_path,
+    get_claude_usage_path, get_mg_saic_status_path, get_solar_forecast_path)
+    are all polled-and-cached values with an already-documented "missing or
+    stale cache -> fall back to a direct call" behavior in every reader (see
+    e.g. src/api_clients/ohme_status_cache.py's module docstring), so there
+    is nothing to lose by not persisting them: an empty cache after a reboot
+    is exactly the same "no cached answer yet" state a slow poller produces
+    anyway. That made them by far the largest write-COUNT contributor to SD
+    card wear after data/solax_historical_data.json (ohme_status.json alone
+    rewrites every ~30s, ~2,880 times/day) for close to zero benefit from
+    persisting them, hence moving them off the SD card entirely rather than
+    just writing them less often.
+
+    If tmpfs isn't mounted here for some reason (a plain dev checkout, say),
+    write_json_atomic's mkdir(parents=True) still creates this as an
+    ordinary directory on whatever filesystem config/ itself is on - so this
+    degrades to "on the SD card, exactly like before" rather than failing.
+    """
+    return str(Path(get_config_dir()) / "cache")
+
+
 # Specific file path functions for commonly used files
 def get_mode_change_log_path() -> str:
     """Get absolute path to solax mode change log file (HARDWARE SAFETY CRITICAL)."""
