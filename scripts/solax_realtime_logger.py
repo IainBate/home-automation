@@ -413,6 +413,9 @@ def main() -> None:
         log_filename="solax_realtime_logger.log",
     )
 
+    if args.compact_now:
+        sys.exit(compact_now(quiet=args.quiet))
+
     config_path = args.config or get_config_path()
     config = load_static_config(config_path)
     if config is None:
