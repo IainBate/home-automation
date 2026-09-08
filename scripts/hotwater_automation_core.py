@@ -1781,7 +1781,7 @@ async def _run_revert_check_locked(
         normal_target = hw_config.get("normal_target_temp_c", DEFAULT_NORMAL_TARGET_TEMP_C)
         if unit_target is not None and unit_target != normal_target:
             _alert_normal_target_mismatch(
-                config, state, expected=normal_target, actual=unit_target, quiet=quiet
+                config, state, expected=normal_target, actual=unit_target, dry_run=dry_run, quiet=quiet
             )
         # Revert once the tank reaches the UNIT's own target (never lower than
         # our own expectation would require anyway when they match, and never
