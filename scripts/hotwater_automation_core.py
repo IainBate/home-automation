@@ -234,11 +234,8 @@ DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR = 18.0  # 6pm
 # wanted then.
 DEFAULT_CAR_CHARGING_TRIGGER_START_HOUR = 15.0  # 3pm
 DEFAULT_OHME_CHARGING_THRESHOLD_WATTS = 500.0
-# Hard safety-net cap on a single heating run, whatever triggered it. Kept
-# deliberately short - if the tank isn't reaching target/disinfection
-# temperature within this, run_revert_check/run_legionella_progress_check
-# stop it and let the next due trigger retry, rather than running long.
-DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 1.0
+# DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS lives in hotwater_decision_logic.py -
+# imported below.
 # What THIS PROJECT expects a normal (non-legionella) heat's target to be -
 # confirmed 2026-09-08. Deliberately a value this code owns and compares
 # against directly, not just trusted from MELCloud's own reported
