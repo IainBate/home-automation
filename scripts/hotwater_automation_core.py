@@ -105,15 +105,20 @@ from src.api_clients.solax_modbus_client import solax_modbus_soc
 from src.config_manager.config_manager import get_hotwater_melcloud_config_error
 from src.core_logic.battery_evening_prediction_logic import predict_evening_soc
 from src.core_logic.hotwater_decision_logic import (
+    DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR,
+    DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS,
+    DEFAULT_LEGIONELLA_INTERVAL_DAYS,
+    DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS,
+    DEFAULT_OFFPEAK_END,
     HotWaterDecisionContext,
-    _battery_prediction_eligibility_end_hour,
-    _daily_check_lookup_date_str,
-    _is_legionella_due,
-    _overnight_deadline_passed,
+    battery_prediction_eligibility_end_hour,
+    daily_check_lookup_date_str,
     determine_hotwater_decision,
     hour_float_to_time,
     is_in_evening_window,
     is_in_offpeak_window,
+    is_legionella_due,
+    overnight_deadline_passed,
 )
 from src.core_logic.ohme_charging_logic import (
     confirm_charging_over_consecutive_cycles,
