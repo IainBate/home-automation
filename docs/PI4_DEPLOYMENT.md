@@ -231,6 +231,11 @@ Add via `crontab -e` (as the `pi` user, so relative-to-cwd behavior like
 # Needs secrets_backup.passphrase_hash set in secrets.yaml - see step 0.
 0 3 * * * cd /home/pi/home_automation && bash scripts/encrypt_secrets.sh --quiet
 
+# Offsite backup of data/solax_historical_data.json - a no-op if nothing
+# changed since the last run. 30 3, not 3: staggered 30 minutes after
+# encrypt_secrets.sh above so the two don't race pushing to the same repo.
+30 3 * * * cd /home/pi/home_automation && bash scripts/backup_solax_historical_data.sh --quiet
+
 # Evening battery SoC prediction — must land before hotwater_automation.trigger_hour
 55 20 * * * cd /home/pi/home_automation && venv/bin/python3 scripts/battery_evening_predictor.py --quiet
 
