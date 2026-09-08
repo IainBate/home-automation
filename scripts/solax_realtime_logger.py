@@ -221,7 +221,7 @@ def _compact(data_path: Path, wal_path: Path) -> dict[str, Any]:
     return merged
 
 
-def _store_snapshot(data_path: str, snapshot: dict[str, Any]) -> tuple[bool, int]:
+def _store_snapshot(data_path: str, snapshot: dict[str, Any]) -> tuple[bool, int, bool]:
     """Append one snapshot to the write-ahead log; only occasionally rewrite the full file.
 
     data/solax_historical_data.json is 11MB+ and growing without bound
