@@ -411,7 +411,7 @@ def solax_cloud_get_realtime_snapshot(config: dict[str, Any]) -> dict[str, Any] 
             # Recorded alongside the local-clock uploadTime purely as a
             # per-reading identity for dedup - NOT as a trustworthy UTC
             # instant; measured against this account it sits 8 hours behind
-            # local where UK is UTC+1. See _is_same_reading().
+            # local where UK is UTC+1. See is_same_reading().
             "timestamp_utc": result.get("utcDateTime") or None,
             "pv_power_kw": pv_power_w / 1000,
             "battery_power_kw": _safe_float(result.get("batPower"), 0) / 1000,
@@ -472,7 +472,7 @@ def merge_realtime_snapshot(existing_record: dict[str, Any], snapshot: dict[str,
 
     """
     data = list(existing_record.get("data", []))
-    if data and _is_same_reading(data[-1], snapshot):
+    if data and is_same_reading(data[-1], snapshot):
         return existing_record
 
     data.append(snapshot)
@@ -503,11 +503,16 @@ def merge_realtime_snapshot(existing_record: dict[str, Any], snapshot: dict[str,
     }
 
 
-def _is_same_reading(previous: dict[str, Any], snapshot: dict[str, Any]) -> bool:
+def is_same_reading(previous: dict[str, Any], snapshot: dict[str, Any]) -> bool:
     """Whether a new snapshot is the same device reading as the previous row.
 
     The inverter only uploads every few minutes, so a more frequent poll
     legitimately sees the same reading twice and must not store it twice.
+
+    Public (not `_`-prefixed) because scripts/solax_realtime_logger.py's
+    write-ahead-log path also needs it directly: a cheap dedup check against
+    the last pending/stored reading without paying to load and re-merge the
+    whole historical file on every 5-minute tick.
 
     Prefers timestamp_utc when both rows have it, since two genuinely
     different readings an hour apart share the same LOCAL clock-face string
