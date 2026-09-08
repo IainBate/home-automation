@@ -1248,53 +1248,10 @@ async def _start_legionella_cycle(
     return 0
 
 
-def _overnight_deadline_passed(
-    activated_at_local: datetime, now_local: datetime, offpeak_end_time: time
-) -> bool:
-    """Whether now_local is at/after the next offpeak_end_time on/after activated_at_local.
-
-    A hard clock deadline (default 05:30) on top of the max-duration safety
-    net - "a cycle scheduled at 6pm must be completed by 5:30am the day
-    after" - regardless of how far the tank still is from target.
-    Deliberately NOT a plain `now_local.time() >= offpeak_end_time` check:
-    that's true for the entire rest of the day once past 05:30 (e.g. 16:30 >=
-    05:30), which would wrongly cap an unrelated afternoon car-charging/
-    battery-prediction-triggered heat that has nothing to do with an
-    overnight deadline. Instead this finds the *next* offpeak_end_time at or
-    after activation (same day if activation was already before it, e.g. a
-    cycle starting at 04:50; the following day if activation was in the
-    evening, e.g. 22:00) and only compares against that.
-
-    Examples:
-        >>> from datetime import UTC
-        >>> tz = UTC
-        >>> # Started 10pm, still running past 6am the next day -> deadline passed
-        >>> _overnight_deadline_passed(
-        ...     datetime(2026, 1, 1, 22, 0, tzinfo=tz), datetime(2026, 1, 2, 6, 0, tzinfo=tz),
-        ...     time(5, 30),
-        ... )
-        True
-        >>> # Started 4:50am, still running at 5:35am the same morning -> deadline passed
-        >>> _overnight_deadline_passed(
-        ...     datetime(2026, 1, 2, 4, 50, tzinfo=tz), datetime(2026, 1, 2, 5, 35, tzinfo=tz),
-        ...     time(5, 30),
-        ... )
-        True
-        >>> # Started 4pm (afternoon path), an hour later -> nowhere near its own deadline
-        >>> _overnight_deadline_passed(
-        ...     datetime(2026, 1, 1, 16, 0, tzinfo=tz), datetime(2026, 1, 1, 17, 0, tzinfo=tz),
-        ...     time(5, 30),
-        ... )
-        False
-
-    """
-    deadline_date = activated_at_local.date()
-    if activated_at_local.time() >= offpeak_end_time:
-        deadline_date += timedelta(days=1)
-    deadline_dt = datetime.combine(
-        deadline_date, offpeak_end_time, tzinfo=activated_at_local.tzinfo
-    )
-    return now_local >= deadline_dt
+# _overnight_deadline_passed moved to
+# src/core_logic/hotwater_decision_logic.py (2026-09-08, see this module's
+# own architectural review) - pure, no I/O, already had its own doctests
+# there. Imported back in below; every call site here is unchanged.
 
 
 def _alert_insufficient_duration(
