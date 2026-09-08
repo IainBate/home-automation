@@ -69,8 +69,6 @@ def test_run_compacts_wal_into_main_file_once_compaction_is_due(tmp_path):
         encoding="utf-8",
     )
     old_time = time.time() - logger_script.COMPACTION_INTERVAL_SECONDS - 60
-    import os
-
     os.utime(data_path, (old_time, old_time))
 
     config = {"solaX_cloud_api": {"token_id": "real-token", "master_wifisn": "SR2NZD2S3B"}}
