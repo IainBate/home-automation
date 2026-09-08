@@ -1085,29 +1085,11 @@ def _refresh_daily_snapshot_if_warm(
     )
 
 
-def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, Any]) -> bool:
-    """Return True if legionella_interval_days have passed since the last completed cycle.
-
-    A missing/malformed last_completed_at (never run, or hand-edited state) is
-    treated as due, the same "unknown means due" stance run_legionella_check
-    took previously - it must get a chance to run at least once rather than
-    being permanently blocked by bad state.
-    """
-    last_completed_str = legionella_state.get("last_completed_at")
-    if not last_completed_str:
-        return True
-    try:
-        last_completed = datetime.fromisoformat(last_completed_str)
-    except ValueError:
-        logger.error(
-            "legionella last_completed_at (%r) is not a valid timestamp, treating "
-            "the cycle as due",
-            last_completed_str,
-        )
-        return True
-    interval_days = hw_config.get("legionella_interval_days", DEFAULT_LEGIONELLA_INTERVAL_DAYS)
-    days_since = (datetime.now(tz=UTC) - last_completed).days
-    return days_since >= interval_days
+# _is_legionella_due moved to src/core_logic/hotwater_decision_logic.py
+# (2026-09-08, see this module's own architectural review) - pure, no I/O
+# (its one logger.error call is a validation warning, not a side effect that
+# needed this module's own logger setup). Imported back in below; every call
+# site here is unchanged.
 
 
 def check_legionella_due_warning(
