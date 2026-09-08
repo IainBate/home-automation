@@ -29,6 +29,13 @@ data/solar_forecast_model.joblib
 # Ephemeral status caches (get_ephemeral_cache_dir() in src/utils/paths.py) -
 # tmpfs on the Pi, everything under here is disposable by design.
 config/cache/
+# ...and their old pre-tmpfs-move location, in case a stale file lingers
+# from before a machine picked up that change.
+config/ohme_status.json
+config/melcloud_status.json
+config/solar_forecast.json
+config/claude_usage.json
+config/mg_saic_status.json
 
 # Historical zip archives (not tracked in git)
 *.zip
