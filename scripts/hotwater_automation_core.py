@@ -1558,14 +1558,28 @@ def _alert_normal_target_mismatch(
     dry_run: bool,
     quiet: bool,
 ) -> None:
-    """One-off (per distinct mismatch value) heads-up that the unit's own
-    configured target doesn't match hotwater_automation.normal_target_temp_c
-    - see run_revert_check's own docstring for why this alerts rather than
+    """One-off (per distinct mismatch) heads-up that the unit's own configured
+    target doesn't match hotwater_automation.normal_target_temp_c - see
+    run_revert_check's own docstring for why this alerts rather than
     silently overriding. Deduped via state["normal_target_mismatch_alerted_for"]
-    so it doesn't re-fire every poll tick for the same ongoing difference -
-    only when the mismatch first appears, or changes to a different value.
+    (an {"actual": ..., "expected": ...} pair, not just the actual value
+    alone - confirmed 2026-09-08: deduping on actual alone would permanently
+    swallow a genuinely new mismatch that happens to reuse a previously-
+    alerted actual value, e.g. if normal_target_temp_c itself is changed, or
+    the unit's target cycles back to an earlier value while a real,
+    persistent mismatch is ongoing) so it doesn't re-fire every poll tick for
+    the same ongoing difference - only when the mismatch first appears, or
+    changes to a different (actual, expected) pair.
+
+    The dedupe stamp is only written once send_email actually succeeds
+    (confirmed 2026-09-08, matching check_legionella_due_warning's existing
+    pattern) - stamping unconditionally would permanently suppress the alert
+    for that mismatch after a single transient email failure, since nothing
+    else would ever ask for it again while the mismatch stays unchanged.
     """
-    if state.get("normal_target_mismatch_alerted_for") == actual:
+    already_alerted = state.get("normal_target_mismatch_alerted_for")
+    current_mismatch = {"actual": actual, "expected": expected}
+    if already_alerted == current_mismatch:
         return
     logger.warning(
         "NORMAL_TARGET_MISMATCH: tank's configured target (%sC) does not match "
@@ -1582,8 +1596,8 @@ def _alert_normal_target_mismatch(
         if not quiet:
             print("(dry run) would send 'tank target mismatch' alert email")
         return
-    state["normal_target_mismatch_alerted_for"] = actual
-    send_email(
+
+    sent = send_email(
         config,
         "Hot water: tank target doesn't match the expected normal target",
         (
@@ -1598,6 +1612,10 @@ def _alert_normal_target_mismatch(
             "the tank's target changed."
         ),
     )
+    if sent:
+        state["normal_target_mismatch_alerted_for"] = current_mismatch
+    elif not quiet:
+        print("Failed to send 'tank target mismatch' alert email - will retry next tick")
 
 
 async def run_revert_check(
