@@ -257,6 +257,63 @@ def test_hot_water_card_surfaces_an_active_legionella_cycle():
 
 
 @requires_node
+def test_hot_water_card_shows_days_since_and_next_due_on_one_line():
+    """Visible in the card's main body (not the click-to-expand details), so
+    it's readable at a glance on a phone without expanding anything."""
+    payload = {
+        "available": True,
+        "tank_temperature_c": 45.0,
+        "target_tank_temperature_c": 50.0,
+        "status": "idle",
+        "legionella_days_since_last": 12,
+        "legionella_days_until_due": 78,
+        "power_on": True,
+        "holiday_mode": False,
+    }
+    html = _run_js(f"console.log(hotWaterCard({json.dumps(payload)}));")
+
+    body_html = html[: html.index('class="details"')]
+    assert "12d ago" in body_html
+    assert "due in 78d" in body_html
+
+
+@requires_node
+def test_hot_water_card_shows_overdue_legionella_cycle():
+    payload = {
+        "available": True,
+        "tank_temperature_c": 45.0,
+        "target_tank_temperature_c": 50.0,
+        "status": "idle",
+        "legionella_days_since_last": 100,
+        "legionella_days_until_due": -10,
+        "power_on": True,
+        "holiday_mode": False,
+    }
+    html = _run_js(f"console.log(hotWaterCard({json.dumps(payload)}));")
+
+    body_html = html[: html.index('class="details"')]
+    assert "100d ago" in body_html
+    assert "overdue by 10d" in body_html
+
+
+@requires_node
+def test_hot_water_card_omits_legionella_line_when_never_completed():
+    payload = {
+        "available": True,
+        "tank_temperature_c": 45.0,
+        "target_tank_temperature_c": 50.0,
+        "status": "idle",
+        "legionella_days_since_last": None,
+        "legionella_days_until_due": None,
+        "power_on": True,
+        "holiday_mode": False,
+    }
+    html = _run_js(f"console.log(hotWaterCard({json.dumps(payload)}));")
+
+    assert "Legionella cycle" not in html
+
+
+@requires_node
 def test_airstage_zone_card_shows_automation_status_and_setpoints():
     """The master zone's card gets the schedule/automation setpoint rows -
     these extend the existing Air Conditioning card rather than a separate
