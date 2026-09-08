@@ -218,8 +218,13 @@ def get_ohme_status_path() -> str:
     (which meant a full Firebase login per poll, per consumer). Every reader
     falls back to its own direct Ohme call when this file is missing or
     stale - see src/api_clients/ohme_status_cache.py.
+
+    Lives under get_ephemeral_cache_dir(), not the plain config directory -
+    see that function's docstring for why (tmpfs on the Pi, safe to lose).
+    This is the single biggest reason that dir exists: every-30s writes,
+    ~2,880/day.
     """
-    return get_config_path("ohme_status.json")
+    return str(Path(get_ephemeral_cache_dir()) / "ohme_status.json")
 
 
 def get_melcloud_status_path() -> str:
