@@ -166,6 +166,17 @@ hotwater_automation:
                                             # ohme_charging_threshold_watts - kept as a separate value
                                             # here since this lives in config.yaml, not that JSON file.
   tank_temp_threshold_c: 45                # Force-heat only if the tank is below this
+  normal_target_temp_c: 50                 # This project's own expectation of a normal
+                                            # (non-legionella) heat's target - confirmed
+                                            # 2026-09-08. run_revert_check still reverts once the
+                                            # tank reaches whatever MELCloud itself reports as its
+                                            # target (your own configuration there always wins),
+                                            # but if that ever differs from this value - e.g. the
+                                            # app's own target was changed, deliberately or not -
+                                            # a one-off alert email is sent rather than either
+                                            # silently trusting or silently overriding it. Update
+                                            # this to match if you've deliberately changed the
+                                            # app's target and want the alert to stop.
   battery_soc_min_percent: 20              # Both batteries (the lower of master/slave, not their
                                             # average - see hotwater_automation_core.py's
                                             # get_battery_soc_percent) must be at/above this. Used by
