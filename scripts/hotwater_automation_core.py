@@ -256,10 +256,8 @@ DEFAULT_TIMEZONE = "Europe/London"
 # legionella_max_cycle_duration_hours every time chasing a target it may
 # never reach, without the tank actually being any less disinfected for it.
 DEFAULT_LEGIONELLA_TARGET_TEMP_C = 55.0
-# Same hard safety-net cap as DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS, applied
-# to a legionella cycle instead of a normal force-heat - see that constant's
-# docstring.
-DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 1.0
+# DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS lives in
+# hotwater_decision_logic.py - imported below.
 # How many days before a legionella cycle becomes due (legionella_interval_days
 # since the last completed one) to send a warning email - see
 # check_legionella_due_warning.
