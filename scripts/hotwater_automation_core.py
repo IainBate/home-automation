@@ -93,7 +93,7 @@ import json
 import logging
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import pytz
 
