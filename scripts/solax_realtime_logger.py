@@ -254,6 +254,15 @@ def _store_snapshot(data_path: str, snapshot: dict[str, Any]) -> tuple[bool, int
     an unlocked append could interleave two writers' lines. The lock is
     only ever held for local file I/O, never across the network call that
     already happened by the time this is called.
+
+    Returns:
+        (stored, count, compacted). count is an exact total data_points
+        after a compaction, or just the number of readings currently
+        sitting in the WAL otherwise - deliberately not "total so far" on
+        every tick, since getting an exact running total would need the
+        very full-file read this function exists to avoid. compacted says
+        which one count means, for the caller's log line.
+
     """
     path = Path(data_path)
     wal_path = _wal_path(data_path)
@@ -274,19 +283,14 @@ def _store_snapshot(data_path: str, snapshot: dict[str, Any]) -> tuple[bool, int
             stored = True
             pending.append(snapshot)
 
-        if _compaction_due(path, wal_path):
+        compacted = _compaction_due(path, wal_path)
+        if compacted:
             merged = _compact(path, wal_path)
-            data_points = merged.get("meta", {}).get("data_points", len(merged.get("data", [])))
+            count = merged.get("meta", {}).get("data_points", len(merged.get("data", [])))
         else:
-            # Cheap approximation, not an exact count - the whole point of
-            # deferring compaction is to avoid the read that would be
-            # needed to report an exact number on every tick. Good enough
-            # for the log line this feeds; nothing depends on it being
-            # precise between compactions.
-            existing_meta_points = read_json_state(path).get("meta", {}).get("data_points", 0) if path.exists() else 0
-            data_points = existing_meta_points + len(pending)
+            count = len(pending)
 
-    return stored, data_points
+    return stored, count, compacted
 
 
 def run(config: dict[str, Any], *, quiet: bool) -> int:
