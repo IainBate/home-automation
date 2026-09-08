@@ -42,7 +42,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import argparse
+import json
 import logging
+import os
+import time as time_module
 from datetime import datetime
 from typing import Any
 
@@ -50,12 +53,16 @@ import pytz
 
 from hotwater_automation_core import get_config_path
 
-from src.api_clients.solax_cloud_client import merge_realtime_snapshot, solax_cloud_get_realtime_snapshot
+from src.api_clients.solax_cloud_client import (
+    is_same_reading,
+    merge_realtime_snapshot,
+    solax_cloud_get_realtime_snapshot,
+)
 from src.api_clients.solax_modbus_client import solax_modbus_bulk_data
 from src.config_manager.config_manager import load_static_config
 from src.utils.logging_setup import configure_cron_safe_logging
 from src.utils.paths import get_solax_historical_data_path
-from src.utils.state_store import locked_json_update
+from src.utils.state_store import exclusive_file_lock, read_json_state, write_json_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +75,10 @@ DEFAULT_TIMEZONE = "Europe/London"
 # racing it - this cron entry runs every 5 minutes, so a wait of even a
 # minute still finishes long before the next tick.
 LOCK_TIMEOUT_SECONDS = 60.0
+
+# How long a batch of readings sits in the write-ahead log before being
+# folded into the full historical file - see _store_snapshot's docstring.
+COMPACTION_INTERVAL_SECONDS = 3600.0
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
