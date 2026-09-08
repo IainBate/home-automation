@@ -2,8 +2,9 @@
 # pylint: disable=wrong-import-position  # Imports after sys.path modification for src access
 """SolaX Cloud Realtime Snapshot Logger (one-shot CLI).
 
-Appends one live SolaX Cloud reading to data/solax_historical_data.json per
-run, meant to run every few minutes via cron - see
+Appends one live SolaX Cloud reading per run (to a write-ahead log, folded
+into data/solax_historical_data.json roughly hourly - see _store_snapshot's
+docstring), meant to run every few minutes via cron - see
 src/api_clients/solax_cloud_client.py's module docstring for the full story,
 but in short: this file's historical-data endpoints (scripts/
 solax_cloud_data_logger.py) turned out to need a mobile-app session token
