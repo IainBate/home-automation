@@ -36,10 +36,21 @@ logger = logging.getLogger(__name__)
 # already imports several names from this module (determine_hotwater_decision,
 # the four functions below, etc.), so it can freely import these too; this
 # module must never import anything back from core.py.
+# Octopus Intelligent Go's off-peak window end - also the hard overnight
+# completion deadline for a force-heat/legionella cycle (see
+# overnight_deadline_passed below).
 DEFAULT_OFFPEAK_END = "05:30"
+# Minimum days between legionella cycles (~3 months).
 DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
+# 11:30pm - the battery-prediction trigger path's forecast target.
 DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR = 23.5
+# Hard safety-net cap on a single heating run, whatever triggered it - kept
+# deliberately short so a tank not reaching target/disinfection temperature
+# within this gets stopped and retried at the next due trigger, rather than
+# running long.
 DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 1.0
+# Same hard safety-net cap as DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS, applied
+# to a legionella cycle instead of a normal force-heat.
 DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS = 1.0
 
 
@@ -522,7 +533,7 @@ def _daily_check_lookup_date_str(hw_config: dict[str, Any], now_local: datetime)
     session as over.
     """
     offpeak_end_time = datetime.strptime(
-        hw_config.get("offpeak_end", _DEFAULT_OFFPEAK_END), "%H:%M"
+        hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
     ).time()
     if now_local.time() < offpeak_end_time:
         return (now_local - timedelta(days=1)).date().isoformat()
@@ -549,7 +560,7 @@ def _is_legionella_due(hw_config: dict[str, Any], legionella_state: dict[str, An
             last_completed_str,
         )
         return True
-    interval_days = hw_config.get("legionella_interval_days", _DEFAULT_LEGIONELLA_INTERVAL_DAYS)
+    interval_days = hw_config.get("legionella_interval_days", DEFAULT_LEGIONELLA_INTERVAL_DAYS)
     days_since = (datetime.now(tz=UTC) - last_completed).days
     return days_since >= interval_days
 
@@ -576,16 +587,16 @@ def _battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float
     duration doesn't bring it any earlier.
     """
     deadline_hour = hw_config.get(
-        "battery_prediction_deadline_hour", _DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR
+        "battery_prediction_deadline_hour", DEFAULT_BATTERY_PREDICTION_DEADLINE_HOUR
     )
     forced_discharge_start_hour = hw_config.get("forced_discharge_start_hour")
     if forced_discharge_start_hour is None:
         return deadline_hour
 
     max_duration_hours = max(
-        hw_config.get("force_heat_max_duration_hours", _DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS),
+        hw_config.get("force_heat_max_duration_hours", DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS),
         hw_config.get(
-            "legionella_max_cycle_duration_hours", _DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS
+            "legionella_max_cycle_duration_hours", DEFAULT_LEGIONELLA_MAX_CYCLE_DURATION_HOURS
         ),
     )
     return min(deadline_hour, forced_discharge_start_hour - max_duration_hours)
