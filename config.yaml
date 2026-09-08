@@ -165,7 +165,7 @@ hotwater_automation:
   ohme_charging_threshold_watts: 500       # Same threshold/meaning as battery_mode_daemon_config.json's
                                             # ohme_charging_threshold_watts - kept as a separate value
                                             # here since this lives in config.yaml, not that JSON file.
-  tank_temp_threshold_c: 45                # Force-heat only if the tank is below this
+  tank_temp_threshold_c: 40                # Force-heat only if the tank is below this
   normal_target_temp_c: 50                 # This project's own expectation of a normal
                                             # (non-legionella) heat's target - confirmed
                                             # 2026-09-08. run_revert_check still reverts once the
