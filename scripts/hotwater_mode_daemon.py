@@ -7,10 +7,13 @@ mirroring battery_mode_daemon.py - both are built on
 src/daemon_support/base_daemon.py's shared two-tier polling loop:
 - Fast tick (30s) that always reloads config.yaml, plus slower checks, each
   on their own configurable interval (all under hotwater_automation in
-  config.yaml): force-heat (poll_interval_seconds, which now also carries
-  the daily legionella-eligibility snapshot and the legionella-due decision
-  - see hotwater_automation_core.py) and revert-if-due/legionella-progress/
-  legionella-natural-completion (revert_check_interval_seconds)
+  config.yaml): force-heat/revert-if-due/legionella-progress/safety-ceiling
+  (poll_interval_seconds - force-heat also carries the daily
+  legionella-eligibility snapshot and the legionella-due decision, see
+  hotwater_automation_core.py) and legionella-natural-completion/
+  legionella-due-warning (revert_check_interval_seconds, a slower,
+  opportunistic cadence - see hotwater_automation_core.py's own docstrings
+  for why those two don't need to be as prompt as the other four)
 - Rotating log file (logs/hotwater_mode_daemon.log), 7-day retention
 - Graceful shutdown on SIGTERM/SIGINT
 
