@@ -304,6 +304,24 @@ def _store_snapshot(data_path: str, snapshot: dict[str, Any]) -> tuple[bool, int
     return stored, count, compacted
 
 
+def compact_now(*, quiet: bool) -> int:
+    """Force a compaction regardless of COMPACTION_INTERVAL_SECONDS - for --compact-now."""
+    data_path = get_solax_historical_data_path()
+    path = Path(data_path)
+    wal_path = _wal_path(data_path)
+    lock_path = path.with_name(f"{path.name}.lock")
+
+    with exclusive_file_lock(lock_path, timeout=LOCK_TIMEOUT_SECONDS):
+        pending_count = len(_read_wal(wal_path))
+        merged = _compact(path, wal_path)
+
+    msg = f"Compacted {pending_count} pending reading(s) - {merged.get('meta', {}).get('data_points', 0)} total data points."
+    logger.info(msg)
+    if not quiet:
+        print(msg)
+    return 0
+
+
 def run(config: dict[str, Any], *, quiet: bool) -> int:
     """Fetch one realtime snapshot (cloud, falling back to local Modbus) and append it.
 
