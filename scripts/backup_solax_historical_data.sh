@@ -11,6 +11,12 @@
 # auto-commit-on-edit habit left staged), rebase-and-retry once on a
 # rejected push.
 #
+# solax_realtime_logger.py also only folds its write-ahead log into this
+# file roughly hourly now (see its _store_snapshot docstring - deliberate,
+# to stop rewriting an ever-growing multi-MB file on every 5-minute tick).
+# --compact-now forces that immediately, so this backup never carries data
+# that's stale by design rather than by actual staleness.
+#
 # Cron job setup on the Pi:
 #   30 3 * * * cd /home/pi/home_automation && bash scripts/backup_solax_historical_data.sh --quiet
 # (30 3, not 3: encrypt_secrets.sh already pushes to this same repo at 0 3 -
