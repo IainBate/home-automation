@@ -23,39 +23,7 @@ from unittest import mock
 import pytz
 
 import hotwater_automation_core as core
-
-
-class FakeMelCloudClient:
-    """Stand-in for MelCloudClient - records calls instead of touching MELCloud."""
-
-    def __init__(self, *, target_temp: float, tank_temp: float, max_temp: float | None) -> None:
-        self.target_temp = target_temp
-        self.tank_temp = tank_temp
-        self.max_temp = max_temp
-        self.force_calls: list[bool] = []
-        self.target_temp_calls: list[float] = []
-
-    async def connect(self) -> None:
-        return None
-
-    async def get_tank_status(self) -> dict:
-        return {
-            "tank_temperature": self.tank_temp,
-            "target_tank_temperature": self.target_temp,
-            "target_tank_temperature_max": self.max_temp,
-            "operation_mode": core.HotWaterOperationMode.AUTO,
-        }
-
-    async def set_force_hot_water(self, *, enabled: bool) -> bool:
-        self.force_calls.append(enabled)
-        return True
-
-    async def set_target_tank_temperature(self, temp: float) -> None:
-        self.target_temp_calls.append(temp)
-        self.target_temp = temp
-
-    async def close(self) -> None:
-        return None
+from _fakes import FakeMelCloudClient
 
 
 def _run_force_heat_check(tmp_path: Path, *, legionella_last_completed_days_ago: float | None, max_temp: float = 65.0):
