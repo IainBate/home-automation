@@ -1490,6 +1490,130 @@ def _notify_legionella_completed(
         print(f"Failed to send 'legionella cycle completed' email ({source}) - see logs above")
 
 
+def _elapsed_hours_and_deadline_passed(
+    hw_config: dict[str, Any], started_at: datetime, now: datetime, tz: pytz.BaseTzInfo
+) -> tuple[float, bool]:
+    """Shared by run_revert_check/run_legionella_progress_check: how long a
+    heating window has been running, and whether the overnight completion
+    deadline (offpeak_end) has passed since it started - see
+    _overnight_deadline_passed. Pulled out specifically because this was
+    previously implemented twice, identically - see this module's own
+    architectural review (2026-09-08) for why that duplication mattered.
+    """
+    elapsed_hours = (now - started_at).total_seconds() / 3600.0
+    offpeak_end_time = datetime.strptime(
+        hw_config.get("offpeak_end", DEFAULT_OFFPEAK_END), "%H:%M"
+    ).time()
+    deadline_passed = _overnight_deadline_passed(started_at.astimezone(tz), now.astimezone(tz), offpeak_end_time)
+    return elapsed_hours, deadline_passed
+
+
+def _decide_heating_window_outcome(
+    config: dict[str, Any],
+    *,
+    kind: str,
+    tank_temperature: float | None,
+    completion_temp: float | None,
+    elapsed_hours: float,
+    deadline_passed: bool,
+    max_duration_hours: float,
+    duration_config_key: str,
+    dry_run: bool,
+    quiet: bool,
+) -> bool | None:
+    """Shared by run_revert_check/run_legionella_progress_check: decide
+    whether a heating window is done (reached its completion temperature, or
+    timed out) and log/alert accordingly - the ~60% of both functions that
+    was previously implemented twice, identically apart from wording (see
+    this module's own architectural review, 2026-09-08). What differs
+    between the two callers - which temperature counts as "completion" (the
+    unit's own reported target for a plain force-heat vs. an independent
+    disinfection threshold for legionella), and what to do once a window IS
+    done (restore a raised target, credit a legionella completion, pop
+    force_heat_activated_at) - stays in each caller, not here.
+
+    completion_temp is intentionally just a number, not a distinction
+    between "the unit's own target" and "our own known-correct value" - the
+    caller resolves that (see run_revert_check's own mismatch-alert logic)
+    before calling this; by the time this runs, whichever value is the
+    right one to complete against has already been decided.
+
+    Returns:
+        None if the window isn't done yet (caller should leave it alone and
+        return 0). Otherwise True if it reached completion_temp, False if it
+        only got there via a timeout/deadline - the caller uses this to
+        decide whether to credit completion (legionella) or just note which
+        branch fired (force-heat, where there's nothing to credit).
+
+    """
+    timed_out = elapsed_hours >= max_duration_hours or deadline_passed
+    reached_target = tank_temperature is not None and completion_temp is not None and tank_temperature >= completion_temp
+
+    if not reached_target and not timed_out:
+        if not quiet:
+            print(
+                f"{kind.capitalize()} in progress: {tank_temperature}C / {completion_temp}C "
+                f"({elapsed_hours:.1f}h elapsed, {max_duration_hours}h limit) - leaving as is"
+            )
+        return None
+
+    if reached_target:
+        logger.info(
+            "%s reached %sC (%.1fh elapsed), reverting to auto",
+            kind.capitalize(),
+            completion_temp,
+            elapsed_hours,
+        )
+        if not quiet:
+            print(f"{kind.capitalize()} reached {completion_temp}C, reverting to auto")
+        return True
+
+    if deadline_passed:
+        logger.warning(
+            "%s active past the overnight deadline (%.1fh elapsed) without reaching %sC "
+            "(currently %sC) - reverting anyway as a safety net",
+            kind.capitalize(),
+            elapsed_hours,
+            completion_temp,
+            tank_temperature,
+        )
+        if not quiet:
+            print(
+                f"{kind.capitalize()} active past the overnight deadline ({elapsed_hours:.1f}h "
+                f"elapsed) without reaching {completion_temp}C (currently {tank_temperature}C) - "
+                "reverting anyway"
+            )
+    else:
+        logger.warning(
+            "%s active for %.1fh >= %sh limit without reaching %sC (currently %sC) - "
+            "reverting anyway as a safety net",
+            kind.capitalize(),
+            elapsed_hours,
+            max_duration_hours,
+            completion_temp,
+            tank_temperature,
+        )
+        if not quiet:
+            print(
+                f"{kind.capitalize()} active for {elapsed_hours:.1f}h >= {max_duration_hours}h "
+                f"limit without reaching {completion_temp}C (currently {tank_temperature}C) - "
+                "reverting anyway"
+            )
+
+    _alert_insufficient_duration(
+        config,
+        kind=kind,
+        tank_temperature=tank_temperature,
+        target_temperature=completion_temp,
+        elapsed_hours=elapsed_hours,
+        max_duration_hours=max_duration_hours,
+        config_key=duration_config_key,
+        dry_run=dry_run,
+        quiet=quiet,
+    )
+    return False
+
+
 async def run_revert_check(
     config: dict[str, Any], hw_config: dict[str, Any], *, dry_run: bool, quiet: bool
 ) -> int:
