@@ -260,6 +260,66 @@ def test_revert_check_mismatch_dry_run_does_not_send_or_dedupe(tmp_path):
     assert sent_calls == []
 
 
+def test_revert_check_mismatch_alert_not_deduped_if_email_send_fails(tmp_path):
+    """A transient send_email failure must not permanently swallow the alert -
+    the dedupe stamp is only written once send_email actually succeeds
+    (found 2026-09-08 code review: it was previously stamped unconditionally,
+    matching check_legionella_due_warning's existing, correct pattern).
+    """
+    state_path = _write_state(
+        tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()}
+    )
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=52.0)
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: False):
+        _exit_code, final_state = _run(
+            lambda: core.run_revert_check(
+                {"email": {"enabled": True}},
+                {"normal_target_temp_c": 50.0, "force_heat_max_duration_hours": 3.0},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert "normal_target_mismatch_alerted_for" not in final_state
+
+
+def test_revert_check_mismatch_alert_refires_if_expected_changes(tmp_path):
+    """Deduping on the actual value alone would permanently swallow a new
+    mismatch that happens to reuse a previously-alerted actual value (e.g.
+    normal_target_temp_c itself changing) - the dedupe key must be the
+    (actual, expected) pair, not actual alone (found 2026-09-08 code review).
+    """
+    state_path = _write_state(
+        tmp_path,
+        {
+            "force_heat_activated_at": datetime.now(tz=UTC).isoformat(),
+            "normal_target_mismatch_alerted_for": {"actual": 52.0, "expected": 50.0},
+        },
+    )
+    client = FakeMelCloudClient(tank_temp=30.0, target_temp=52.0)
+    sent_calls = []
+
+    with mock.patch.object(core, "send_email", lambda cfg, subject, body: sent_calls.append((subject, body)) or True):
+        _run(
+            lambda: core.run_revert_check(
+                # expected changed from 50.0 (already alerted for actual=52.0)
+                # to 48.0 - still a mismatch against the SAME actual value,
+                # but a different, newly-relevant one.
+                {"email": {"enabled": True}},
+                {"normal_target_temp_c": 48.0, "force_heat_max_duration_hours": 3.0},
+                dry_run=False,
+                quiet=True,
+            ),
+            state_path,
+            client,
+        )
+
+    assert len(sent_calls) == 1
+
+
 def test_revert_check_does_not_alert_when_target_reached(tmp_path):
     state_path = _write_state(
         tmp_path, {"force_heat_activated_at": datetime.now(tz=UTC).isoformat()}
