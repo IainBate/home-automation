@@ -243,6 +243,30 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
                 "poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS
             ),
         )
+        # safety_ceiling is registered BEFORE revert/legionella_progress
+        # deliberately (found 2026-09-08 via code review, after moving
+        # legionella_progress onto this same cadence): TwoTierPollingDaemon
+        # runs registered checks in order, synchronously, within one tick
+        # (see base_daemon.py's _run_one_tick). safety_ceiling's own
+        # "quiet legionella completion" branch depends on reading
+        # state["legionella"]["cycle_in_progress"] as it was BEFORE this
+        # tick's other checks acted - if legionella_progress ran first and
+        # already completed+cleared a cycle that just reached 55C, safety_
+        # ceiling would then see cycle_in_progress=False with the tank still
+        # at 55C (temperature doesn't drop instantly) and misread a perfectly
+        # normal completion as a genuine, alarm-worthy violation - a false
+        # "SAFETY CEILING" CRITICAL email on every routine legionella cycle.
+        # Running safety_ceiling first avoids this: if it completes the
+        # cycle itself, legionella_progress's own next read simply finds
+        # cycle_in_progress already False and no-ops, exactly like the
+        # concurrent-with-run_force_heat_check guard it already has.
+        self.register_check(
+            "safety_ceiling",
+            lambda: self._run_safety_ceiling_cycle(self._hw_config()),
+            lambda: self._hw_config().get(
+                "poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS
+            ),
+        )
         # revert and legionella_progress moved onto the frequent force_heat
         # cadence (2026-09-08, alongside unifying their shared completion
         # logic into _decide_heating_window_outcome) - previously hourly, so
@@ -281,18 +305,6 @@ class HotWaterModeDaemon(TwoTierPollingDaemon):
             lambda: self._run_legionella_due_warning_cycle(self._hw_config()),
             lambda: self._hw_config().get(
                 "revert_check_interval_seconds", DEFAULT_REVERT_CHECK_INTERVAL_SECONDS
-            ),
-        )
-        # Independent safety backstop (run_safety_ceiling_check) - on the same
-        # frequent cadence as revert/legionella_progress now too, but that's
-        # coincidental, not load-bearing: this check exists specifically to
-        # catch the normal revert/legionella-progress logic itself failing to
-        # stop heating in time, and would stay correct on any cadence.
-        self.register_check(
-            "safety_ceiling",
-            lambda: self._run_safety_ceiling_cycle(self._hw_config()),
-            lambda: self._hw_config().get(
-                "poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS
             ),
         )
 
