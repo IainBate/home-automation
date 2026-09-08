@@ -32,6 +32,7 @@ from pathlib import Path
 from unittest import mock
 
 import hotwater_automation_core as core
+from _fakes import FakeMelCloudClient
 
 
 class _FrozenDateTime(datetime_module.datetime):
