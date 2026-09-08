@@ -192,6 +192,11 @@ function fmtAge(seconds) {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(seconds / 86400)}d ago`;
 }
+function fmtDateDdMmYy(isoDate) {
+  if (!isoDate) return "&mdash;";
+  const [y, m, d] = isoDate.split("-");
+  return `${d}/${m}/${y.slice(2)}`;
+}
 function titleCase(s) {
   if (!s) return "Unknown";
   return s.replace(/_/g, " ").replace(/\\w\\S*/g, t => t[0].toUpperCase() + t.slice(1).toLowerCase());
