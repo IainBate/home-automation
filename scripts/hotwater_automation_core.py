@@ -169,6 +169,15 @@ DEFAULT_OHME_CHARGING_THRESHOLD_WATTS = 500.0
 # temperature within this, run_revert_check/run_legionella_progress_check
 # stop it and let the next due trigger retry, rather than running long.
 DEFAULT_FORCE_HEAT_MAX_DURATION_HOURS = 1.0
+# What THIS PROJECT expects a normal (non-legionella) heat's target to be -
+# confirmed 2026-09-08. Deliberately a value this code owns and compares
+# against directly, not just trusted from MELCloud's own reported
+# target_tank_temperature: the unit's own configured target lives entirely
+# outside this codebase (set via the app), so nothing previously noticed if
+# it ever drifted from what's actually intended - see run_revert_check's own
+# docstring for how a mismatch is now surfaced rather than either silently
+# trusted or silently overridden.
+DEFAULT_NORMAL_TARGET_TEMP_C = 50.0
 DEFAULT_TIMEZONE = "Europe/London"
 DEFAULT_LEGIONELLA_INTERVAL_DAYS = 90
 # What a legionella cycle asks MELCloud to heat the tank to. Deliberately not
