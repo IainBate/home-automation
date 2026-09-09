@@ -270,7 +270,7 @@ function solarCard(d) {
     <div class="row"><span class="label">Battery flow</span><span class="value">${fmtPower(d.battery_power_w)}</span></div>
     <div class="row"><span class="label">Battery charge</span><span class="value">${fmtPct(soc)}</span></div>
     ${socBar(soc)}
-    <div class="row"><span class="label">Today's generation</span><span class="value">${d.daily_yield_kwh !== null && d.daily_yield_kwh !== undefined ? d.daily_yield_kwh.toFixed(1) + " kWh" : "&mdash;"}</span></div>
+    <div class="row"><span class="label">Today's PV</span><span class="value">${d.daily_yield_kwh !== null && d.daily_yield_kwh !== undefined ? d.daily_yield_kwh.toFixed(1) + " kWh" : "&mdash;"}</span></div>
   `;
   const details = d.last_mode_change_at ? `
     <div class="row"><span class="label">Last mode change</span><span class="value">${escapeHtml(d.last_mode_change_reason || "")}</span></div>
