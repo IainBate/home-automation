@@ -339,15 +339,15 @@ sign-off (or a deliberate reversal) before a plan can be written:
    `SERVICE_HEALTH_CHECKS` (battery/hot-water/dashboard/Ohme already have
    one), so a stuck or crashed ASHP daemon shows up the same way those do?
 
-9. **Where should external-interference detection (§6) actually live?**
-   It's written up in this doc because the need surfaced while scoping the
-   ASHP work, but it applies just as much to hot water and the already-live
-   HVAC/Airstage automation, neither of which this doc otherwise touches.
-   Options: (a) build it as one shared utility (e.g. in `core_logic/`) that
-   `hotwater_decision_logic.py`, `hvac_decision_logic.py`, and this
-   proposal's ASHP logic all call, planned and implemented once, up front;
-   (b) implement it only for the ASHP as part of this proposal, and treat
-   hot water/HVAC as a follow-up; (c) split it out into its own doc/plan
-   entirely, parallel to `hvac_thermostat_automation_plan.md`, so it isn't
-   scoped or sequenced by the ASHP proposal's own (currently blocked, see
-   Q1) timeline.
+9. **Where should external-interference detection (§6) actually live? —
+   Resolved 2026-09-09, option (b).** Built as a shared, subsystem-agnostic
+   utility (`src/core_logic/interference_logic.py`, per option (a)'s own
+   description) but *wired in* only for ASHP so far, not planned/implemented
+   for all three up front — hot water/HVAC-Airstage remain a follow-up using
+   the same module, exactly as option (b) described. This was practical
+   rather than a considered rejection of (a)/(c): §6 surfaced while doing the
+   ASHP work itself, and the project owner asked for it specifically as a
+   precondition of deploying ASHP ("I don't want to deploy something where
+   there is a genuine risk of systems working in opposition") — building the
+   reusable core made it cheap to extend later, without waiting to also
+   design hot water/HVAC's own wiring first.
