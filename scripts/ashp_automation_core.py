@@ -45,6 +45,7 @@ from src.api_clients.airstage_client import (
     set_airstage_temperature,
 )
 from src.api_clients.ashp_client import set_ashp_heat_call, set_ashp_off
+from src.api_clients.resideo_client import fetch_resideo_status
 from src.api_clients.weather_client import fetch_forecast_weather_hourly
 from src.core_logic.ashp_decision_logic import (
     AshpDecision,
@@ -53,6 +54,12 @@ from src.core_logic.ashp_decision_logic import (
     determine_ashp_decision,
 )
 from src.core_logic.hvac_schedule_logic import parse_hhmm
+from src.core_logic.interference_logic import (
+    ControlledAttributeState,
+    evaluate as evaluate_interference,
+    note_reasserted,
+    record_verified_write,
+)
 from src.utils.paths import get_project_root
 
 logger = logging.getLogger("hvac_mode_daemon.ashp_automation_core")
