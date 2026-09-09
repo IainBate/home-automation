@@ -435,12 +435,12 @@ def test_collect_resideo_attaches_ashp_when_enabled(tmp_path):
 
 
 def test_ashp_summary_computes_min_rest_remaining_when_inactive(tmp_path):
-    import json as json_module
+    from datetime import UTC, datetime
 
     state_path = tmp_path / "hvac_automation_state.json"
     now_iso = datetime.now(tz=UTC).isoformat()
     state_path.write_text(
-        json_module.dumps({"ashp": {"ashp_active": False, "deactivated_at": now_iso}}),
+        json.dumps({"ashp": {"ashp_active": False, "deactivated_at": now_iso}}),
         encoding="utf-8",
     )
     with mock.patch.object(status_collector, "get_hvac_automation_state_path", lambda: str(state_path)):
