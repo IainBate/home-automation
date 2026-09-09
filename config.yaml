@@ -529,6 +529,21 @@ ashp:
   night_landing_target_c: 18.0             # fixed targets below - not hvac_automation's own
   night_playroom_target_c: 25.0            # schedule, which plays no part while ASHP_ON.
 
+  # External interference detection (docs/ASHP.md §6) - efficiency, not
+  # safety: flags the T6R persistently showing something other than what
+  # this software last commanded it (a vendor-app schedule, a physical
+  # remote, anything else with access to the same thermostat), logged as
+  # a warning rather than changed behaviour - the automation keeps
+  # re-asserting its own setting regardless. A single stale poll or an
+  # in-flight write never triggers this; it needs BOTH conditions below.
+  interference_dwell_minutes: 30.0         # How long a mismatch must persist, continuously,
+                                            # before it's treated as real rather than a blip.
+  interference_min_reasserts: 1            # How many times this software must have already
+                                            # re-sent its own command and had it overridden
+                                            # again before flagging - not just "it's been a
+                                            # while", genuine evidence something keeps
+                                            # reverting a correction.
+
 # =============================================================================
 # CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
 # =============================================================================
