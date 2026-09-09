@@ -403,6 +403,7 @@ def run_ashp_decision_check(
     """
     with locked_state(timeout=DEFAULT_ASHP_LOCK_TIMEOUT_SECONDS) as raw_state:
         state = _ashp_state_from_dict(raw_state.get("ashp", {}))
+        interference_state = _interference_state_from_dict(raw_state.get("ashp_interference", {}))
         context, room_temperature_c = _build_context(config, ashp_config, hvac_config, state)
 
         decision = determine_ashp_decision(context)
@@ -417,7 +418,10 @@ def run_ashp_decision_check(
                 print("(dry run - not applying)")
             return 0
 
-        applied_ok = _apply_ashp_decision(config, hvac_config, decision, quiet=quiet)
+        applied_ok, interference_state = _apply_ashp_decision(
+            config, ashp_config, hvac_config, decision, interference_state, context.now, quiet=quiet
+        )
+        raw_state["ashp_interference"] = _interference_state_to_dict(interference_state)
 
     if decision.suppress_hvac_automation:
         return 0 if applied_ok else 1
