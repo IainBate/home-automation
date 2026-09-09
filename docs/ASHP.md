@@ -201,16 +201,19 @@ using the same two functions, not a redesign, whenever that's wanted.
   equivalent record of "last setpoint/mode this software commanded" to diff
   the next poll's actual reading against — that would need adding per
   subsystem.
-* **Proposed behavior once detected:** surface it (dashboard + logs) as a
-  distinct state, e.g. `EXTERNAL_OVERRIDE_SUSPECTED`, separate from a normal
-  hardware/communication error — this is "the device is fine and listening,
-  something else is also telling it what to do," not a fault in the device
-  or in reaching it. Whether the automation should keep re-asserting its own
-  setpoint, back off, or alert-and-hold is an open design question, not
-  decided here.
-* **Not yet decided:** how many consecutive cycles / how long constitutes
-  "continuous" for each subsystem (their poll intervals already differ —
-  see `daemon_design.md`), and whether this is one shared helper all three
+* **Behavior once detected — decided 2026-09-09:** log it
+  (`external_override_suspected`, via `logger.warning`) and **keep
+  re-asserting the automation's own setpoint** — no back-off, no
+  alert-and-hold. Confirmed with the project owner this is an efficiency
+  concern (wasted write cycles/energy from two things disagreeing), not a
+  safety one, so there's no reason to make the automation less assertive
+  about its own correct setting. Not yet surfaced on the dashboard, only in
+  the log — a dashboard badge is a reasonable follow-up, not done in this pass.
+* **Decided 2026-09-09 (ASHP only so far):** `dwell_minutes`/`min_reasserts`
+  are both `ashp.*` config keys (30 min / 1 reassertion default) — genuinely
+  configurable per subsystem when this extends beyond ASHP, not a single
+  hard-coded constant. Still open for hot water/HVAC's own eventual wiring:
+  how many consecutive cycles / how long constitutes "continuous" there
   decision-logic modules call, or three separate implementations.
 
 ---
