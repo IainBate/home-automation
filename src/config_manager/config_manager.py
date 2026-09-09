@@ -464,6 +464,16 @@ CONFIG_SCHEMA = {
                 },
             },
         },
+        "ashp": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "control_backend": {
+                    "type": "string",
+                    "enum": ["t6r"],
+                },
+            },
+        },
         "claude_usage": {
             "type": "object",
             "properties": {
