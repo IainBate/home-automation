@@ -246,3 +246,187 @@ def test_state_persists_across_calls(tmp_path):
     saved = json.loads(state_path.read_text())
     assert "ashp" in saved
     assert saved["ashp"]["below_target_since"] is not None
+
+
+# --- Interference detection (docs/ASHP.md §6) --------------------------------
+
+
+def _active_ashp_state(now, **overrides):
+    base = {
+        "ashp_active": True,
+        "activated_at": (now - timedelta(hours=1)).isoformat(),
+        "activation_baseline_outdoor_c": 5.0,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_repeated_command_matching_observed_state_needs_no_interference_warning(tmp_path):
+    """The common case: we re-assert the same target every cycle, and the T6R
+    still shows it - no divergence, no warning, reassert_count stays 0."""
+    config = _config()
+    now = datetime.now(UTC)
+    state = {
+        "ashp": _active_ashp_state(now),
+        "ashp_interference": {"commanded_value": "heat@18.0", "commanded_at": now.isoformat()},
+    }
+    patches = _patch_common(tmp_path, state=state)
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now.replace(hour=10, minute=0, second=0, microsecond=0)
+    state_path = tmp_path / "hvac_automation_state.json"
+
+    with mock.patch.object(core, "datetime", frozen), mock.patch.object(
+        core, "set_ashp_heat_call", return_value=True
+    ), mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}), \
+         mock.patch.object(
+        core, "fetch_resideo_status", return_value={"mode": "heat", "target_temperature_c": 18.0}
+    ) as fake_fetch, mock.patch.object(core, "logger") as fake_logger:
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    fake_fetch.assert_called_once()
+    fake_logger.warning.assert_not_called()
+    saved = json.loads(state_path.read_text())
+    assert saved["ashp_interference"]["reassert_count"] == 0
+    assert saved["ashp_interference"]["diverged_since"] is None
+
+
+def test_repeated_divergence_accumulates_reassert_count(tmp_path):
+    """T6R keeps showing a different value than commanded, despite our repeated
+    re-assertion - reassert_count should climb rather than reset."""
+    config = _config()
+    now = datetime.now(UTC)
+    state = {
+        "ashp": _active_ashp_state(now),
+        "ashp_interference": {
+            "commanded_value": "heat@18.0",
+            "commanded_at": (now - timedelta(minutes=30)).isoformat(),
+            "diverged_since": (now - timedelta(minutes=25)).isoformat(),
+            "diverged_to": "heat@21.0",
+            "reassert_count": 1,
+        },
+    }
+    patches = _patch_common(tmp_path, state=state)
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now.replace(hour=10, minute=0, second=0, microsecond=0)
+    state_path = tmp_path / "hvac_automation_state.json"
+
+    with mock.patch.object(core, "datetime", frozen), mock.patch.object(
+        core, "set_ashp_heat_call", return_value=True
+    ), mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}), \
+         mock.patch.object(
+        core, "fetch_resideo_status", return_value={"mode": "heat", "target_temperature_c": 21.0}
+    ), mock.patch.object(core, "logger") as fake_logger:
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    saved = json.loads(state_path.read_text())
+    interference = saved["ashp_interference"]
+    assert interference["reassert_count"] == 2
+    assert interference["diverged_to"] == "heat@21.0"
+    # 25 min diverged + reassert_count>=1 -> past the default 30min dwell? Not
+    # yet (25 < 30 default) - this call itself pushes it to 2 reasserts but
+    # dwell_minutes is checked against diverged_since, still short of 30min,
+    # so no warning THIS cycle - confirms the dwell gate, not just the count.
+    fake_logger.warning.assert_not_called()
+
+
+def test_sustained_interference_logs_a_warning(tmp_path):
+    """Both the dwell time AND reassert count satisfied -> flagged, matching
+    interference_logic.evaluate's own external_override_suspected contract.
+    """
+    config = _config()
+    config["ashp"]["interference_dwell_minutes"] = 10
+    config["ashp"]["interference_min_reasserts"] = 1
+    now = datetime.now(UTC)
+    state = {
+        "ashp": _active_ashp_state(now),
+        "ashp_interference": {
+            "commanded_value": "heat@18.0",
+            "commanded_at": (now - timedelta(minutes=30)).isoformat(),
+            "diverged_since": (now - timedelta(minutes=20)).isoformat(),
+            "diverged_to": "heat@21.0",
+            "reassert_count": 1,
+        },
+    }
+    patches = _patch_common(tmp_path, state=state)
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now.replace(hour=10, minute=0, second=0, microsecond=0)
+    state_path = tmp_path / "hvac_automation_state.json"
+
+    with mock.patch.object(core, "datetime", frozen), mock.patch.object(
+        core, "set_ashp_heat_call", return_value=True
+    ), mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}), \
+         mock.patch.object(
+        core, "fetch_resideo_status", return_value={"mode": "heat", "target_temperature_c": 21.0}
+    ), mock.patch.object(core, "logger") as fake_logger:
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    fake_logger.warning.assert_called_once()
+    warning_args = fake_logger.warning.call_args[0]
+    assert "heat@21.0" in str(warning_args)
+    # The write still happens regardless - automation keeps re-asserting, per
+    # the efficiency-not-safety framing (docs/ASHP.md §6).
+    saved = json.loads(state_path.read_text())
+    assert saved["ashp"]["ashp_active"] is True
+
+
+def test_fresh_command_skips_interference_check_entirely(tmp_path):
+    """A genuinely new command (e.g. day->night transition) doesn't compare
+    against stale divergence history - and shouldn't even call
+    fetch_resideo_status, since is_fresh_command short-circuits first."""
+    config = _config()
+    now = datetime.now(UTC)
+    state = {
+        "ashp": _active_ashp_state(now),
+        "ashp_interference": {
+            "commanded_value": "heat@18.0",  # day target - about to change to night target
+            "commanded_at": (now - timedelta(hours=1)).isoformat(),
+        },
+    }
+    patches = _patch_common(tmp_path, state=state)
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now.replace(hour=23, minute=0, second=0, microsecond=0)  # night period
+    state_path = tmp_path / "hvac_automation_state.json"
+
+    with mock.patch.object(core, "datetime", frozen), mock.patch.object(
+        core, "set_ashp_heat_call", return_value=True
+    ), mock.patch.object(
+        core, "set_airstage_temperature", return_value={"Landing": True, "Playroom": True}
+    ), mock.patch.object(core, "fetch_resideo_status") as fake_fetch:
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    fake_fetch.assert_not_called()
+    saved = json.loads(state_path.read_text())
+    assert saved["ashp_interference"]["commanded_value"] == "heat@14.0"  # night target now
+    assert saved["ashp_interference"]["reassert_count"] == 0
