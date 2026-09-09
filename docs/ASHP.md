@@ -148,13 +148,30 @@ an open question — see Q7 below.
 
 ### 6. External Interference Detection ("fighting the system")
 
+**Status: built, 2026-09-09, scoped to ASHP only.** `src/core_logic/interference_logic.py`
+(the shared, subsystem-agnostic detection logic - `ControlledAttributeState`/
+`evaluate`/`note_reasserted`/`record_verified_write`, fully unit-tested) plus
+its wiring into `scripts/ashp_automation_core.py`'s T6R write path
+(`_apply_ashp_target_with_interference_check`), config keys
+`ashp.interference_dwell_minutes`/`ashp.interference_min_reasserts` (defaults
+30 min / 1 reassertion), and a persisted `ashp_interference` state-file key.
+Detected interference logs a warning (`logger.warning`, greppable) and is
+**not surfaced on the dashboard yet** - only a log line today. Confirmed
+2026-09-09 with the project owner: this is explicitly an **efficiency**
+concern, not a safety one - both sides are always issuing ordinary, in-range
+commands, they just disagree; nothing about the hardware is left in an
+unsafe state by it, so the automation's response is "keep re-asserting and
+log it", not to back off or halt.
+
 **Scope note:** unlike the rest of this doc, this requirement isn't
-ASHP-specific — it applies equally to hot water (`hotwater_decision_logic.py`
-/ `melcloud_client.py`), the existing HVAC/Airstage automation
-(`hvac_decision_logic.py` / `airstage_client.py`), and whatever this proposal
-adds for the ASHP. It's captured here because the need surfaced while
-scoping the ASHP work, but see Open Question 9 below on where it should
-actually live.
+inherently ASHP-specific — it applies equally to hot water
+(`hotwater_decision_logic.py` / `melcloud_client.py`) and the existing
+HVAC/Airstage automation (`hvac_decision_logic.py` / `airstage_client.py`).
+It was built for ASHP first (the newest, highest-risk write path — it
+shares the T6R with whatever else might be controlling it) using
+`interference_logic.py` as a genuinely reusable module, not an ASHP-specific
+one — wiring it into the other two subsystems' own writes is a follow-up
+using the same two functions, not a redesign, whenever that's wanted.
 
 * **Problem:** every one of these subsystems writes a setpoint/mode to a
   device and then, on its next poll, reads that device's state back. Nothing
