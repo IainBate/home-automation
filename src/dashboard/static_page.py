@@ -361,14 +361,29 @@ function resideoCard(d) {
   if (!d.available) return unavailableCard("Thermostat", d.error, d.disabled);
   const modeClass = d.mode === "off" ? "" : "good";
   const callingClass = d.calling_for_heat ? "good" : "";
+  const ashp = d.ashp;
+  const ashpRow = ashp
+    ? `<div class="row"><span class="label">ASHP</span><span class="value"><span class="badge ${ashp.active ? "good" : ""}">${ashp.active ? "ON" : "OFF"}</span></span></div>`
+    : "";
   const body = `
     <div class="row"><span class="label">Mode</span><span class="value"><span class="badge ${modeClass}">${escapeHtml(titleCase(d.mode))}</span></span></div>
     <div class="row"><span class="label">Calling for heat</span><span class="value"><span class="badge ${callingClass}">${d.calling_for_heat ? "Yes" : "No"}</span></span></div>
     <div class="row"><span class="label">Current</span><span class="value">${fmtTemp(d.current_temperature_c)}</span></div>
     ${d.target_temperature_c !== null && d.target_temperature_c !== undefined ? `<div class="row"><span class="label">Target</span><span class="value">${fmtTemp(d.target_temperature_c)}</span></div>` : ""}
+    ${ashpRow}
   `;
+  const ashpDetails = ashp
+    ? (ashp.active
+        ? `<div class="row"><span class="label">ASHP on since</span><span class="value">${escapeHtml(ashp.activated_at || "")}</span></div>
+           <div class="row"><span class="label">Min runtime guard</span><span class="value">${fmtRemaining(ashp.min_runtime_remaining_seconds)}</span></div>`
+        : `<div class="row"><span class="label">ASHP off since</span><span class="value">${escapeHtml(ashp.deactivated_at || "&mdash;")}</span></div>
+           <div class="row"><span class="label">Min rest guard</span><span class="value">${fmtRemaining(ashp.min_rest_remaining_seconds)}</span></div>`)
+      + (ashp.activation_baseline_outdoor_c !== null && ashp.activation_baseline_outdoor_c !== undefined
+          ? `<div class="row"><span class="label">Activation baseline</span><span class="value">${fmtTemp(ashp.activation_baseline_outdoor_c)}</span></div>`
+          : "")
+    : "";
   const title = "Thermostat" + (d.device_name ? " - " + escapeHtml(d.device_name) : "");
-  return card(title, body, "");
+  return card(title, body, ashpDetails);
 }
 
 function solarForecastCard(d) {
