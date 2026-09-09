@@ -331,7 +331,7 @@ def _apply_ashp_decision(
             ok = False
 
     if not decision.suppress_hvac_automation:
-        return ok
+        return ok, interference_state
 
     master_zone = hvac_config.get("master_zone", DEFAULT_MASTER_ZONE)
     mirror_zone = hvac_config.get("mirror_zone", DEFAULT_MIRROR_ZONE)
@@ -341,7 +341,7 @@ def _apply_ashp_decision(
         if not all(results.values()):
             logger.error("ASHP apply: failed to power HVAC units off for the day period: %s", results)
             ok = False
-        return ok
+        return ok, interference_state
 
     if decision.hvac_landing_target_c is not None:
         results = set_airstage_temperature(config, decision.hvac_landing_target_c, zone_name=mirror_zone)
