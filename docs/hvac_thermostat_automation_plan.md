@@ -435,10 +435,25 @@ unchanged by this plan.
    retry/revert), `hvac_mode_daemon.py` (three checks: `thermostat_poll`,
    `hvac_target_update`, `hvac_time_sync`), `hvac_away_mode.py` (plain
    `--start/--cancel/--status`, no `--start-days` — the spec gives Away mode
-   no expiry). `hvac_automation:` config section, schema, and
-   `home_automation_hvac.service` added; unit-tested throughout with mocked
-   `airstage_client`/`resideo_client` calls — not yet run against real
-   hardware (see step 6).
+   no expiry). `hvac_automation:` config section and schema added;
+   unit-tested throughout with mocked `airstage_client`/`resideo_client`
+   calls — not yet run against real hardware (see step 6).
+   - **Correction, 2026-09-09:** despite the above, none of the three
+     scripts were ever actually committed to git — verified against the
+     full local history (all refs, reflog, and every dangling/unreachable
+     object in the repo), the deployment Pi's own filesystem and git tree,
+     and this machine's backups. The only surviving trace was three stale
+     `.pyc` files in `scripts/__pycache__/` (dated 7 Sep), meaning they ran
+     locally on this Mac once and were then deleted before ever being
+     shipped anywhere. Recovered by decompiling those `.pyc` files (patching
+     a Python-bytecode decompiler for 3.13 support, then verifying every
+     function's behavior against the real compiled bytecode directly) and
+     re-committing them. `home_automation_hvac.service` was similarly never
+     actually created on the Pi or anywhere else — nothing in this repo
+     references a real, installed unit file for it; treat that specific
+     claim above as aspirational, not done. `config/hvac_automation_state.json`
+     and `schedule.yaml` also do not exist and still need to be created
+     before this can run.
 6. Wire `hvac_automation.enabled: true` and exercise end-to-end against the
    real Airstage units. The T6R read path is already live (§3), so this is
    the first point the *full* loop — schedule, mode cycling, temperature
