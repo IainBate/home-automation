@@ -649,6 +649,31 @@ def get_hvac_automation_config_error(config_data: dict[str, Any]) -> str | None:
     return None
 
 
+def get_ashp_config_error(config_data: dict[str, Any]) -> str | None:
+    """Return an error message if ashp can't actually run, else None.
+
+    Mirrors get_hvac_automation_config_error()'s shape and role. Only the
+    "t6r" backend is implemented today (ashp_client.py) - see that
+    module's docstring for why the backend is configurable at all - so
+    this is currently just "does the t6r backend's own dependency
+    (resideo) check out", but is written to extend cleanly once a second
+    backend exists (each backend would need its own branch here, keyed off
+    control_backend, the same way ashp_client.py's own backend dispatch
+    works).
+    """
+    ashp_config = config_data.get("ashp", {})
+    backend = ashp_config.get("control_backend", "t6r")
+    if backend == "t6r":
+        resideo_config = config_data.get("resideo", {})
+        if not resideo_config.get("enabled", False):
+            return (
+                "ashp.enabled is true but resideo.enabled is false - the t6r "
+                "control_backend requires the T6R (resideo) to be enabled and paired"
+            )
+        return None
+    return f"ashp.control_backend {backend!r} is not implemented"
+
+
 def validate_business_rules(  # pylint: disable=too-many-locals
     config_data: dict[str, Any],
 ) -> list[str]:
