@@ -234,23 +234,93 @@ def _build_context(
     return context, room_temperature_c
 
 
+def _apply_ashp_target_with_interference_check(
+    config: dict[str, Any],
+    ashp_config: dict[str, Any],
+    decision: AshpDecision,
+    interference_state: ControlledAttributeState,
+    now: datetime,
+) -> tuple[bool, ControlledAttributeState]:
+    """Write the ASHP's mode/target, tracking docs/ASHP.md §6 interference detection.
+
+    A fresh command (the desired mode/target actually changed since last
+    commanded - a day/night transition, an activation, a deactivation)
+    always resets tracking via record_verified_write() on success: old
+    divergence history is irrelevant once we've deliberately commanded
+    something new. Re-sending the SAME value we already commanded (every
+    other cycle - see run_ashp_decision_check's "always reassert" note)
+    instead runs it through evaluate() first, so a mismatch that keeps
+    reappearing across multiple cycles despite our own repeated
+    correction accumulates - not reset every 30 minutes purely because
+    our own verified re-write briefly makes it agree again.
+    """
+    desired = _ashp_write_key(
+        "heat" if decision.ashp_active else "off", decision.ashp_target_c if decision.ashp_active else None
+    )
+    is_fresh_command = desired != interference_state.commanded_value
+
+    verdict = None
+    state_before_write = interference_state
+    if not is_fresh_command:
+        observed_status = fetch_resideo_status(config)
+        if observed_status is not None:
+            observed = _ashp_write_key(observed_status["mode"], observed_status.get("target_temperature_c"))
+            state_before_write, verdict = evaluate_interference(
+                interference_state,
+                observed,
+                now,
+                dwell_minutes=ashp_config.get(
+                    "interference_dwell_minutes", DEFAULT_INTERFERENCE_DWELL_MINUTES
+                ),
+                min_reasserts=ashp_config.get(
+                    "interference_min_reasserts", DEFAULT_INTERFERENCE_MIN_REASSERTS
+                ),
+            )
+            if verdict.status == "external_override_suspected":
+                logger.warning(
+                    "ASHP: T6R keeps reverting to %s instead of our commanded %s (%s) - "
+                    "something else appears to be controlling it too. This is an efficiency "
+                    "concern (wasted write cycles), not a safety one - the automation keeps "
+                    "re-asserting its own setting regardless.",
+                    verdict.foreign_value,
+                    desired,
+                    verdict.reason,
+                )
+
+    if decision.ashp_active:
+        ok = decision.ashp_target_c is not None and set_ashp_heat_call(config, decision.ashp_target_c)
+        if not ok:
+            logger.error("ASHP apply: failed to verify heat call at %sC", decision.ashp_target_c)
+    else:
+        ok = set_ashp_off(config)
+        if not ok:
+            logger.error("ASHP apply: failed to verify ASHP off")
+
+    if not ok:
+        return False, state_before_write
+    if is_fresh_command:
+        return True, record_verified_write(state_before_write, desired, now)
+    if verdict is not None and verdict.status != "ok":
+        return True, note_reasserted(state_before_write)
+    return True, state_before_write
+
+
 def _apply_ashp_decision(
-    config: dict[str, Any], hvac_config: dict[str, Any], decision: AshpDecision, *, quiet: bool
-) -> bool:
+    config: dict[str, Any],
+    ashp_config: dict[str, Any],
+    hvac_config: dict[str, Any],
+    decision: AshpDecision,
+    interference_state: ControlledAttributeState,
+    now: datetime,
+    *,
+    quiet: bool,
+) -> tuple[bool, ControlledAttributeState]:
     """Apply an AshpDecision's fields. Order: ASHP target/off first, then whatever
     the day/night schedule says about the HVAC units (only when suppress_hvac_automation).
     """
-    ok = True
-
-    if decision.ashp_active:
-        if decision.ashp_target_c is not None and not set_ashp_heat_call(
-            config, decision.ashp_target_c
-        ):
-            logger.error("ASHP apply: failed to verify heat call at %sC", decision.ashp_target_c)
-            ok = False
-    elif not set_ashp_off(config):
-        logger.error("ASHP apply: failed to verify ASHP off")
-        ok = False
+    ok, interference_state = _apply_ashp_target_with_interference_check(
+        config, ashp_config, decision, interference_state, now
+    )
 
     if decision.hvac_should_power_on:
         results = set_airstage_power(config, True)
