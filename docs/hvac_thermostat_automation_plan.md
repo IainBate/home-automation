@@ -452,8 +452,24 @@ unchanged by this plan.
      actually created on the Pi or anywhere else — nothing in this repo
      references a real, installed unit file for it; treat that specific
      claim above as aspirational, not done. `config/hvac_automation_state.json`
-     and `schedule.yaml` also do not exist and still need to be created
-     before this can run.
+     still does not exist (created automatically on first real run - no
+     content to recover, unlike the two files below).
+   - **Further correction, 2026-09-09:** `schedule.yaml` has since been
+     recovered too — not from the same `.pyc` decompilation (it's data, not
+     code, so never compiled), but from this same 2026-09-07 session's own
+     transcript in a *separate* Claude Code project directory
+     (`~/heating_automation`, since merged into this repo — its own
+     `~/.claude/projects/-Users-ijb500-heating-automation/` history was
+     still intact and searchable even though the working directory itself
+     was deleted per step 8 below). Restored verbatim from the last `Write`
+     call that touched it in that transcript: two schedules
+     (`at_home_all_day`, `at_home_part_of_day` for Fri-Sun), each currently
+     a flat `heat_target_c: 18.0` / `cool_target_c: 20.0` across every
+     period (the 2°C gap between them is the "dead zone"/deadband §8.9
+     below describes, from the project owner's own manual-control
+     experience) — the period boundaries exist for later day-part
+     differentiation but were not actually differentiated as of this
+     recovered version.
 6. Wire `hvac_automation.enabled: true` and exercise end-to-end against the
    real Airstage units. The T6R read path is already live (§3), so this is
    the first point the *full* loop — schedule, mode cycling, temperature
