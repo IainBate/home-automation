@@ -477,7 +477,14 @@ def _attach_hvac_automation_summary(zones: list[dict[str, Any]], hvac_config: di
 
 
 def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
-    """Read-only Resideo T6R snapshot via local HomeKit (see resideo_client.py)."""
+    """Read-only Resideo T6R snapshot via local HomeKit (see resideo_client.py).
+
+    When ashp is enabled, an "ashp" summary is attached too (see
+    _attach_ashp_summary) - deliberately extending this existing card
+    rather than adding a separate "ASHP" one, since the T6R is both ASHP's
+    ground-truth control point and its dashboard home (decided 2026-09-09,
+    see docs/ASHP.md).
+    """
     if not config.get("resideo", {}).get("enabled", False):
         return {"available": False, "disabled": True, "error": "Resideo disabled in config.yaml"}
 
@@ -489,7 +496,58 @@ def _collect_resideo(config: dict[str, Any]) -> dict[str, Any]:
             "(see resideo_client.py's module docstring) and the T6R is on the network",
         }
 
-    return {"available": True, **status}
+    result = {"available": True, **status}
+    ashp_config = config.get("ashp", {})
+    if ashp_config.get("enabled", False):
+        result["ashp"] = _ashp_summary(ashp_config)
+    return result
+
+
+def _ashp_summary(ashp_config: dict[str, Any]) -> dict[str, Any]:
+    """Read scripts/ashp_automation_core.py's persisted ASHP state.
+
+    No import from scripts/* (same convention as
+    _attach_hvac_automation_summary's identical note above) - reads
+    hvac_automation_state.json's "ashp" key directly instead (the same
+    state file hvac_automation's own "hvac"/"away_mode" keys live in).
+    Only the cheap, state-file-derived facts are surfaced here (active,
+    since-when, guard countdowns) - the live deactivation check itself
+    (current outdoor temp vs. baseline, forecast anti-flapping) needs
+    fresh weather/Airstage reads this collector doesn't otherwise make,
+    so is left for a future pass rather than re-deriving
+    ashp_decision_logic's own logic a second time here and risking it
+    drifting from the real decision.
+    """
+    automation_state = read_json_state(get_hvac_automation_state_path())
+    ashp_state = automation_state.get("ashp", {})
+    active = bool(ashp_state.get("ashp_active", False))
+    now = datetime.now(tz=UTC)
+
+    summary: dict[str, Any] = {
+        "active": active,
+        "activated_at": ashp_state.get("activated_at"),
+        "deactivated_at": ashp_state.get("deactivated_at"),
+        "activation_baseline_outdoor_c": ashp_state.get("activation_baseline_outdoor_c"),
+    }
+
+    if active and ashp_state.get("activated_at"):
+        try:
+            activated_at = datetime.fromisoformat(ashp_state["activated_at"])
+            min_runtime = timedelta(hours=ashp_config.get("min_runtime_hours", 6.0))
+            remaining = (activated_at + min_runtime) - now
+            summary["min_runtime_remaining_seconds"] = max(0, int(remaining.total_seconds()))
+        except (TypeError, ValueError):
+            pass
+    elif not active and ashp_state.get("deactivated_at"):
+        try:
+            deactivated_at = datetime.fromisoformat(ashp_state["deactivated_at"])
+            min_rest = timedelta(hours=ashp_config.get("min_rest_hours", 6.0))
+            remaining = (deactivated_at + min_rest) - now
+            summary["min_rest_remaining_seconds"] = max(0, int(remaining.total_seconds()))
+        except (TypeError, ValueError):
+            pass
+
+    return summary
 
 
 def _collect_solar_forecast(config: dict[str, Any]) -> dict[str, Any]:
