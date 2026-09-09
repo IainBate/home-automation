@@ -779,6 +779,12 @@ def validate_business_rules(  # pylint: disable=too-many-locals
             if hvac_error:
                 warnings.append(f"Warning: {hvac_error}")
 
+        ashp_config = config_data.get("ashp", {})
+        if ashp_config.get("enabled", False):
+            ashp_error = get_ashp_config_error(config_data)
+            if ashp_error:
+                warnings.append(f"Warning: {ashp_error}")
+
     except (KeyError, ValueError, TypeError, AttributeError) as e:
         warnings.append(f"Warning: could not validate business rules: {e!s}")
         logger.exception("Business rule validation error")
