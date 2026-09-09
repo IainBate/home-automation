@@ -368,7 +368,7 @@ def _apply_ashp_decision(
             f"{master_zone}={decision.hvac_playroom_target_c}C"
         )
 
-    return ok
+    return ok, interference_state
 
 
 def run_ashp_decision_check(
