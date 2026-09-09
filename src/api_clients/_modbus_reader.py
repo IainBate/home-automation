@@ -867,7 +867,8 @@ def _extract_input_register_data(massive_block: list[int]) -> dict[str, Any]:
         )
 
         # Process daily yield (same logic as _read_single_daily_yield)
-        extracted["daily_yield_kwh"] = extracted["daily_yield"] / 100.0
+        # Reported in 0.1 kWh units.
+        extracted["daily_yield_kwh"] = extracted["daily_yield"] / 10.0
 
         # Process grid export total (same logic as _read_single_grid_export_total)
         # Combine uint32 from two uint16 registers: value = (MSB << 16) | LSB
