@@ -192,6 +192,14 @@ function fmtAge(seconds) {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(seconds / 86400)}d ago`;
 }
+function fmtRemaining(seconds) {
+  if (seconds === null || seconds === undefined) return "&mdash;";
+  if (seconds <= 0) return "now";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.round((seconds % 3600) / 60);
+  if (hours < 1) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+}
 function fmtDateDdMmYy(isoDate) {
   if (!isoDate) return "&mdash;";
   const [y, m, d] = isoDate.split("-");
