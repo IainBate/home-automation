@@ -738,6 +738,10 @@ weekly_health_check:
     - "home_automation_hotwater.service"   # hotwater_mode_daemon.py
     - "home_automation_dashboard.service"  # dashboard_server.py
     - "home_automation_ohme.service"       # ohme_status_daemon.py
+    - "home_automation_hvac.service"       # hvac_mode_daemon.py - unit file shipped
+                                            # (scripts/home_automation_hvac.service),
+                                            # not yet installed/enabled on the Pi -
+                                            # see docs/ASHP.md Open Question 8
 
 # =============================================================================
 # DAILY DIGEST CHECK (scripts/daily_digest_check.py)

@@ -83,6 +83,7 @@ SERVICE_HEALTH_CHECKS = [
     {"key": "hot_water_daemon", "label": "Hot Water Daemon", "unit": "home_automation_hotwater.service", "log_filename": "hotwater_mode_daemon.log"},
     {"key": "dashboard", "label": "Dashboard", "unit": "home_automation_dashboard.service", "log_filename": "dashboard_server.log"},
     {"key": "ohme_poller", "label": "Ohme Poller", "unit": "home_automation_ohme.service", "log_filename": "ohme_status_daemon.log"},
+    {"key": "hvac_daemon", "label": "HVAC Daemon", "unit": "home_automation_hvac.service", "log_filename": "hvac_mode_daemon.log"},
 ]
 
 # How far back _check_log_health() looks for ERROR/CRITICAL lines at all.
