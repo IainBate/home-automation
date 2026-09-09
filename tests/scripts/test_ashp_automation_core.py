@@ -265,7 +265,7 @@ def test_repeated_command_matching_observed_state_needs_no_interference_warning(
     """The common case: we re-assert the same target every cycle, and the T6R
     still shows it - no divergence, no warning, reassert_count stays 0."""
     config = _config()
-    now = datetime.now(UTC)
+    now = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)  # day period (06:00-22:00)
     state = {
         "ashp": _active_ashp_state(now),
         "ashp_interference": {"commanded_value": "heat@18.0", "commanded_at": now.isoformat()},
@@ -273,7 +273,7 @@ def test_repeated_command_matching_observed_state_needs_no_interference_warning(
     patches = _patch_common(tmp_path, state=state)
 
     frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
-    frozen._frozen_now = now.replace(hour=10, minute=0, second=0, microsecond=0)
+    frozen._frozen_now = now
     state_path = tmp_path / "hvac_automation_state.json"
 
     with mock.patch.object(core, "datetime", frozen), mock.patch.object(
