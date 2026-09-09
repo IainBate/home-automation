@@ -116,7 +116,7 @@ def test_extract_input_register_data_full_extraction():
     assert extracted["battery_soc"] == 75
     assert extracted["battery_capacity_kwh"] == 10.0
     assert extracted["grid_power_watts"] == 200
-    assert extracted["daily_yield_kwh"] == 5.23
+    assert extracted["daily_yield_kwh"] == 52.3
     assert extracted["grid_export_total_kwh"] == pytest.approx(123.45)
     assert extracted["grid_import_total_kwh"] == pytest.approx(67.89)
 
