@@ -213,8 +213,9 @@ using the same two functions, not a redesign, whenever that's wanted.
   are both `ashp.*` config keys (30 min / 1 reassertion default) — genuinely
   configurable per subsystem when this extends beyond ASHP, not a single
   hard-coded constant. Still open for hot water/HVAC's own eventual wiring:
-  how many consecutive cycles / how long constitutes "continuous" there
-  decision-logic modules call, or three separate implementations.
+  what their own `dwell_minutes`/`min_reasserts` values should default to,
+  given their poll intervals already differ from ASHP's and from each
+  other (see `daemon_design.md`).
 
 ---
 
