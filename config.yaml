@@ -496,6 +496,38 @@ hvac_automation:
 ashp:
   enabled: false
   control_backend: "t6r"
+  master_zone: "Playroom"                  # Reuses hvac_automation's zone naming - the ASHP-mode
+  mirror_zone: "Landing"                   # night schedule writes to these same Airstage zones.
+
+  # Activation trigger (ASHP_OFF -> ASHP_ON) - unchanged from the original
+  # proposal (docs/ASHP.md requirement 2): fires when, continuously for
+  # sustained_deficit_hours, it's the ASHP-mode day period AND the Playroom
+  # HVAC is at hvac_ceiling_c AND the T6R room reading stays below the
+  # active hvac_automation schedule's target.
+  hvac_ceiling_c: 25.0
+  sustained_deficit_hours: 2.0
+  min_rest_hours: 6.0                      # Minimum ASHP_OFF duration before activation is
+                                            # even considered, once deactivated.
+
+  # Deactivation (ASHP_ON -> ASHP_OFF), also unchanged (requirement 3):
+  # fires once outdoor temperature has risen deactivation_margin_c above
+  # the baseline recorded at activation, UNLESS the 48h forecast dips back
+  # to or below that same baseline first (anti-flapping).
+  deactivation_margin_c: 2.0
+  min_runtime_hours: 6.0                   # Minimum ASHP_ON duration before deactivation is
+                                            # even considered, once activated.
+
+  # The ASHP-mode day/night clock itself (docs/ASHP.md requirement 1,
+  # clarified 2026-09-09 - see that section for the full story): while
+  # ASHP_ON, this is what actually runs - NOT hvac_automation's own
+  # schedule.yaml, which is suspended entirely for as long as ASHP_ON
+  # holds (see "No Double Control", scripts/ashp_automation_core.py).
+  day_start_time: "06:00"
+  night_start_time: "22:00"
+  day_target_c: 18.0                       # ASHP target during the day period; HVAC off then.
+  night_target_c: 14.0                     # ASHP target overnight; HVAC ON then, at the two
+  night_landing_target_c: 18.0             # fixed targets below - not hvac_automation's own
+  night_playroom_target_c: 25.0            # schedule, which plays no part while ASHP_ON.
 
 # =============================================================================
 # CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
