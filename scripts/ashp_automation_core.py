@@ -125,6 +125,48 @@ def _ashp_state_to_dict(state: AshpState) -> dict[str, Any]:
     }
 
 
+def _interference_state_from_dict(raw: dict[str, Any]) -> ControlledAttributeState:
+    commanded_at = raw.get("commanded_at")
+    diverged_since = raw.get("diverged_since")
+    try:
+        commanded_at = datetime.fromisoformat(commanded_at) if commanded_at else None
+    except (TypeError, ValueError):
+        commanded_at = None
+    try:
+        diverged_since = datetime.fromisoformat(diverged_since) if diverged_since else None
+    except (TypeError, ValueError):
+        diverged_since = None
+    return ControlledAttributeState(
+        commanded_value=raw.get("commanded_value"),
+        commanded_at=commanded_at,
+        diverged_since=diverged_since,
+        diverged_to=raw.get("diverged_to"),
+        reassert_count=raw.get("reassert_count", 0),
+    )
+
+
+def _interference_state_to_dict(state: ControlledAttributeState) -> dict[str, Any]:
+    return {
+        "commanded_value": state.commanded_value,
+        "commanded_at": state.commanded_at.isoformat() if state.commanded_at else None,
+        "diverged_since": state.diverged_since.isoformat() if state.diverged_since else None,
+        "diverged_to": state.diverged_to,
+        "reassert_count": state.reassert_count,
+    }
+
+
+def _ashp_write_key(mode: str, target_c: float | None) -> str:
+    """A single comparable value for "what the T6R is commanded/observed to be" -
+    the two characteristics are always written together (see
+    _ashp_t6r_backend.py's module docstring on why a target-only write
+    doesn't stick), so they're tracked as one combined value rather than
+    two independent ones. Target is irrelevant once off, so it's excluded
+    then - otherwise a stale leftover target value would look like a
+    perpetual mismatch against a desired "off, don't care what target" state.
+    """
+    return "off" if mode == "off" else f"heat@{target_c}"
+
+
 def _build_context(
     config: dict[str, Any], ashp_config: dict[str, Any], hvac_config: dict[str, Any], state: AshpState
 ) -> tuple[AshpDecisionContext, float | None]:
