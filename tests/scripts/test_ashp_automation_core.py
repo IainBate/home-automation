@@ -398,7 +398,7 @@ def test_fresh_command_skips_interference_check_entirely(tmp_path):
     against stale divergence history - and shouldn't even call
     fetch_resideo_status, since is_fresh_command short-circuits first."""
     config = _config()
-    now = datetime.now(UTC)
+    now = datetime(2026, 1, 15, 23, 0, 0, tzinfo=UTC)  # night period (22:00-06:00)
     state = {
         "ashp": _active_ashp_state(now),
         "ashp_interference": {
@@ -409,7 +409,7 @@ def test_fresh_command_skips_interference_check_entirely(tmp_path):
     patches = _patch_common(tmp_path, state=state)
 
     frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
-    frozen._frozen_now = now.replace(hour=23, minute=0, second=0, microsecond=0)  # night period
+    frozen._frozen_now = now
     state_path = tmp_path / "hvac_automation_state.json"
 
     with mock.patch.object(core, "datetime", frozen), mock.patch.object(
