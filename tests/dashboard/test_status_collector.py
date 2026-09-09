@@ -417,11 +417,9 @@ def test_collect_resideo_omits_ashp_when_disabled():
 
 
 def test_collect_resideo_attaches_ashp_when_enabled(tmp_path):
-    import json as json_module
-
     state_path = tmp_path / "hvac_automation_state.json"
     state_path.write_text(
-        json_module.dumps({"ashp": {"ashp_active": True, "activated_at": "2026-01-15T10:00:00+00:00"}}),
+        json.dumps({"ashp": {"ashp_active": True, "activated_at": "2026-01-15T10:00:00+00:00"}}),
         encoding="utf-8",
     )
     fake_status = {"device_name": "T6R", "mode": "heat", "current_temperature_c": 20.0}
