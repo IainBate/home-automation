@@ -77,6 +77,14 @@ DEFAULT_NIGHT_TARGET_C = 14.0
 DEFAULT_NIGHT_LANDING_TARGET_C = 18.0
 DEFAULT_NIGHT_PLAYROOM_TARGET_C = 25.0
 DEFAULT_ASHP_LOCK_TIMEOUT_SECONDS = 60
+# docs/ASHP.md §6: how long a mismatch between what we last commanded the
+# T6R and what it now reports must persist, and how many times this
+# software must have already re-asserted its own command in response,
+# before it's treated as evidence of an external actor fighting the
+# automation rather than an ordinary blip. An efficiency signal, not a
+# safety one - see interference_logic.py's own module docstring.
+DEFAULT_INTERFERENCE_DWELL_MINUTES = 30.0
+DEFAULT_INTERFERENCE_MIN_REASSERTS = 1
 
 
 def get_config_path() -> str:
