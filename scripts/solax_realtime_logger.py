@@ -54,6 +54,7 @@ import pytz
 
 from hotwater_automation_core import get_config_path
 
+from src.api_clients.ohme_status_cache import read_fresh_status
 from src.api_clients.solax_cloud_client import (
     is_same_reading,
     merge_realtime_snapshot,
@@ -151,6 +152,28 @@ def _build_local_modbus_snapshot(config: dict[str, Any]) -> dict[str, Any] | Non
         "yield_today_kwh": yield_today_kwh,
         "source": "modbus_fallback",
     }
+
+
+def _read_ev_charging_flag() -> bool | None:
+    """Whether the EV was charging when scripts/ohme_status_daemon.py last polled.
+
+    Tags each stored snapshot with this so
+    src/core_logic/battery_evening_prediction_logic.py can later exclude
+    historical days where an ad-hoc Ohme force-charge - unpredictable
+    day-to-day, unlike the battery daemon's own fixed schedule - skewed the
+    "typical" SoC drift used to predict future days.
+
+    Returns:
+        None (not False) whenever there's no fresh cached answer - a stale or
+        never-started Ohme poller must not be misread as "definitely not
+        charging", the same stance read_fresh_status's own docstring takes
+        for every other consumer.
+
+    """
+    status = read_fresh_status()
+    if status is None:
+        return None
+    return status.get("status") == "charging"
 
 
 def _wal_path(data_path: str) -> Path:
@@ -361,6 +384,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
             logger.warning("Failed to fetch SolaX Cloud realtime snapshot (see logs above)")
         else:
             source = "cloud"
+            snapshot["ev_charging"] = _read_ev_charging_flag()
             stored, count, compacted = _store_snapshot(data_path, snapshot)
 
     if (snapshot is None or not stored) and modbus_enabled:
@@ -368,6 +392,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         if fallback_snapshot is None:
             logger.warning("Local Modbus fallback snapshot also unavailable (see logs above)")
         else:
+            fallback_snapshot["ev_charging"] = _read_ev_charging_flag()
             fallback_stored, fallback_count, fallback_compacted = _store_snapshot(data_path, fallback_snapshot)
             # Prefer the fallback's own result whenever it actually stored
             # something new, or the cloud attempt never produced a snapshot

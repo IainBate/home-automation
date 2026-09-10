@@ -192,6 +192,14 @@ function fmtAge(seconds) {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(seconds / 86400)}d ago`;
 }
+function fmtRemaining(seconds) {
+  if (seconds === null || seconds === undefined) return "&mdash;";
+  if (seconds <= 0) return "now";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.round((seconds % 3600) / 60);
+  if (hours < 1) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+}
 function fmtDateDdMmYy(isoDate) {
   if (!isoDate) return "&mdash;";
   const [y, m, d] = isoDate.split("-");
@@ -270,7 +278,7 @@ function solarCard(d) {
     <div class="row"><span class="label">Battery flow</span><span class="value">${fmtPower(d.battery_power_w)}</span></div>
     <div class="row"><span class="label">Battery charge</span><span class="value">${fmtPct(soc)}</span></div>
     ${socBar(soc)}
-    <div class="row"><span class="label">Today's generation</span><span class="value">${d.daily_yield_kwh !== null && d.daily_yield_kwh !== undefined ? d.daily_yield_kwh.toFixed(1) + " kWh" : "&mdash;"}</span></div>
+    <div class="row"><span class="label">Today's PV</span><span class="value">${d.daily_yield_kwh !== null && d.daily_yield_kwh !== undefined ? d.daily_yield_kwh.toFixed(1) + " kWh" : "&mdash;"}</span></div>
   `;
   const details = d.last_mode_change_at ? `
     <div class="row"><span class="label">Last mode change</span><span class="value">${escapeHtml(d.last_mode_change_reason || "")}</span></div>
@@ -353,14 +361,29 @@ function resideoCard(d) {
   if (!d.available) return unavailableCard("Thermostat", d.error, d.disabled);
   const modeClass = d.mode === "off" ? "" : "good";
   const callingClass = d.calling_for_heat ? "good" : "";
+  const ashp = d.ashp;
+  const ashpRow = ashp
+    ? `<div class="row"><span class="label">ASHP</span><span class="value"><span class="badge ${ashp.active ? "good" : ""}">${ashp.active ? "ON" : "OFF"}</span></span></div>`
+    : "";
   const body = `
     <div class="row"><span class="label">Mode</span><span class="value"><span class="badge ${modeClass}">${escapeHtml(titleCase(d.mode))}</span></span></div>
     <div class="row"><span class="label">Calling for heat</span><span class="value"><span class="badge ${callingClass}">${d.calling_for_heat ? "Yes" : "No"}</span></span></div>
     <div class="row"><span class="label">Current</span><span class="value">${fmtTemp(d.current_temperature_c)}</span></div>
     ${d.target_temperature_c !== null && d.target_temperature_c !== undefined ? `<div class="row"><span class="label">Target</span><span class="value">${fmtTemp(d.target_temperature_c)}</span></div>` : ""}
+    ${ashpRow}
   `;
+  const ashpDetails = ashp
+    ? (ashp.active
+        ? `<div class="row"><span class="label">ASHP on since</span><span class="value">${escapeHtml(ashp.activated_at || "")}</span></div>
+           <div class="row"><span class="label">Min runtime guard</span><span class="value">${fmtRemaining(ashp.min_runtime_remaining_seconds)}</span></div>`
+        : `<div class="row"><span class="label">ASHP off since</span><span class="value">${escapeHtml(ashp.deactivated_at || "&mdash;")}</span></div>
+           <div class="row"><span class="label">Min rest guard</span><span class="value">${fmtRemaining(ashp.min_rest_remaining_seconds)}</span></div>`)
+      + (ashp.activation_baseline_outdoor_c !== null && ashp.activation_baseline_outdoor_c !== undefined
+          ? `<div class="row"><span class="label">Activation baseline</span><span class="value">${fmtTemp(ashp.activation_baseline_outdoor_c)}</span></div>`
+          : "")
+    : "";
   const title = "Thermostat" + (d.device_name ? " - " + escapeHtml(d.device_name) : "");
-  return card(title, body, "");
+  return card(title, body, ashpDetails);
 }
 
 function solarForecastCard(d) {
@@ -391,7 +414,7 @@ function batteryForecastCard(d) {
     return card("Battery Forecast", `<div class="row"><span class="label">No remaining checkpoints for today</span></div>`, "");
   }
   const rows = d.checkpoints.map(c => `
-    <div class="row"><span class="label">${escapeHtml(c.label)}${c.priority ? " &#9733;" : ""}</span><span class="value">${fmtPct(c.predicted_soc_percent)}</span></div>
+    <div class="row"><span class="label">${escapeHtml(c.time)} - ${escapeHtml(c.label)}${c.priority ? " &#9733;" : ""}</span><span class="value">${fmtPct(c.predicted_soc_percent)}</span></div>
   `).join("");
   return card("Battery Forecast", rows, "");
 }

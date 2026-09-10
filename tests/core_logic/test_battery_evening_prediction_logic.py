@@ -158,6 +158,113 @@ def test_compute_historical_samples_pv_generation_is_none_without_pv_data():
     assert samples[0].pv_generation_kwh is None
 
 
+# --- EV-charging contamination -----------------------------------------------
+#
+# An ad-hoc Ohme force-charge during the trigger->horizon window is
+# unpredictable day-to-day (unlike the battery daemon's own fixed FORCE_DISCHARGE
+# schedule, which is baked evenly into every historical day), so it can skew
+# a single day's SoC drift in a way that isn't representative of a typical
+# day - see scripts/solax_realtime_logger.py's _read_ev_charging_flag.
+
+
+def _records_with_ev_charging(entries: list[tuple[str, float, bool | None]]) -> list[dict]:
+    records = []
+    for ts, soc, ev_charging in entries:
+        record = {"timestamp": ts, "soc_percent": soc}
+        if ev_charging is not None:
+            record["ev_charging"] = ev_charging
+        records.append(record)
+    return records
+
+
+def test_compute_historical_samples_flags_ev_charging_within_window():
+    records = _records_with_ev_charging(
+        [
+            ("2026-01-01 18:00:00", 80.0, False),
+            ("2026-01-01 19:30:00", 95.0, True),  # EV force-charge, inside [18:00, 21:00)
+            ("2026-01-01 21:00:00", 90.0, False),
+        ]
+    )
+    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, reference_day_of_year=1)
+    assert len(samples) == 1
+    assert samples[0].ev_charging_in_window is True
+
+
+def test_compute_historical_samples_ev_charging_outside_window_not_flagged():
+    records = _records_with_ev_charging(
+        [
+            ("2026-01-01 17:00:00", 80.0, True),  # before the window, doesn't count
+            ("2026-01-01 18:00:00", 80.0, False),
+            ("2026-01-01 21:00:00", 60.0, False),
+        ]
+    )
+    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, reference_day_of_year=1)
+    assert len(samples) == 1
+    assert samples[0].ev_charging_in_window is False
+
+
+def test_compute_historical_samples_missing_ev_charging_field_not_flagged():
+    """No ev_charging key at all (data logged before this feature existed) -
+    treated as "not contaminated", not "unknown -> exclude", so 15+ days of
+    pre-existing history don't all get discarded the moment this ships."""
+    records = _records([("2026-01-01 18:00:00", 80.0), ("2026-01-01 21:00:00", 60.0)])
+    samples = compute_historical_soc_drift_samples(records, trigger_hour=18, horizon_hours=3.0, reference_day_of_year=1)
+    assert len(samples) == 1
+    assert samples[0].ev_charging_in_window is False
+
+
+def test_predict_evening_soc_excludes_ev_charging_contaminated_days_from_average():
+    # 5 clean days with a -20pp drift, plus 1 EV-charging-contaminated day with
+    # a wildly different +15pp drift that must not pull the average toward it.
+    records = _records_with_ev_charging(
+        [(f"2026-01-{d:02d} 18:00:00", 80.0, False) for d in range(1, 6)]
+        + [(f"2026-01-{d:02d} 21:00:00", 60.0, False) for d in range(1, 6)]
+        + [
+            ("2026-01-06 18:00:00", 80.0, False),
+            ("2026-01-06 19:00:00", 95.0, True),
+            ("2026-01-06 21:00:00", 95.0, False),
+        ]
+    )
+    result = predict_evening_soc(
+        current_soc_percent=80.0,
+        historical_records=records,
+        trigger_hour=18,
+        horizon_hours=3.0,
+        reference_day_of_year=1,
+        min_sample_days=5,
+    )
+    assert result.sample_count == 5
+    assert result.average_drift_percent == -20.0
+    assert result.predicted_soc_percent == 60.0
+
+
+def test_predict_evening_soc_none_when_too_few_clean_samples_remain():
+    # 4 clean days (below min_sample_days=5) plus 2 contaminated ones - the
+    # contaminated days must not count toward meeting the minimum.
+    records = _records_with_ev_charging(
+        [(f"2026-01-{d:02d} 18:00:00", 80.0, False) for d in range(1, 5)]
+        + [(f"2026-01-{d:02d} 21:00:00", 60.0, False) for d in range(1, 5)]
+        + [
+            ("2026-01-05 18:00:00", 80.0, False),
+            ("2026-01-05 19:00:00", 95.0, True),
+            ("2026-01-05 21:00:00", 95.0, False),
+            ("2026-01-06 18:00:00", 80.0, False),
+            ("2026-01-06 19:00:00", 95.0, True),
+            ("2026-01-06 21:00:00", 95.0, False),
+        ]
+    )
+    result = predict_evening_soc(
+        current_soc_percent=80.0,
+        historical_records=records,
+        trigger_hour=18,
+        horizon_hours=3.0,
+        reference_day_of_year=1,
+        min_sample_days=5,
+    )
+    assert result.predicted_soc_percent is None
+    assert result.sample_count == 4
+
+
 def test_fit_generation_drift_correction_needs_minimum_paired_samples():
     samples = [
         SocDriftSample("2026-01-01", 80.0, 70.0, pv_generation_kwh=1.0),

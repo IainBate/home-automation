@@ -435,10 +435,41 @@ unchanged by this plan.
    retry/revert), `hvac_mode_daemon.py` (three checks: `thermostat_poll`,
    `hvac_target_update`, `hvac_time_sync`), `hvac_away_mode.py` (plain
    `--start/--cancel/--status`, no `--start-days` — the spec gives Away mode
-   no expiry). `hvac_automation:` config section, schema, and
-   `home_automation_hvac.service` added; unit-tested throughout with mocked
-   `airstage_client`/`resideo_client` calls — not yet run against real
-   hardware (see step 6).
+   no expiry). `hvac_automation:` config section and schema added;
+   unit-tested throughout with mocked `airstage_client`/`resideo_client`
+   calls — not yet run against real hardware (see step 6).
+   - **Correction, 2026-09-09:** despite the above, none of the three
+     scripts were ever actually committed to git — verified against the
+     full local history (all refs, reflog, and every dangling/unreachable
+     object in the repo), the deployment Pi's own filesystem and git tree,
+     and this machine's backups. The only surviving trace was three stale
+     `.pyc` files in `scripts/__pycache__/` (dated 7 Sep), meaning they ran
+     locally on this Mac once and were then deleted before ever being
+     shipped anywhere. Recovered by decompiling those `.pyc` files (patching
+     a Python-bytecode decompiler for 3.13 support, then verifying every
+     function's behavior against the real compiled bytecode directly) and
+     re-committing them. `home_automation_hvac.service` was similarly never
+     actually created on the Pi or anywhere else — nothing in this repo
+     references a real, installed unit file for it; treat that specific
+     claim above as aspirational, not done. `config/hvac_automation_state.json`
+     still does not exist (created automatically on first real run - no
+     content to recover, unlike the two files below).
+   - **Further correction, 2026-09-09:** `schedule.yaml` has since been
+     recovered too — not from the same `.pyc` decompilation (it's data, not
+     code, so never compiled), but from this same 2026-09-07 session's own
+     transcript in a *separate* Claude Code project directory
+     (`~/heating_automation`, since merged into this repo — its own
+     `~/.claude/projects/-Users-ijb500-heating-automation/` history was
+     still intact and searchable even though the working directory itself
+     was deleted per step 8 below). Restored verbatim from the last `Write`
+     call that touched it in that transcript: two schedules
+     (`at_home_all_day`, `at_home_part_of_day` for Fri-Sun), each currently
+     a flat `heat_target_c: 18.0` / `cool_target_c: 20.0` across every
+     period (the 2°C gap between them is the "dead zone"/deadband §8.9
+     below describes, from the project owner's own manual-control
+     experience) — the period boundaries exist for later day-part
+     differentiation but were not actually differentiated as of this
+     recovered version.
 6. Wire `hvac_automation.enabled: true` and exercise end-to-end against the
    real Airstage units. The T6R read path is already live (§3), so this is
    the first point the *full* loop — schedule, mode cycling, temperature

@@ -216,15 +216,24 @@ hotwater_automation:
                                             # a later tick from firing once conditions (or the day's
                                             # actual usage so far) make it confident - see
                                             # get_battery_prediction_to_deadline's own docstring.
-  forced_discharge_start_hour: 22.5        # 10:30pm - the battery system enters a forced-discharge
-                                            # mode at this fixed clock time (confirmed 2026-09-07),
-                                            # after which the battery-prediction forecast above is
+  forced_discharge_start_hour: 22.0        # 10pm - FALLBACK ONLY (confirmed 2026-09-10): normally
+                                            # derived at runtime from battery_mode_daemon_config.json's
+                                            # own schedule.time_ranges (see
+                                            # derive_forced_discharge_start_hour) - the daemon's actual
+                                            # FORCE_DISCHARGE start time, not a hand-copied number here.
+                                            # This value is only used if that schedule file can't be
+                                            # read. It previously said 22.5/10:30pm while the real
+                                            # schedule started discharge at 22:00, silently opening a
+                                            # 30-minute window where a battery-prediction-triggered heat
+                                            # could still be running when forced discharge actually
+                                            # began - keep this in sync with the schedule's own
+                                            # FORCE_DISCHARGE start_time if you ever rely on the fallback.
+                                            # After which the battery-prediction forecast above is
                                             # meaningless (SoC is no longer driven by normal usage).
                                             # Closes the battery-prediction path's own eligibility to
                                             # START a new heat one full heating cycle's worth of time
-                                            # before this (see
-                                            # _battery_prediction_eligibility_end_hour) - currently
-                                            # 21:30/9:30pm, since both force_heat_max_duration_hours
+                                            # before this (see battery_prediction_eligibility_end_hour) -
+                                            # currently 21:00/9pm, since both force_heat_max_duration_hours
                                             # and legionella_max_cycle_duration_hours are 1h - so
                                             # nothing this path starts is still running when forced
                                             # discharge begins. Does NOT change
@@ -529,6 +538,34 @@ ashp:
   night_landing_target_c: 18.0             # fixed targets below - not hvac_automation's own
   night_playroom_target_c: 25.0            # schedule, which plays no part while ASHP_ON.
 
+  # External interference detection (docs/ASHP.md §6) - efficiency, not
+  # safety: flags the T6R persistently showing something other than what
+  # this software last commanded it (a vendor-app schedule, a physical
+  # remote, anything else with access to the same thermostat), logged as
+  # a warning rather than changed behaviour - the automation keeps
+  # re-asserting its own setting regardless. A single stale poll or an
+  # in-flight write never triggers this; it needs BOTH conditions below.
+  interference_dwell_minutes: 30.0         # How long a mismatch must persist, continuously,
+                                            # before it's treated as real rather than a blip.
+  interference_min_reasserts: 1            # How many times this software must have already
+                                            # re-sent its own command and had it overridden
+                                            # again before flagging - not just "it's been a
+                                            # while", genuine evidence something keeps
+                                            # reverting a correction.
+
+  # MELCloud response corroboration (new 2026-09-10) - cross-checks the T6R
+  # heat-call against MELCloud's own device status for the same Ecodan unit
+  # (already fetched/cached by hot water automation's force-heat check, no
+  # extra MELCloud API calls). Diagnostic only, like interference detection
+  # above - never changes what gets written, just logs a warning. The heat
+  # pump's own anti-short-cycle/defrost timing plus MELCloud's own ~10-15
+  # minute cache freshness both mean a genuine response can lag the T6R
+  # command by several minutes - this is a starting estimate to refine once
+  # observed against real hardware (see docs/ashp_deployment_and_testing_plan.md's
+  # verify-empirically-first approach), not a value with any hardware
+  # measurement behind it yet.
+  response_window_minutes: 20.0
+
 # =============================================================================
 # CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
 # =============================================================================
@@ -738,6 +775,10 @@ weekly_health_check:
     - "home_automation_hotwater.service"   # hotwater_mode_daemon.py
     - "home_automation_dashboard.service"  # dashboard_server.py
     - "home_automation_ohme.service"       # ohme_status_daemon.py
+    - "home_automation_hvac.service"       # hvac_mode_daemon.py - unit file shipped
+                                            # (scripts/home_automation_hvac.service),
+                                            # not yet installed/enabled on the Pi -
+                                            # see docs/ASHP.md Open Question 8
 
 # =============================================================================
 # DAILY DIGEST CHECK (scripts/daily_digest_check.py)

@@ -17,7 +17,7 @@ scripts/solax_cloud_data_logger.py (data/solax_historical_data.json). No new
 dependency, cheap enough to run once a day.
 
 Also writes a handful of additional same-day SoC checkpoints
-(DASHBOARD_CHECKPOINT_TIMES below) purely for the dashboard
+(_compute_dashboard_checkpoints below) purely for the dashboard
 (src/dashboard/status_collector.py) to display - hotwater_automation_core.py
 only ever reads the original predicted_soc_percent/computed_at fields above,
 unchanged by this addition.
@@ -55,13 +55,19 @@ from typing import Any
 
 import pytz
 
-from hotwater_automation_core import get_battery_soc_percent, get_config_path
+from hotwater_automation_core import (
+    DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR,
+    get_battery_soc_percent,
+    get_config_path,
+    resolve_battery_prediction_eligibility_end_hour,
+)
 
 from src.config_manager.config_manager import load_static_config
 from src.core_logic.battery_evening_prediction_logic import (
     extract_forecast_generation_kwh,
     predict_evening_soc,
 )
+from src.core_logic.hotwater_decision_logic import hour_float_to_time
 from src.utils.historical_data import load_historical_records
 from src.utils.paths import (
     get_battery_evening_prediction_path,
@@ -74,21 +80,6 @@ DEFAULT_TRIGGER_HOUR = 21.5
 DEFAULT_HORIZON_HOURS = 3.0
 DEFAULT_MIN_SAMPLE_DAYS = 5
 DEFAULT_TIMEZONE = "Europe/London"
-
-# Extra same-day checkpoints for the dashboard (src/dashboard/status_collector.py) -
-# additive to the main hotwater_automation prediction above, which
-# hotwater_automation_core.py alone still reads. 23:30 is flagged as the
-# priority checkpoint: it's the moment the schedule switches from evening
-# FORCE_DISCHARGE to overnight FORCE_CHARGE (see battery_mode_daemon_config.json),
-# so it's the most useful single number for "how much battery is left before
-# cheap-rate charging kicks in".
-DASHBOARD_CHECKPOINT_TIMES = [
-    (18, 0, "6:00 PM", False),
-    (20, 0, "8:00 PM", False),
-    (22, 0, "10:00 PM", False),
-    (23, 30, "11:30 PM", True),
-]
-
 
 def _create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
@@ -120,13 +111,31 @@ def write_prediction(prediction_record: dict[str, Any]) -> None:
     os.replace(tmp_path, path)
 
 
+def _hour_float_to_time_str(hour_float: float) -> str:
+    """Format a fractional hour (e.g. 21.5) as "HH:MM" (e.g. "21:30")."""
+    return hour_float_to_time(hour_float).strftime("%H:%M")
+
+
 def _compute_dashboard_checkpoints(
     current_soc_percent: float,
     historical_records: list[dict[str, Any]],
     now_local: datetime,
     min_sample_days: int,
+    hw_config: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Predict SoC at each still-upcoming DASHBOARD_CHECKPOINT_TIMES entry today.
+    """Predict SoC at the two clock times the force-heat decision itself cares about.
+
+    Confirmed with the project owner 2026-09-10: rather than arbitrary round
+    numbers, the dashboard should show the battery-prediction window's own
+    start (hw_config's battery_prediction_window_start_hour, default 18:00)
+    and its eligibility cutoff (resolve_battery_prediction_eligibility_end_hour -
+    the same schedule-derived value the force-heat check gates on, e.g. 21:00
+    once forced_discharge_start_hour is resolved from the real battery daemon
+    schedule) - "will the battery-prediction path still fire today" is the
+    actually decision-relevant number, not a fixed clock time. The eligibility
+    checkpoint is always shown (when not yet passed); the window-start one only
+    when it falls strictly before it - a degenerate config (an unusually early
+    forced_discharge_start_hour) must never show them out of order.
 
     Reuses predict_evening_soc() unmodified, anchored to the exact current
     time (fractional trigger_hour - not truncated to the hour, which would
@@ -135,10 +144,19 @@ def _compute_dashboard_checkpoints(
     time. A checkpoint already passed today is omitted rather than
     predicting backwards.
     """
+    window_start_hour = hw_config.get(
+        "battery_prediction_window_start_hour", DEFAULT_BATTERY_PREDICTION_WINDOW_START_HOUR
+    )
+    eligibility_end_hour = resolve_battery_prediction_eligibility_end_hour(hw_config)
+
+    checkpoint_specs = []
+    if window_start_hour < eligibility_end_hour:
+        checkpoint_specs.append((window_start_hour, "Battery-prediction window opens", False))
+    checkpoint_specs.append((eligibility_end_hour, "Last chance to heat from stored solar", True))
+
     now_hour_float = now_local.hour + now_local.minute / 60.0
     checkpoints = []
-    for hour, minute, label, is_priority in DASHBOARD_CHECKPOINT_TIMES:
-        target_hour_float = hour + minute / 60.0
+    for target_hour_float, label, is_priority in checkpoint_specs:
         if target_hour_float <= now_hour_float:
             continue
 
@@ -152,7 +170,7 @@ def _compute_dashboard_checkpoints(
         )
         checkpoints.append(
             {
-                "time": f"{hour:02d}:{minute:02d}",
+                "time": _hour_float_to_time_str(target_hour_float),
                 "label": label,
                 "priority": is_priority,
                 "predicted_soc_percent": result.predicted_soc_percent,
@@ -268,7 +286,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         # Additional dashboard-only checkpoints - hotwater_automation_core.py
         # only ever reads the fields above, unchanged.
         "dashboard_checkpoints": _compute_dashboard_checkpoints(
-            current_soc_percent, historical_records, now_local, min_sample_days
+            current_soc_percent, historical_records, now_local, min_sample_days, hw_config
         ),
     }
     write_prediction(prediction_record)

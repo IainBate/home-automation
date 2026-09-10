@@ -159,7 +159,7 @@ def load_schedule(path: str | None = None) -> tuple[dict[str, list[SchedulePerio
         path = get_schedule_path()
 
     with Path(path).open(encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
+        raw = yaml.safe_load(f) or {}
 
     schedules_raw = raw.get("schedules")
     if not schedules_raw:

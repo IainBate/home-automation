@@ -11,6 +11,82 @@ from unittest import mock
 import solax_realtime_logger as logger_script
 
 
+# --- _read_ev_charging_flag / wiring into run() -----------------------------
+#
+# Tags each stored snapshot with whether the EV was charging when polled, so
+# src/core_logic/battery_evening_prediction_logic.py can later exclude
+# historical days where an ad-hoc Ohme force-charge (unpredictable day to
+# day, unlike the battery daemon's own fixed schedule) skewed the SoC drift.
+
+
+def test_read_ev_charging_flag_is_none_when_no_fresh_cache():
+    with mock.patch.object(logger_script, "read_fresh_status", return_value=None):
+        assert logger_script._read_ev_charging_flag() is None
+
+
+def test_read_ev_charging_flag_true_when_status_is_charging():
+    with mock.patch.object(logger_script, "read_fresh_status", return_value={"status": "charging"}):
+        assert logger_script._read_ev_charging_flag() is True
+
+
+def test_read_ev_charging_flag_false_when_status_is_not_charging():
+    with mock.patch.object(logger_script, "read_fresh_status", return_value={"status": "plugged_in"}):
+        assert logger_script._read_ev_charging_flag() is False
+
+
+def test_run_tags_cloud_snapshot_with_ev_charging_flag(tmp_path):
+    data_path = tmp_path / "solax_historical_data.json"
+    data_path.write_text(json.dumps({"meta": {"data_points": 0}, "data": []}), encoding="utf-8")
+    config = {"solaX_cloud_api": {"token_id": "real-token", "master_wifisn": "SR2NZD2S3B"}}
+    snapshot = {
+        "timestamp": "2026-09-02 08:00:00",
+        "pv_power_kw": 1.5,
+        "battery_power_kw": 0.0,
+        "grid_power_kw": 0.0,
+        "soc_percent": 90,
+    }
+
+    with (
+        mock.patch.object(logger_script, "get_solax_historical_data_path", lambda: str(data_path)),
+        mock.patch.object(logger_script, "solax_cloud_get_realtime_snapshot", return_value=snapshot),
+        mock.patch.object(logger_script, "read_fresh_status", return_value={"status": "charging"}),
+    ):
+        exit_code = logger_script.run(config, quiet=True)
+
+    assert exit_code == 0
+    wal_path = logger_script._wal_path(str(data_path))
+    wal_lines = [json.loads(line) for line in wal_path.read_text(encoding="utf-8").splitlines()]
+    assert wal_lines[-1]["ev_charging"] is True
+
+
+def test_run_tags_modbus_fallback_snapshot_with_ev_charging_flag(tmp_path):
+    data_path = tmp_path / "solax_historical_data.json"
+    data_path.write_text(json.dumps({"meta": {"data_points": 0}, "data": []}), encoding="utf-8")
+    config = {
+        "solaX_cloud_api": {"token_id": "real-token", "master_wifisn": "SR2NZD2S3B", "modbus_enabled": True}
+    }
+    bulk = {
+        "soc": {"master": 42},
+        "pv_power": {"master": {"pv1": 100, "pv2": 200}},
+        "battery_power": {"master": {"power": -500}},
+        "grid_power": {"master": 0},
+        "daily_yield": {"master": 5.0},
+    }
+
+    with (
+        mock.patch.object(logger_script, "get_solax_historical_data_path", lambda: str(data_path)),
+        mock.patch.object(logger_script, "solax_cloud_get_realtime_snapshot", return_value=None),
+        mock.patch.object(logger_script, "solax_modbus_bulk_data", return_value=bulk),
+        mock.patch.object(logger_script, "read_fresh_status", return_value=None),
+    ):
+        exit_code = logger_script.run(config, quiet=True)
+
+    assert exit_code == 0
+    wal_path = logger_script._wal_path(str(data_path))
+    wal_lines = [json.loads(line) for line in wal_path.read_text(encoding="utf-8").splitlines()]
+    assert wal_lines[-1]["ev_charging"] is None
+
+
 def test_run_returns_0_when_not_configured(capsys):
     config = {"solaX_cloud_api": {"token_id": "NOT_USED_FOR_MODBUS", "master_wifisn": "NOT_USED_FOR_MODBUS"}}
 

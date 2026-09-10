@@ -441795,7 +441795,7 @@
       "battery_power_kw": -3.061,
       "grid_power_kw": 0.0,
       "soc_percent": 88,
-      "yield_today_kwh": 1.53,
+      "yield_today_kwh": 15.3,
       "source": "modbus_fallback"
     },
     {

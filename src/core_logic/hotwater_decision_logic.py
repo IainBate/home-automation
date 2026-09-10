@@ -600,3 +600,52 @@ def battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float:
         ),
     )
     return min(deadline_hour, forced_discharge_start_hour - max_duration_hours)
+
+
+def derive_forced_discharge_start_hour(time_ranges: list[dict[str, Any]]) -> float | None:
+    """Read the earliest FORCE_DISCHARGE start time out of a battery-mode-daemon schedule.
+
+    battery_prediction_eligibility_end_hour above takes forced_discharge_start_hour
+    as a plain config number, hand-maintained separately in config.yaml from the
+    actual schedule that drives it (battery_mode_daemon_config.json's
+    schedule.time_ranges) - confirmed 2026-09-10: those two drifted out of sync
+    (config.yaml said 22:30, the real schedule said 22:00), silently reopening a
+    30-minute window where a battery-prediction-triggered heat could still be
+    running when forced discharge actually began. Deriving the value straight from
+    the schedule instead removes the second, hand-copied source of truth.
+
+    Args:
+        time_ranges: battery_mode_daemon_config.json's schedule.time_ranges list -
+            dicts with "start_time" ("HH:MM") and "battery_mode" keys (see
+            battery_mode_daemon.py's JSON schema). Entries with an unparseable
+            start_time are skipped rather than raising, the same tolerant stance
+            historical-data parsing takes elsewhere in this codebase.
+
+    Returns:
+        The earliest FORCE_DISCHARGE start_time as a fractional hour, or None if
+        the schedule has no FORCE_DISCHARGE entry (or time_ranges is empty) - the
+        same "not configured" value battery_prediction_eligibility_end_hour
+        already treats as "don't narrow the window".
+
+    Examples:
+        >>> derive_forced_discharge_start_hour([
+        ...     {"start_time": "05:30", "end_time": "22:00", "battery_mode": "SELF_USE"},
+        ...     {"start_time": "22:00", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"},
+        ... ])
+        22.0
+        >>> derive_forced_discharge_start_hour([
+        ...     {"start_time": "05:30", "end_time": "22:00", "battery_mode": "SELF_USE"},
+        ... ])
+
+    """
+    start_hours = []
+    for time_range in time_ranges:
+        if time_range.get("battery_mode") != "FORCE_DISCHARGE":
+            continue
+        try:
+            start_time = datetime.strptime(time_range["start_time"], "%H:%M").time()
+        except (KeyError, ValueError, TypeError):
+            continue
+        start_hours.append(start_time.hour + start_time.minute / 60.0)
+
+    return min(start_hours) if start_hours else None

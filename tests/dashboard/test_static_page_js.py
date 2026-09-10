@@ -317,6 +317,71 @@ def test_hot_water_card_omits_legionella_line_when_never_completed():
 
 
 @requires_node
+def test_resideo_card_shows_ashp_on_badge_and_details():
+    payload = {
+        "available": True,
+        "device_name": "T6R",
+        "mode": "heat",
+        "calling_for_heat": True,
+        "current_temperature_c": 20.5,
+        "target_temperature_c": 18.0,
+        "ashp": {
+            "active": True,
+            "activated_at": "2026-01-15T06:00:00+00:00",
+            "deactivated_at": None,
+            "activation_baseline_outdoor_c": 5.0,
+            "min_runtime_remaining_seconds": 3600,
+        },
+    }
+    html = _run_js(f"console.log(resideoCard({json.dumps(payload)}));")
+
+    assert "ASHP" in html
+    assert "ON" in html
+    assert "ASHP on since" in html
+    assert "Min runtime guard" in html
+    assert "1h 0m" in html
+
+
+@requires_node
+def test_resideo_card_shows_ashp_off_badge_and_rest_guard():
+    payload = {
+        "available": True,
+        "device_name": "T6R",
+        "mode": "off",
+        "calling_for_heat": False,
+        "current_temperature_c": 20.5,
+        "target_temperature_c": 16.0,
+        "ashp": {
+            "active": False,
+            "activated_at": None,
+            "deactivated_at": "2026-01-15T06:00:00+00:00",
+            "activation_baseline_outdoor_c": None,
+            "min_rest_remaining_seconds": 0,
+        },
+    }
+    html = _run_js(f"console.log(resideoCard({json.dumps(payload)}));")
+
+    assert "OFF" in html
+    assert "ASHP off since" in html
+    assert "Min rest guard" in html
+
+
+@requires_node
+def test_resideo_card_omits_ashp_section_when_absent():
+    payload = {
+        "available": True,
+        "device_name": "T6R",
+        "mode": "off",
+        "calling_for_heat": False,
+        "current_temperature_c": 20.5,
+        "target_temperature_c": 16.0,
+    }
+    html = _run_js(f"console.log(resideoCard({json.dumps(payload)}));")
+
+    assert "ASHP" not in html
+
+
+@requires_node
 def test_airstage_zone_card_shows_automation_status_and_setpoints():
     """The master zone's card gets the schedule/automation setpoint rows -
     these extend the existing Air Conditioning card rather than a separate

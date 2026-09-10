@@ -408,6 +408,48 @@ def test_collect_resideo_maps_fields():
     assert result == {"available": True, **fake_status}
 
 
+def test_collect_resideo_omits_ashp_when_disabled():
+    fake_status = {"device_name": "T6R", "mode": "off", "current_temperature_c": 20.0}
+    with mock.patch.object(status_collector, "fetch_resideo_status", return_value=fake_status):
+        result = status_collector._collect_resideo({"resideo": {"enabled": True}, "ashp": {"enabled": False}})
+
+    assert "ashp" not in result
+
+
+def test_collect_resideo_attaches_ashp_when_enabled(tmp_path):
+    state_path = tmp_path / "hvac_automation_state.json"
+    state_path.write_text(
+        json.dumps({"ashp": {"ashp_active": True, "activated_at": "2026-01-15T10:00:00+00:00"}}),
+        encoding="utf-8",
+    )
+    fake_status = {"device_name": "T6R", "mode": "heat", "current_temperature_c": 20.0}
+    with mock.patch.object(status_collector, "fetch_resideo_status", return_value=fake_status), \
+         mock.patch.object(status_collector, "get_hvac_automation_state_path", lambda: str(state_path)):
+        result = status_collector._collect_resideo(
+            {"resideo": {"enabled": True}, "ashp": {"enabled": True, "min_runtime_hours": 6.0}}
+        )
+
+    assert result["ashp"]["active"] is True
+    assert result["ashp"]["activated_at"] == "2026-01-15T10:00:00+00:00"
+    assert "min_runtime_remaining_seconds" in result["ashp"]
+
+
+def test_ashp_summary_computes_min_rest_remaining_when_inactive(tmp_path):
+    from datetime import UTC, datetime
+
+    state_path = tmp_path / "hvac_automation_state.json"
+    now_iso = datetime.now(tz=UTC).isoformat()
+    state_path.write_text(
+        json.dumps({"ashp": {"ashp_active": False, "deactivated_at": now_iso}}),
+        encoding="utf-8",
+    )
+    with mock.patch.object(status_collector, "get_hvac_automation_state_path", lambda: str(state_path)):
+        summary = status_collector._ashp_summary({"min_rest_hours": 6.0})
+
+    assert summary["active"] is False
+    assert summary["min_rest_remaining_seconds"] > 0
+
+
 def test_collect_mg_saic_disabled():
     result = status_collector._collect_mg_saic({"mg_saic": {"enabled": False}})
 

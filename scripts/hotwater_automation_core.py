@@ -113,6 +113,7 @@ from src.core_logic.hotwater_decision_logic import (
     HotWaterDecisionContext,
     battery_prediction_eligibility_end_hour,
     daily_check_lookup_date_str,
+    derive_forced_discharge_start_hour,
     determine_hotwater_decision,
     hour_float_to_time,
     is_in_evening_window,
@@ -128,6 +129,7 @@ from src.utils.emailer import send_email
 from src.utils.historical_data import load_historical_records
 from src.utils.paths import (
     get_battery_evening_prediction_path,
+    get_battery_mode_daemon_config_path,
     get_hotwater_automation_state_path,
     get_project_root,
 )
@@ -392,6 +394,52 @@ def get_battery_soc_percent(config: dict[str, Any]) -> float | None:
 # own architectural review) - it's pure (plain data in, plain data out, no
 # I/O), so it belongs alongside determine_hotwater_decision. Imported back in
 # below; every call site here is unchanged.
+
+
+def load_battery_daemon_time_ranges() -> list[dict[str, Any]] | None:
+    """Load battery_mode_daemon_config.json's schedule.time_ranges, or None on failure.
+
+    Feeds derive_forced_discharge_start_hour (see its own docstring) so the
+    battery-prediction eligibility window narrows against the battery daemon's
+    actual schedule rather than a hand-copied config.yaml number. A missing or
+    malformed file just means "can't derive it" here, not a crash - the caller
+    falls back to hw_config's own forced_discharge_start_hour (if set) exactly
+    as before this existed.
+    """
+    path = Path(get_battery_mode_daemon_config_path())
+    if not path.exists():
+        return None
+    try:
+        daemon_config = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.exception(
+            "Failed to read/parse battery mode daemon config at %s, falling back to "
+            "hw_config's own forced_discharge_start_hour",
+            path,
+        )
+        return None
+    return daemon_config.get("schedule", {}).get("time_ranges")
+
+
+def resolve_battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float:
+    """battery_prediction_eligibility_end_hour, preferring the battery daemon's
+    real schedule over hw_config's own (possibly stale) forced_discharge_start_hour.
+
+    Single place both this module's own force-heat check and
+    scripts/battery_evening_predictor.py's dashboard checkpoints resolve this
+    from - previously duplicated inline here alone.
+    """
+    time_ranges = load_battery_daemon_time_ranges()
+    derived_forced_discharge_start_hour = (
+        derive_forced_discharge_start_hour(time_ranges) if time_ranges is not None else None
+    )
+    effective_hw_config = hw_config
+    if derived_forced_discharge_start_hour is not None:
+        effective_hw_config = {
+            **hw_config,
+            "forced_discharge_start_hour": derived_forced_discharge_start_hour,
+        }
+    return battery_prediction_eligibility_end_hour(effective_hw_config)
 
 
 def get_battery_prediction_to_deadline(
@@ -881,9 +929,12 @@ async def _run_force_heat_check_locked(
         # The window this path may still START a new heat in can close
         # earlier than the deadline it predicts TOWARDS - see
         # battery_prediction_eligibility_end_hour's own docstring
-        # (forced_discharge_start_hour).
+        # (forced_discharge_start_hour). Prefer deriving forced_discharge_start_hour
+        # from the battery daemon's actual schedule over hw_config's own
+        # (hand-maintained, can drift - see derive_forced_discharge_start_hour)
+        # value; fall back to hw_config's if the schedule can't be read.
         battery_prediction_eligibility_end_time = hour_float_to_time(
-            battery_prediction_eligibility_end_hour(hw_config)
+            resolve_battery_prediction_eligibility_end_hour(hw_config)
         )
         in_battery_prediction_window = is_in_offpeak_window(
             now_local.time(), battery_prediction_window_start_time, battery_prediction_eligibility_end_time

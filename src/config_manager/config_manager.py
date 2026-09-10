@@ -485,6 +485,9 @@ CONFIG_SCHEMA = {
                 "night_target_c": {"type": "number", "minimum": 10, "maximum": 30},
                 "night_landing_target_c": {"type": "number", "minimum": 10, "maximum": 30},
                 "night_playroom_target_c": {"type": "number", "minimum": 10, "maximum": 30},
+                "interference_dwell_minutes": {"type": "number", "minimum": 5, "maximum": 240},
+                "interference_min_reasserts": {"type": "integer", "minimum": 0, "maximum": 20},
+                "response_window_minutes": {"type": "number", "minimum": 5, "maximum": 120},
             },
         },
         "claude_usage": {
