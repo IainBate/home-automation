@@ -251,3 +251,56 @@ def test_still_closed_well_before_the_old_2330_deadline(tmp_path, monkeypatch):
     exit_code, client = _run(tmp_path, monkeypatch, hour=22, minute=0)
     assert exit_code == 0
     assert client.force_calls == []
+
+
+# --- schedule-derived forced_discharge_start_hour overrides hw_config's ----
+#
+# hw_config's forced_discharge_start_hour is 22.5 (22:30) in every test above
+# via _run's fixed hw_config - but confirmed 2026-09-10, the real battery
+# daemon schedule actually starts FORCE_DISCHARGE at 22:00. These tests
+# confirm the schedule wins once battery_mode_daemon_config.json is present,
+# narrowing the eligibility cutoff to 21:00 (22:00 - the 1h heating cycle)
+# rather than the stale config.yaml-derived 21:30.
+
+
+def test_schedule_derived_discharge_start_narrows_the_cutoff_to_2100(tmp_path, monkeypatch):
+    """20:59 is still inside [18:00, 21:00) once the schedule (not hw_config's
+    stale 22.5) governs the cutoff."""
+    exit_code, client = _run(
+        tmp_path,
+        monkeypatch,
+        hour=20,
+        minute=59,
+        battery_daemon_time_ranges=[
+            {"start_time": "22:00", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"}
+        ],
+    )
+    assert exit_code == 0
+    assert client.force_calls == [True]
+
+
+def test_schedule_derived_discharge_start_closes_the_stale_2130_gap(tmp_path, monkeypatch):
+    """21:00-21:29 used to be inside the (stale) [18:00, 21:30) window and
+    would heat - but a heat starting there would still be running when the
+    real 22:00 discharge begins. With the schedule wired in, this must no
+    longer heat."""
+    exit_code, client = _run(
+        tmp_path,
+        monkeypatch,
+        hour=21,
+        minute=0,
+        battery_daemon_time_ranges=[
+            {"start_time": "22:00", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"}
+        ],
+    )
+    assert exit_code == 0
+    assert client.force_calls == []
+
+
+def test_missing_battery_daemon_config_falls_back_to_hw_config_value(tmp_path, monkeypatch):
+    """No battery_mode_daemon_config.json at all (the default in every test
+    above) - falls back to hw_config's own forced_discharge_start_hour (22.5),
+    unchanged from before this feature existed."""
+    exit_code, client = _run(tmp_path, monkeypatch, hour=21, minute=29)
+    assert exit_code == 0
+    assert client.force_calls == [True]
