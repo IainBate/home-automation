@@ -65,6 +65,16 @@ class SocDriftSample:
             pv_power_kw data for it - a day can still contribute a plain
             drift sample without this, it just can't be used to fit
             fit_generation_drift_correction.
+        ev_charging_in_window: True if any reading in the trigger-to-horizon
+            window had ev_charging=True (scripts/solax_realtime_logger.py's
+            _read_ev_charging_flag) - an ad-hoc Ohme force-charge, unlike the
+            battery daemon's own fixed schedule, happens unpredictably
+            day-to-day and can skew this day's drift away from what's
+            typical, so predict_evening_soc excludes such days from the
+            average. False both when no reading in the window was charging
+            and when the field is simply absent (data logged before this
+            existed) - "unknown" degrades to "not contaminated", not
+            "exclude", so existing history isn't discarded overnight.
 
     """
 
@@ -72,6 +82,7 @@ class SocDriftSample:
     soc_at_trigger_percent: float
     soc_at_horizon_percent: float
     pv_generation_kwh: float | None = None
+    ev_charging_in_window: bool = False
 
     @property
     def drift_percent(self) -> float:
