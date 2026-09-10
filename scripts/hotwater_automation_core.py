@@ -908,9 +908,24 @@ async def _run_force_heat_check_locked(
         # The window this path may still START a new heat in can close
         # earlier than the deadline it predicts TOWARDS - see
         # battery_prediction_eligibility_end_hour's own docstring
-        # (forced_discharge_start_hour).
+        # (forced_discharge_start_hour). Prefer deriving forced_discharge_start_hour
+        # from the battery daemon's actual schedule over hw_config's own
+        # (hand-maintained, can drift - see derive_forced_discharge_start_hour)
+        # value; fall back to hw_config's if the schedule can't be read.
+        battery_daemon_time_ranges = _load_battery_daemon_time_ranges()
+        derived_forced_discharge_start_hour = (
+            derive_forced_discharge_start_hour(battery_daemon_time_ranges)
+            if battery_daemon_time_ranges is not None
+            else None
+        )
+        eligibility_hw_config = hw_config
+        if derived_forced_discharge_start_hour is not None:
+            eligibility_hw_config = {
+                **hw_config,
+                "forced_discharge_start_hour": derived_forced_discharge_start_hour,
+            }
         battery_prediction_eligibility_end_time = hour_float_to_time(
-            battery_prediction_eligibility_end_hour(hw_config)
+            battery_prediction_eligibility_end_hour(eligibility_hw_config)
         )
         in_battery_prediction_window = is_in_offpeak_window(
             now_local.time(), battery_prediction_window_start_time, battery_prediction_eligibility_end_time
