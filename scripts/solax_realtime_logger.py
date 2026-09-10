@@ -154,6 +154,28 @@ def _build_local_modbus_snapshot(config: dict[str, Any]) -> dict[str, Any] | Non
     }
 
 
+def _read_ev_charging_flag() -> bool | None:
+    """Whether the EV was charging when scripts/ohme_status_daemon.py last polled.
+
+    Tags each stored snapshot with this so
+    src/core_logic/battery_evening_prediction_logic.py can later exclude
+    historical days where an ad-hoc Ohme force-charge - unpredictable
+    day-to-day, unlike the battery daemon's own fixed schedule - skewed the
+    "typical" SoC drift used to predict future days.
+
+    Returns:
+        None (not False) whenever there's no fresh cached answer - a stale or
+        never-started Ohme poller must not be misread as "definitely not
+        charging", the same stance read_fresh_status's own docstring takes
+        for every other consumer.
+
+    """
+    status = read_fresh_status()
+    if status is None:
+        return None
+    return status.get("status") == "charging"
+
+
 def _wal_path(data_path: str) -> Path:
     return Path(f"{data_path}.wal.jsonl")
 
