@@ -561,7 +561,7 @@ def test_response_check_deactivates_cleanly_when_ashp_turns_off(tmp_path):
         mock.patch.object(core, "set_ashp_off", return_value=True),
         mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}),
         mock.patch.object(core, "_run_hvac_decision_check", return_value=0),
-        mock.patch.object(core, "read_fresh_status", return_value={"status": "idle"}),
+        mock.patch.object(core, "read_fresh_status") as fake_read_fresh_status,
         mock.patch.object(core, "logger") as fake_logger,
     ):
         for p in patches:
@@ -574,5 +574,43 @@ def test_response_check_deactivates_cleanly_when_ashp_turns_off(tmp_path):
 
     assert rc == 0
     fake_logger.warning.assert_not_called()
+    fake_read_fresh_status.assert_not_called()
     saved = json.loads(state_path.read_text())
     assert saved["ashp_response_check"]["active_since"] is None
+
+
+def test_response_check_logs_debug_on_unknown_verdict(tmp_path):
+    """When ashp_active but MELCloud status can't be freshly read (e.g. hot
+    water automation disabled), the check should still leave a debug trail -
+    otherwise it looks indistinguishable from not running at all."""
+    config = _config()
+    config["ashp"]["response_window_minutes"] = 20.0
+    now = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+    state = {
+        "ashp": _active_ashp_state(now),
+        "ashp_response_check": {"active_since": (now - timedelta(minutes=25)).isoformat()},
+    }
+    patches = _patch_common(tmp_path, state=state)
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now
+
+    with (
+        mock.patch.object(core, "datetime", frozen),
+        mock.patch.object(core, "set_ashp_heat_call", return_value=True),
+        mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}),
+        mock.patch.object(core, "fetch_resideo_status", return_value={"mode": "heat", "target_temperature_c": 18.0}),
+        mock.patch.object(core, "read_fresh_status", return_value=None),
+        mock.patch.object(core, "logger") as fake_logger,
+    ):
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    fake_logger.warning.assert_not_called()
+    fake_logger.debug.assert_called_once()

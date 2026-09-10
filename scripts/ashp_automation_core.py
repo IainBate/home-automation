@@ -188,6 +188,18 @@ def _check_ashp_response(
     a genuine response can lag the T6R command by several minutes and must
     never be flagged on a single poll.
     """
+    if not decision.ashp_active:
+        new_state, _verdict = evaluate_ashp_response(
+            response_state,
+            ashp_active=False,
+            observed_status=None,
+            now=now,
+            response_window_minutes=ashp_config.get(
+                "response_window_minutes", DEFAULT_ASHP_RESPONSE_WINDOW_MINUTES
+            ),
+        )
+        return new_state
+
     melcloud_status = read_fresh_status()
     observed_status = melcloud_status.get("status") if melcloud_status else None
     new_state, verdict = evaluate_ashp_response(
@@ -201,6 +213,8 @@ def _check_ashp_response(
     )
     if verdict.status == "no_response_suspected":
         logger.warning("ASHP: %s", verdict.reason)
+    elif verdict.status == "unknown":
+        logger.debug("ASHP: %s", verdict.reason)
     return new_state
 
 

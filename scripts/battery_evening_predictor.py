@@ -111,7 +111,7 @@ def write_prediction(prediction_record: dict[str, Any]) -> None:
     os.replace(tmp_path, path)
 
 
-def hour_float_to_time_str(hour_float: float) -> str:
+def _hour_float_to_time_str(hour_float: float) -> str:
     """Format a fractional hour (e.g. 21.5) as "HH:MM" (e.g. "21:30")."""
     return hour_float_to_time(hour_float).strftime("%H:%M")
 
@@ -170,7 +170,7 @@ def _compute_dashboard_checkpoints(
         )
         checkpoints.append(
             {
-                "time": hour_float_to_time_str(target_hour_float),
+                "time": _hour_float_to_time_str(target_hour_float),
                 "label": label,
                 "priority": is_priority,
                 "predicted_soc_percent": result.predicted_soc_percent,

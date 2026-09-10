@@ -108,7 +108,7 @@ def read_fresh_status(max_age_seconds: float = DEFAULT_MAX_AGE_SECONDS) -> dict[
     age_seconds = (datetime.now(tz=UTC) - fetched_at).total_seconds()
     if age_seconds > max_age_seconds:
         logger.info(
-            "MELCloud status cache is %.0fs old (limit %.0fs) - falling back to a direct read",
+            "MELCloud status cache is %.0fs old (limit %.0fs) - treat as unavailable",
             age_seconds,
             max_age_seconds,
         )

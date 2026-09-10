@@ -23,13 +23,13 @@ cycles delay the compressor's own response by several minutes, and
 MELCloud's own cache is only refreshed every ~10-15 minutes (see
 melcloud_status_cache.DEFAULT_MAX_AGE_SECONDS) - so this never judges a
 single poll, only sustained non-response across response_window_minutes.
-STATUS_HEAT_WATER/STATUS_DEFROST/STATUS_LEGIONELLA are treated as "busy
-elsewhere", not "not responding" - the compressor is genuinely active on a
-legitimate competing job (the shared Ecodan unit also serves the hot water
-tank), which this module can observe but not distinguish from "the ASHP call
-will simply never be served" without also modelling that arbitration -
-scoped out of this pass; a human reading the logged reason can tell the
-difference.
+The heat_water/defrost/legionella status values (plain string literals, see
+_BUSY_ELSEWHERE_STATUSES below) are treated as "busy elsewhere", not "not
+responding" - the compressor is genuinely active on a legitimate competing
+job (the shared Ecodan unit also serves the hot water tank), which this
+module can observe but not distinguish from "the ASHP call will simply
+never be served" without also modelling that arbitration - scoped out of
+this pass; a human reading the logged reason can tell the difference.
 """
 
 from __future__ import annotations

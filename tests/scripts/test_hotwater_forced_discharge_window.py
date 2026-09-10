@@ -220,7 +220,7 @@ def _run(
     state_path = tmp_path / "hotwater_automation_state.json"
     state_path.write_text(json.dumps({}), encoding="utf-8")
 
-    # No battery_daemon_config.json by default - _load_battery_daemon_time_ranges
+    # No battery_daemon_config.json by default - load_battery_daemon_time_ranges
     # returns None, so hw_config's own forced_discharge_start_hour is used
     # unchanged, exactly as before that function existed.
     daemon_config_path = tmp_path / "battery_mode_daemon_config.json"

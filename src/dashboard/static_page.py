@@ -414,7 +414,7 @@ function batteryForecastCard(d) {
     return card("Battery Forecast", `<div class="row"><span class="label">No remaining checkpoints for today</span></div>`, "");
   }
   const rows = d.checkpoints.map(c => `
-    <div class="row"><span class="label">${escapeHtml(c.label)}${c.priority ? " &#9733;" : ""}</span><span class="value">${fmtPct(c.predicted_soc_percent)}</span></div>
+    <div class="row"><span class="label">${escapeHtml(c.time)} - ${escapeHtml(c.label)}${c.priority ? " &#9733;" : ""}</span><span class="value">${fmtPct(c.predicted_soc_percent)}</span></div>
   `).join("");
   return card("Battery Forecast", rows, "");
 }
