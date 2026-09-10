@@ -2,6 +2,9 @@
 venv/
 myenv/
 
+# Local git worktrees (superpowers:using-git-worktrees)
+.worktrees/
+
 # Python cache
 __pycache__/
 *.pyc
