@@ -464,6 +464,29 @@ CONFIG_SCHEMA = {
                 },
             },
         },
+        "ashp": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "control_backend": {
+                    "type": "string",
+                    "enum": ["t6r"],
+                },
+                "master_zone": {"type": "string", "minLength": 1},
+                "mirror_zone": {"type": "string", "minLength": 1},
+                "hvac_ceiling_c": {"type": "number", "minimum": 10, "maximum": 30},
+                "sustained_deficit_hours": {"type": "number", "minimum": 0.5, "maximum": 12},
+                "deactivation_margin_c": {"type": "number", "minimum": 0.5, "maximum": 10},
+                "min_runtime_hours": {"type": "number", "minimum": 0, "maximum": 24},
+                "min_rest_hours": {"type": "number", "minimum": 0, "maximum": 24},
+                "day_start_time": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"},
+                "night_start_time": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"},
+                "day_target_c": {"type": "number", "minimum": 10, "maximum": 30},
+                "night_target_c": {"type": "number", "minimum": 10, "maximum": 30},
+                "night_landing_target_c": {"type": "number", "minimum": 10, "maximum": 30},
+                "night_playroom_target_c": {"type": "number", "minimum": 10, "maximum": 30},
+            },
+        },
         "claude_usage": {
             "type": "object",
             "properties": {
@@ -639,6 +662,31 @@ def get_hvac_automation_config_error(config_data: dict[str, Any]) -> str | None:
     return None
 
 
+def get_ashp_config_error(config_data: dict[str, Any]) -> str | None:
+    """Return an error message if ashp can't actually run, else None.
+
+    Mirrors get_hvac_automation_config_error()'s shape and role. Only the
+    "t6r" backend is implemented today (ashp_client.py) - see that
+    module's docstring for why the backend is configurable at all - so
+    this is currently just "does the t6r backend's own dependency
+    (resideo) check out", but is written to extend cleanly once a second
+    backend exists (each backend would need its own branch here, keyed off
+    control_backend, the same way ashp_client.py's own backend dispatch
+    works).
+    """
+    ashp_config = config_data.get("ashp", {})
+    backend = ashp_config.get("control_backend", "t6r")
+    if backend == "t6r":
+        resideo_config = config_data.get("resideo", {})
+        if not resideo_config.get("enabled", False):
+            return (
+                "ashp.enabled is true but resideo.enabled is false - the t6r "
+                "control_backend requires the T6R (resideo) to be enabled and paired"
+            )
+        return None
+    return f"ashp.control_backend {backend!r} is not implemented"
+
+
 def validate_business_rules(  # pylint: disable=too-many-locals
     config_data: dict[str, Any],
 ) -> list[str]:
@@ -743,6 +791,12 @@ def validate_business_rules(  # pylint: disable=too-many-locals
             hvac_error = get_hvac_automation_config_error(config_data)
             if hvac_error:
                 warnings.append(f"Warning: {hvac_error}")
+
+        ashp_config = config_data.get("ashp", {})
+        if ashp_config.get("enabled", False):
+            ashp_error = get_ashp_config_error(config_data)
+            if ashp_error:
+                warnings.append(f"Warning: {ashp_error}")
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
         warnings.append(f"Warning: could not validate business rules: {e!s}")

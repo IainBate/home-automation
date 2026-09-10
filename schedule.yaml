@@ -1,0 +1,50 @@
+# HVAC comfort-target schedule - read by scripts/hvac_mode_daemon.py via
+# src/core_logic/hvac_schedule_logic.py (spec Phase 3, extended 2026-09-07 -
+# see that module's docstring).
+#
+# Exactly one named schedule is active per calendar day (day_assignments
+# below); any day with no explicit assignment falls back to
+# at_home_all_day. Each schedule is a list of
+# {start, end, heat_target_c, cool_target_c} periods in "HH:MM" (24h clock,
+# "24:00" allowed as end-of-day) - they are normalised at runtime (gaps
+# closed, overlaps trimmed, first period forced to start at 00:00), not
+# required to be perfectly tidy here. A schedule whose last period ends
+# before 24:00 leaves the rest of the day genuinely uncovered (the
+# automation makes no changes then) - every schedule below intentionally
+# runs a period through to 24:00 to avoid that.
+#
+# Two targets, not one: heat_target_c applies while the automation is in
+# heat mode (winter), cool_target_c while in cool/dry mode (summer) - based
+# on the project owner's own experience running the units manually, ~18C
+# feels right heating and ~20C feels right cooling. heat_target_c must be
+# strictly less than cool_target_c (enforced at load time) - the resulting
+# gap is what stops the automation from continually flip-flopping right at
+# the dry<->heat boundary (see hvac_decision_logic.py's module docstring for
+# the full deadband reasoning). Season itself is never configured here - it
+# falls out for free from whichever mode is actually running.
+#
+# Editing either schedule's targets takes effect on hvac_mode_daemon.py's
+# next tick (hvac_automation.poll_intervals.hvac_target_seconds, 30 min by
+# default) - no daemon restart needed, same as config.yaml's hot-reload.
+
+schedules:
+  at_home_all_day:
+    - {start: "00:00", end: "06:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "06:00", end: "08:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "08:00", end: "15:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "15:00", end: "22:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "22:00", end: "24:00", heat_target_c: 18.0, cool_target_c: 20.0}
+
+  at_home_part_of_day:
+    - {start: "00:00", end: "06:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "06:00", end: "08:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "08:00", end: "15:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "15:00", end: "22:00", heat_target_c: 18.0, cool_target_c: 20.0}
+    - {start: "22:00", end: "24:00", heat_target_c: 18.0, cool_target_c: 20.0}
+
+# Days not listed here use at_home_all_day (the default). Per the spec:
+# at_home_all_day active Mon-Thu; at_home_part_of_day active Fri-Sun.
+day_assignments:
+  friday: at_home_part_of_day
+  saturday: at_home_part_of_day
+  sunday: at_home_part_of_day
