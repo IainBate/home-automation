@@ -23,6 +23,51 @@ import hotwater_automation_core as core
 from _fakes import FakeMelCloudClient
 
 
+# --- derive_forced_discharge_start_hour (pure) ------------------------------
+#
+# config.yaml's forced_discharge_start_hour used to be a hand-maintained
+# number that could (and did - confirmed 2026-09-10) drift out of sync with
+# battery_mode_daemon_config.json's actual schedule. These tests cover
+# reading it straight from the schedule instead.
+
+
+def test_no_force_discharge_time_range_returns_none():
+    time_ranges = [
+        {"start_time": "00:00", "end_time": "05:30", "battery_mode": "FORCE_CHARGE"},
+        {"start_time": "05:30", "end_time": "22:00", "battery_mode": "SELF_USE"},
+    ]
+    assert core.derive_forced_discharge_start_hour(time_ranges) is None
+
+
+def test_single_force_discharge_time_range_returns_its_start_hour():
+    time_ranges = [
+        {"start_time": "05:30", "end_time": "22:00", "battery_mode": "SELF_USE"},
+        {"start_time": "22:00", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"},
+        {"start_time": "23:30", "end_time": "00:00", "battery_mode": "FORCE_CHARGE"},
+    ]
+    assert core.derive_forced_discharge_start_hour(time_ranges) == 22.0
+
+
+def test_multiple_force_discharge_time_ranges_returns_the_earliest_start_hour():
+    time_ranges = [
+        {"start_time": "16:00", "end_time": "16:30", "battery_mode": "FORCE_DISCHARGE"},
+        {"start_time": "22:00", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"},
+    ]
+    assert core.derive_forced_discharge_start_hour(time_ranges) == 16.0
+
+
+def test_malformed_start_time_is_skipped_not_raised():
+    time_ranges = [
+        {"start_time": "not-a-time", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"},
+        {"start_time": "22:15", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"},
+    ]
+    assert core.derive_forced_discharge_start_hour(time_ranges) == 22.25
+
+
+def test_empty_time_ranges_returns_none():
+    assert core.derive_forced_discharge_start_hour([]) is None
+
+
 # --- battery_prediction_eligibility_end_hour (pure) ------------------------
 
 
