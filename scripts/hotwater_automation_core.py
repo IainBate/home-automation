@@ -396,6 +396,31 @@ def get_battery_soc_percent(config: dict[str, Any]) -> float | None:
 # below; every call site here is unchanged.
 
 
+def _load_battery_daemon_time_ranges() -> list[dict[str, Any]] | None:
+    """Load battery_mode_daemon_config.json's schedule.time_ranges, or None on failure.
+
+    Feeds derive_forced_discharge_start_hour (see its own docstring) so the
+    battery-prediction eligibility window narrows against the battery daemon's
+    actual schedule rather than a hand-copied config.yaml number. A missing or
+    malformed file just means "can't derive it" here, not a crash - the caller
+    falls back to hw_config's own forced_discharge_start_hour (if set) exactly
+    as before this existed.
+    """
+    path = Path(get_battery_mode_daemon_config_path())
+    if not path.exists():
+        return None
+    try:
+        daemon_config = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.exception(
+            "Failed to read/parse battery mode daemon config at %s, falling back to "
+            "hw_config's own forced_discharge_start_hour",
+            path,
+        )
+        return None
+    return daemon_config.get("schedule", {}).get("time_ranges")
+
+
 def get_battery_prediction_to_deadline(
     config: dict[str, Any], hw_config: dict[str, Any], now_local: datetime, deadline_hour: float
 ) -> tuple[float | None, str]:
