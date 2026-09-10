@@ -121,6 +121,18 @@ def get_schedule_path() -> str:
     return str(Path(get_project_root()) / "schedule.yaml")
 
 
+def get_battery_mode_daemon_config_path() -> str:
+    """Get absolute path to battery_mode_daemon_config.json.
+
+    Lives at the project root next to config.yaml (a human-edited definition
+    file, not a runtime state/cache file) - see
+    src/core_logic/hotwater_decision_logic.py's derive_forced_discharge_start_hour,
+    which reads its schedule.time_ranges to find when the battery daemon's own
+    schedule enters FORCE_DISCHARGE.
+    """
+    return str(Path(get_project_root()) / "battery_mode_daemon_config.json")
+
+
 def get_data_dir() -> str:
     """Get absolute path to the data directory."""
     return str(Path(get_project_root()) / "data")
