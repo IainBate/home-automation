@@ -54,6 +54,7 @@ import pytz
 
 from hotwater_automation_core import get_config_path
 
+from src.api_clients.ohme_status_cache import read_fresh_status
 from src.api_clients.solax_cloud_client import (
     is_same_reading,
     merge_realtime_snapshot,
