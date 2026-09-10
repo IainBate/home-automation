@@ -129,6 +129,7 @@ from src.utils.emailer import send_email
 from src.utils.historical_data import load_historical_records
 from src.utils.paths import (
     get_battery_evening_prediction_path,
+    get_battery_mode_daemon_config_path,
     get_hotwater_automation_state_path,
     get_project_root,
 )
