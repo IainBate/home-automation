@@ -113,6 +113,7 @@ from src.core_logic.hotwater_decision_logic import (
     HotWaterDecisionContext,
     battery_prediction_eligibility_end_hour,
     daily_check_lookup_date_str,
+    derive_forced_discharge_start_hour,
     determine_hotwater_decision,
     hour_float_to_time,
     is_in_evening_window,
