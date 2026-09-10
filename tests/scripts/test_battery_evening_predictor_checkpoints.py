@@ -127,6 +127,16 @@ def test_eligibility_end_derived_from_the_real_schedule_when_available(tmp_path)
 def test_checkpoint_prediction_applies_historical_drift():
     now_local = datetime(2026, 6, 15, 18, 0)
     records = _historical_records_with_flat_drift(-5.0)
+    # _historical_records_with_flat_drift only has whole-hour readings, so the
+    # 21:30 checkpoint below has no reading within predict_evening_soc's
+    # 15-minute match tolerance. Add an explicit 21:30 reading (consistent
+    # with the fixture's own -5.0pp/hour drift from the 18:00/70% baseline:
+    # 70 + (-5.0 * 3.5) = 52.5) here, in this test's own local copy, rather
+    # than in the shared helper - other tests reusing that helper rely on its
+    # whole-hour-only closest-match behavior and must not shift.
+    records = records + [
+        {"timestamp": f"2026-06-{day:02d} 21:30:00", "soc_percent": 52.5} for day in range(1, 10)
+    ]
 
     with _no_schedule_file():
         checkpoints = predictor._compute_dashboard_checkpoints(
