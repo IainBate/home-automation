@@ -430,3 +430,149 @@ def test_fresh_command_skips_interference_check_entirely(tmp_path):
     saved = json.loads(state_path.read_text())
     assert saved["ashp_interference"]["commanded_value"] == "heat@14.0"  # night target now
     assert saved["ashp_interference"]["reassert_count"] == 0
+
+
+# --- ASHP/MELCloud response corroboration -----------------------------------
+
+
+def test_response_check_settles_on_first_activation_tick(tmp_path):
+    config = _config()
+    now = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+    state = {"ashp": _active_ashp_state(now)}  # no ashp_response_check yet - first tick
+    patches = _patch_common(tmp_path, state=state)
+    state_path = tmp_path / "hvac_automation_state.json"
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now
+
+    with (
+        mock.patch.object(core, "datetime", frozen),
+        mock.patch.object(core, "set_ashp_heat_call", return_value=True),
+        mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}),
+        mock.patch.object(core, "fetch_resideo_status", return_value={"mode": "heat", "target_temperature_c": 18.0}),
+        mock.patch.object(core, "read_fresh_status", return_value={"status": "idle"}),
+        mock.patch.object(core, "logger") as fake_logger,
+    ):
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    fake_logger.warning.assert_not_called()
+    saved = json.loads(state_path.read_text())
+    assert saved["ashp_response_check"]["active_since"] == now.isoformat()
+
+
+def test_response_check_flags_sustained_non_response(tmp_path):
+    config = _config()
+    config["ashp"]["response_window_minutes"] = 20.0
+    now = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+    state = {
+        "ashp": _active_ashp_state(now),
+        "ashp_response_check": {"active_since": (now - timedelta(minutes=25)).isoformat()},
+    }
+    patches = _patch_common(tmp_path, state=state)
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now
+
+    with (
+        mock.patch.object(core, "datetime", frozen),
+        mock.patch.object(core, "set_ashp_heat_call", return_value=True),
+        mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}),
+        mock.patch.object(core, "fetch_resideo_status", return_value={"mode": "heat", "target_temperature_c": 18.0}),
+        mock.patch.object(core, "read_fresh_status", return_value={"status": "idle"}),
+        mock.patch.object(core, "logger") as fake_logger,
+    ):
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    fake_logger.warning.assert_called_once()
+    assert "no_response_suspected" not in str(fake_logger.warning.call_args)  # human reason, not the raw status code
+    assert "25" in str(fake_logger.warning.call_args)
+
+
+def test_response_check_does_not_flag_when_busy_heating_the_tank(tmp_path):
+    config = _config()
+    config["ashp"]["response_window_minutes"] = 20.0
+    now = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+    state = {
+        "ashp": _active_ashp_state(now),
+        "ashp_response_check": {"active_since": (now - timedelta(minutes=25)).isoformat()},
+    }
+    patches = _patch_common(tmp_path, state=state)
+
+    frozen = type("_FrozenDateTime", (_FrozenDateTime,), {})
+    frozen._frozen_now = now
+
+    with (
+        mock.patch.object(core, "datetime", frozen),
+        mock.patch.object(core, "set_ashp_heat_call", return_value=True),
+        mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}),
+        mock.patch.object(core, "fetch_resideo_status", return_value={"mode": "heat", "target_temperature_c": 18.0}),
+        mock.patch.object(core, "read_fresh_status", return_value={"status": "heat_water"}),
+        mock.patch.object(core, "logger") as fake_logger,
+    ):
+        for p in patches:
+            p.start()
+        try:
+            core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    fake_logger.warning.assert_not_called()
+
+
+def test_response_check_deactivates_cleanly_when_ashp_turns_off(tmp_path):
+    """Same deactivation setup as test_deactivation_powers_hvac_back_on (outdoor
+    risen 5.0C -> 8.0C, past deactivation_margin_c=2.0, forecast staying above
+    baseline too) - confirms the response-check clock resets to None the
+    moment ashp_active goes False, not left dangling from the prior activation."""
+    config = _config()
+    now = datetime.now(UTC)
+    state = {
+        "ashp": {
+            "ashp_active": True,
+            "activated_at": (now - timedelta(hours=7)).isoformat(),
+            "activation_baseline_outdoor_c": 5.0,
+        },
+        "ashp_response_check": {"active_since": (now - timedelta(hours=7)).isoformat()},
+    }
+    patches = _patch_common(
+        tmp_path,
+        state=state,
+        statuses=[_master_status(outdoor_temperature_c=8.0), _mirror_status()],
+        forecast_records=[{"temperature_2m": 9.0}, {"temperature_2m": 10.0}],
+    )
+    state_path = tmp_path / "hvac_automation_state.json"
+
+    with (
+        mock.patch.object(core, "set_ashp_off", return_value=True),
+        mock.patch.object(core, "set_airstage_power", return_value={"Playroom": True, "Landing": True}),
+        mock.patch.object(core, "_run_hvac_decision_check", return_value=0),
+        mock.patch.object(core, "read_fresh_status", return_value={"status": "idle"}),
+        mock.patch.object(core, "logger") as fake_logger,
+    ):
+        for p in patches:
+            p.start()
+        try:
+            rc = core.run_ashp_decision_check(config, config["ashp"], config["hvac_automation"], quiet=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert rc == 0
+    fake_logger.warning.assert_not_called()
+    saved = json.loads(state_path.read_text())
+    assert saved["ashp_response_check"]["active_since"] is None

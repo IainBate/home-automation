@@ -45,6 +45,7 @@ from src.api_clients.airstage_client import (
     set_airstage_temperature,
 )
 from src.api_clients.ashp_client import set_ashp_heat_call, set_ashp_off
+from src.api_clients.melcloud_status_cache import read_fresh_status
 from src.api_clients.resideo_client import fetch_resideo_status
 from src.api_clients.weather_client import fetch_forecast_weather_hourly
 from src.core_logic.ashp_decision_logic import (
@@ -52,6 +53,10 @@ from src.core_logic.ashp_decision_logic import (
     AshpDecisionContext,
     AshpState,
     determine_ashp_decision,
+)
+from src.core_logic.ashp_response_check_logic import (
+    AshpResponseCheckState,
+    evaluate_ashp_response,
 )
 from src.core_logic.hvac_schedule_logic import parse_hhmm
 from src.core_logic.interference_logic import (
@@ -85,6 +90,7 @@ DEFAULT_ASHP_LOCK_TIMEOUT_SECONDS = 60
 # safety one - see interference_logic.py's own module docstring.
 DEFAULT_INTERFERENCE_DWELL_MINUTES = 30.0
 DEFAULT_INTERFERENCE_MIN_REASSERTS = 1
+DEFAULT_ASHP_RESPONSE_WINDOW_MINUTES = 20.0
 
 
 def get_config_path() -> str:
@@ -153,6 +159,49 @@ def _interference_state_to_dict(state: ControlledAttributeState) -> dict[str, An
         "diverged_to": state.diverged_to,
         "reassert_count": state.reassert_count,
     }
+
+
+def _ashp_response_state_from_dict(raw: dict[str, Any]) -> AshpResponseCheckState:
+    active_since = raw.get("active_since")
+    try:
+        active_since = datetime.fromisoformat(active_since) if active_since else None
+    except (TypeError, ValueError):
+        active_since = None
+    return AshpResponseCheckState(active_since=active_since)
+
+
+def _ashp_response_state_to_dict(state: AshpResponseCheckState) -> dict[str, Any]:
+    return {"active_since": state.active_since.isoformat() if state.active_since else None}
+
+
+def _check_ashp_response(
+    ashp_config: dict[str, Any],
+    decision: AshpDecision,
+    response_state: AshpResponseCheckState,
+    now: datetime,
+) -> AshpResponseCheckState:
+    """Corroborate the T6R heat-call against MELCloud's own device status.
+
+    Read-only cross-check, logging only (docs/ASHP.md §6's "efficiency/
+    diagnostic signal, not a safety one" precedent extends here) - see
+    ashp_response_check_logic.evaluate_ashp_response's own docstring for why
+    a genuine response can lag the T6R command by several minutes and must
+    never be flagged on a single poll.
+    """
+    melcloud_status = read_fresh_status()
+    observed_status = melcloud_status.get("status") if melcloud_status else None
+    new_state, verdict = evaluate_ashp_response(
+        response_state,
+        ashp_active=decision.ashp_active,
+        observed_status=observed_status,
+        now=now,
+        response_window_minutes=ashp_config.get(
+            "response_window_minutes", DEFAULT_ASHP_RESPONSE_WINDOW_MINUTES
+        ),
+    )
+    if verdict.status == "no_response_suspected":
+        logger.warning("ASHP: %s", verdict.reason)
+    return new_state
 
 
 def _ashp_write_key(mode: str, target_c: float | None) -> str:
@@ -404,6 +453,7 @@ def run_ashp_decision_check(
     with locked_state(timeout=DEFAULT_ASHP_LOCK_TIMEOUT_SECONDS) as raw_state:
         state = _ashp_state_from_dict(raw_state.get("ashp", {}))
         interference_state = _interference_state_from_dict(raw_state.get("ashp_interference", {}))
+        response_state = _ashp_response_state_from_dict(raw_state.get("ashp_response_check", {}))
         context, room_temperature_c = _build_context(config, ashp_config, hvac_config, state)
 
         decision = determine_ashp_decision(context)
@@ -422,6 +472,8 @@ def run_ashp_decision_check(
             config, ashp_config, hvac_config, decision, interference_state, context.now, quiet=quiet
         )
         raw_state["ashp_interference"] = _interference_state_to_dict(interference_state)
+        response_state = _check_ashp_response(ashp_config, decision, response_state, context.now)
+        raw_state["ashp_response_check"] = _ashp_response_state_to_dict(response_state)
 
     if decision.suppress_hvac_automation:
         return 0 if applied_ok else 1

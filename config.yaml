@@ -553,6 +553,19 @@ ashp:
                                             # while", genuine evidence something keeps
                                             # reverting a correction.
 
+  # MELCloud response corroboration (new 2026-09-10) - cross-checks the T6R
+  # heat-call against MELCloud's own device status for the same Ecodan unit
+  # (already fetched/cached by hot water automation's force-heat check, no
+  # extra MELCloud API calls). Diagnostic only, like interference detection
+  # above - never changes what gets written, just logs a warning. The heat
+  # pump's own anti-short-cycle/defrost timing plus MELCloud's own ~10-15
+  # minute cache freshness both mean a genuine response can lag the T6R
+  # command by several minutes - this is a starting estimate to refine once
+  # observed against real hardware (see docs/ashp_deployment_and_testing_plan.md's
+  # verify-empirically-first approach), not a value with any hardware
+  # measurement behind it yet.
+  response_window_minutes: 20.0
+
 # =============================================================================
 # CLAUDE CODE USAGE (src/api_clients/claude_usage_client.py)
 # =============================================================================
