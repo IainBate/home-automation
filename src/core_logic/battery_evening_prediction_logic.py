@@ -455,9 +455,16 @@ def predict_evening_soc(
         50.0
 
     """
-    samples = compute_historical_soc_drift_samples(
+    all_samples = compute_historical_soc_drift_samples(
         historical_records, trigger_hour, horizon_hours, reference_day_of_year, window_days=window_days
     )
+    # Days with an ad-hoc EV force-charge in the window are excluded from the
+    # average entirely, not just down-weighted - see SocDriftSample.
+    # ev_charging_in_window's docstring for why that drift isn't
+    # representative of a typical day.
+    samples = [sample for sample in all_samples if not sample.ev_charging_in_window]
+    excluded_count = len(all_samples) - len(samples)
+    excluded_suffix = f" ({excluded_count} excluded for EV charging)" if excluded_count else ""
 
     if len(samples) < min_sample_days:
         return EveningSocPrediction(
@@ -467,7 +474,8 @@ def predict_evening_soc(
             applied_drift_percent=None,
             reason=(
                 f"Only {len(samples)} historical day(s) within {window_days} days of "
-                f"day-of-year {reference_day_of_year} (need >= {min_sample_days}) - not enough to predict"
+                f"day-of-year {reference_day_of_year}{excluded_suffix} "
+                f"(need >= {min_sample_days}) - not enough to predict"
             ),
         )
 
@@ -495,7 +503,7 @@ def predict_evening_soc(
         applied_drift_percent=applied_drift_percent,
         reason=(
             f"Predicted from {len(samples)} historical day(s) within {window_days} days of "
-            f"day-of-year {reference_day_of_year}: "
+            f"day-of-year {reference_day_of_year}{excluded_suffix}: "
             f"average SoC drift {average_drift_percent:+.1f}pp from {trigger_hour}:00 "
             f"to +{horizon_hours:.1f}h, applied to current {current_soc_percent:.0f}%"
             f"{reason_suffix}"
