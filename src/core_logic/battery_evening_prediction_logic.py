@@ -245,6 +245,7 @@ def compute_historical_soc_drift_samples(
     # *trigger* day is restricted to the window below, as the season/day-length proxy.
     readings_by_day: dict[str, list[tuple[datetime, float]]] = {}
     pv_readings_by_day: dict[str, list[tuple[datetime, float]]] = {}
+    ev_charging_readings_by_day: dict[str, list[tuple[datetime, bool]]] = {}
     for record in historical_records:
         try:
             timestamp = datetime.strptime(record["timestamp"], _TIMESTAMP_FORMAT)
@@ -267,6 +268,12 @@ def compute_historical_soc_drift_samples(
         else:
             pv_readings_by_day.setdefault(timestamp.date().isoformat(), []).append(
                 (timestamp, pv_power_kw)
+            )
+
+        ev_charging = record.get("ev_charging")
+        if isinstance(ev_charging, bool):
+            ev_charging_readings_by_day.setdefault(timestamp.date().isoformat(), []).append(
+                (timestamp, ev_charging)
             )
 
     samples: list[SocDriftSample] = []
