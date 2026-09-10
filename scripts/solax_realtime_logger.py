@@ -384,6 +384,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
             logger.warning("Failed to fetch SolaX Cloud realtime snapshot (see logs above)")
         else:
             source = "cloud"
+            snapshot["ev_charging"] = _read_ev_charging_flag()
             stored, count, compacted = _store_snapshot(data_path, snapshot)
 
     if (snapshot is None or not stored) and modbus_enabled:
@@ -391,6 +392,7 @@ def run(config: dict[str, Any], *, quiet: bool) -> int:
         if fallback_snapshot is None:
             logger.warning("Local Modbus fallback snapshot also unavailable (see logs above)")
         else:
+            fallback_snapshot["ev_charging"] = _read_ev_charging_flag()
             fallback_stored, fallback_count, fallback_compacted = _store_snapshot(data_path, fallback_snapshot)
             # Prefer the fallback's own result whenever it actually stored
             # something new, or the cloud attempt never produced a snapshot
