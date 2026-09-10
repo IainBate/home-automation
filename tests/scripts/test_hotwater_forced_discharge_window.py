@@ -166,10 +166,27 @@ def _freeze(monkeypatch, hour: int, minute: int) -> None:
     monkeypatch.setattr(core, "datetime", frozen)
 
 
-def _run(tmp_path: Path, monkeypatch, *, hour: int, minute: int):
+def _run(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    hour: int,
+    minute: int,
+    battery_daemon_time_ranges: list[dict] | None = None,
+):
     _freeze(monkeypatch, hour, minute)
     state_path = tmp_path / "hotwater_automation_state.json"
     state_path.write_text(json.dumps({}), encoding="utf-8")
+
+    # No battery_daemon_config.json by default - _load_battery_daemon_time_ranges
+    # returns None, so hw_config's own forced_discharge_start_hour is used
+    # unchanged, exactly as before that function existed.
+    daemon_config_path = tmp_path / "battery_mode_daemon_config.json"
+    if battery_daemon_time_ranges is not None:
+        daemon_config_path.write_text(
+            json.dumps({"schedule": {"enabled": True, "time_ranges": battery_daemon_time_ranges}}),
+            encoding="utf-8",
+        )
 
     client = FakeMelCloudClient(tank_temp=30.0)
     hw_config = {
@@ -189,6 +206,7 @@ def _run(tmp_path: Path, monkeypatch, *, hour: int, minute: int):
 
     with (
         mock.patch.object(core, "get_hotwater_automation_state_path", lambda: str(state_path)),
+        mock.patch.object(core, "get_battery_mode_daemon_config_path", lambda: str(daemon_config_path)),
         mock.patch.object(core, "MelCloudClient", lambda config_path=None: client),
         mock.patch.object(core, "is_car_charging_confirmed", mock.AsyncMock(return_value=False)),
         mock.patch.object(
