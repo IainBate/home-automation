@@ -216,15 +216,24 @@ hotwater_automation:
                                             # a later tick from firing once conditions (or the day's
                                             # actual usage so far) make it confident - see
                                             # get_battery_prediction_to_deadline's own docstring.
-  forced_discharge_start_hour: 22.5        # 10:30pm - the battery system enters a forced-discharge
-                                            # mode at this fixed clock time (confirmed 2026-09-07),
-                                            # after which the battery-prediction forecast above is
+  forced_discharge_start_hour: 22.0        # 10pm - FALLBACK ONLY (confirmed 2026-09-10): normally
+                                            # derived at runtime from battery_mode_daemon_config.json's
+                                            # own schedule.time_ranges (see
+                                            # derive_forced_discharge_start_hour) - the daemon's actual
+                                            # FORCE_DISCHARGE start time, not a hand-copied number here.
+                                            # This value is only used if that schedule file can't be
+                                            # read. It previously said 22.5/10:30pm while the real
+                                            # schedule started discharge at 22:00, silently opening a
+                                            # 30-minute window where a battery-prediction-triggered heat
+                                            # could still be running when forced discharge actually
+                                            # began - keep this in sync with the schedule's own
+                                            # FORCE_DISCHARGE start_time if you ever rely on the fallback.
+                                            # After which the battery-prediction forecast above is
                                             # meaningless (SoC is no longer driven by normal usage).
                                             # Closes the battery-prediction path's own eligibility to
                                             # START a new heat one full heating cycle's worth of time
-                                            # before this (see
-                                            # _battery_prediction_eligibility_end_hour) - currently
-                                            # 21:30/9:30pm, since both force_heat_max_duration_hours
+                                            # before this (see battery_prediction_eligibility_end_hour) -
+                                            # currently 21:00/9pm, since both force_heat_max_duration_hours
                                             # and legionella_max_cycle_duration_hours are 1h - so
                                             # nothing this path starts is still running when forced
                                             # discharge begins. Does NOT change
