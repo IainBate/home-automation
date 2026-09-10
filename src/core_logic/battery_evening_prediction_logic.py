@@ -304,7 +304,26 @@ def compute_historical_soc_drift_samples(
             pv_readings = pv_readings + pv_readings_by_day.get(horizon_ts.date().isoformat(), [])
         pv_generation_kwh = _window_generation_kwh(pv_readings, trigger_ts, horizon_ts, horizon_hours)
 
-        samples.append(SocDriftSample(date_str, soc_at_trigger, soc_at_horizon, pv_generation_kwh))
+        ev_charging_readings = ev_charging_readings_by_day.get(date_str, [])
+        if horizon_ts.date() != day_start.date():
+            ev_charging_readings = ev_charging_readings + ev_charging_readings_by_day.get(
+                horizon_ts.date().isoformat(), []
+            )
+        ev_charging_in_window = any(
+            ev_charging
+            for reading_ts, ev_charging in ev_charging_readings
+            if trigger_ts <= reading_ts < horizon_ts
+        )
+
+        samples.append(
+            SocDriftSample(
+                date_str,
+                soc_at_trigger,
+                soc_at_horizon,
+                pv_generation_kwh,
+                ev_charging_in_window=ev_charging_in_window,
+            )
+        )
 
     return samples
 
