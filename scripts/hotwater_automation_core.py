@@ -396,7 +396,7 @@ def get_battery_soc_percent(config: dict[str, Any]) -> float | None:
 # below; every call site here is unchanged.
 
 
-def _load_battery_daemon_time_ranges() -> list[dict[str, Any]] | None:
+def load_battery_daemon_time_ranges() -> list[dict[str, Any]] | None:
     """Load battery_mode_daemon_config.json's schedule.time_ranges, or None on failure.
 
     Feeds derive_forced_discharge_start_hour (see its own docstring) so the
@@ -419,6 +419,27 @@ def _load_battery_daemon_time_ranges() -> list[dict[str, Any]] | None:
         )
         return None
     return daemon_config.get("schedule", {}).get("time_ranges")
+
+
+def resolve_battery_prediction_eligibility_end_hour(hw_config: dict[str, Any]) -> float:
+    """battery_prediction_eligibility_end_hour, preferring the battery daemon's
+    real schedule over hw_config's own (possibly stale) forced_discharge_start_hour.
+
+    Single place both this module's own force-heat check and
+    scripts/battery_evening_predictor.py's dashboard checkpoints resolve this
+    from - previously duplicated inline here alone.
+    """
+    time_ranges = load_battery_daemon_time_ranges()
+    derived_forced_discharge_start_hour = (
+        derive_forced_discharge_start_hour(time_ranges) if time_ranges is not None else None
+    )
+    effective_hw_config = hw_config
+    if derived_forced_discharge_start_hour is not None:
+        effective_hw_config = {
+            **hw_config,
+            "forced_discharge_start_hour": derived_forced_discharge_start_hour,
+        }
+    return battery_prediction_eligibility_end_hour(effective_hw_config)
 
 
 def get_battery_prediction_to_deadline(
@@ -912,20 +933,8 @@ async def _run_force_heat_check_locked(
         # from the battery daemon's actual schedule over hw_config's own
         # (hand-maintained, can drift - see derive_forced_discharge_start_hour)
         # value; fall back to hw_config's if the schedule can't be read.
-        battery_daemon_time_ranges = _load_battery_daemon_time_ranges()
-        derived_forced_discharge_start_hour = (
-            derive_forced_discharge_start_hour(battery_daemon_time_ranges)
-            if battery_daemon_time_ranges is not None
-            else None
-        )
-        eligibility_hw_config = hw_config
-        if derived_forced_discharge_start_hour is not None:
-            eligibility_hw_config = {
-                **hw_config,
-                "forced_discharge_start_hour": derived_forced_discharge_start_hour,
-            }
         battery_prediction_eligibility_end_time = hour_float_to_time(
-            battery_prediction_eligibility_end_hour(eligibility_hw_config)
+            resolve_battery_prediction_eligibility_end_hour(hw_config)
         )
         in_battery_prediction_window = is_in_offpeak_window(
             now_local.time(), battery_prediction_window_start_time, battery_prediction_eligibility_end_time

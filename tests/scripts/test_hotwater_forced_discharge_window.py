@@ -68,20 +68,20 @@ def test_empty_time_ranges_returns_none():
     assert core.derive_forced_discharge_start_hour([]) is None
 
 
-# --- _load_battery_daemon_time_ranges (I/O) ---------------------------------
+# --- load_battery_daemon_time_ranges (I/O) ----------------------------------
 
 
 def test_load_battery_daemon_time_ranges_missing_file_returns_none(tmp_path, monkeypatch):
     missing_path = tmp_path / "does_not_exist.json"
     monkeypatch.setattr(core, "get_battery_mode_daemon_config_path", lambda: str(missing_path))
-    assert core._load_battery_daemon_time_ranges() is None
+    assert core.load_battery_daemon_time_ranges() is None
 
 
 def test_load_battery_daemon_time_ranges_malformed_json_returns_none(tmp_path, monkeypatch):
     bad_path = tmp_path / "battery_mode_daemon_config.json"
     bad_path.write_text("{not valid json", encoding="utf-8")
     monkeypatch.setattr(core, "get_battery_mode_daemon_config_path", lambda: str(bad_path))
-    assert core._load_battery_daemon_time_ranges() is None
+    assert core.load_battery_daemon_time_ranges() is None
 
 
 def test_load_battery_daemon_time_ranges_returns_the_schedule_list(tmp_path, monkeypatch):
@@ -100,9 +100,51 @@ def test_load_battery_daemon_time_ranges_returns_the_schedule_list(tmp_path, mon
         encoding="utf-8",
     )
     monkeypatch.setattr(core, "get_battery_mode_daemon_config_path", lambda: str(config_path))
-    assert core._load_battery_daemon_time_ranges() == [
+    assert core.load_battery_daemon_time_ranges() == [
         {"start_time": "22:00", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"}
     ]
+
+
+# --- resolve_battery_prediction_eligibility_end_hour (I/O + pure, combined) -
+
+
+def test_resolve_eligibility_end_hour_prefers_the_schedule_over_hw_config(tmp_path, monkeypatch):
+    config_path = tmp_path / "battery_mode_daemon_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "schedule": {
+                    "enabled": True,
+                    "time_ranges": [
+                        {"start_time": "22:00", "end_time": "23:30", "battery_mode": "FORCE_DISCHARGE"}
+                    ],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(core, "get_battery_mode_daemon_config_path", lambda: str(config_path))
+    hw_config = {
+        "battery_prediction_deadline_hour": 23.5,
+        "forced_discharge_start_hour": 22.5,  # stale - the schedule (22:00) must win
+        "force_heat_max_duration_hours": 1.0,
+        "legionella_max_cycle_duration_hours": 1.0,
+    }
+
+    assert core.resolve_battery_prediction_eligibility_end_hour(hw_config) == 21.0
+
+
+def test_resolve_eligibility_end_hour_falls_back_to_hw_config_without_a_schedule(tmp_path, monkeypatch):
+    missing_path = tmp_path / "does_not_exist.json"
+    monkeypatch.setattr(core, "get_battery_mode_daemon_config_path", lambda: str(missing_path))
+    hw_config = {
+        "battery_prediction_deadline_hour": 23.5,
+        "forced_discharge_start_hour": 22.5,
+        "force_heat_max_duration_hours": 1.0,
+        "legionella_max_cycle_duration_hours": 1.0,
+    }
+
+    assert core.resolve_battery_prediction_eligibility_end_hour(hw_config) == 21.5
 
 
 # --- battery_prediction_eligibility_end_hour (pure) ------------------------
