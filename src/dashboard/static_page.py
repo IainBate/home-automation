@@ -205,6 +205,14 @@ function fmtDateDdMmYy(isoDate) {
   const [y, m, d] = isoDate.split("-");
   return `${d}/${m}/${y.slice(2)}`;
 }
+function fmtDateTime(isoString) {
+  if (!isoString) return "&mdash;";
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return "&mdash;";
+  const datePart = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const timePart = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${datePart}, ${timePart}`;
+}
 function titleCase(s) {
   if (!s) return "Unknown";
   return s.replace(/_/g, " ").replace(/\\w\\S*/g, t => t[0].toUpperCase() + t.slice(1).toLowerCase());
@@ -310,7 +318,7 @@ function hotWaterCard(d) {
     ${d.legionella_days_since_last != null && d.legionella_days_until_due != null && d.legionella_due_date != null ? `<div class="row"><span class="label">Legionella cycle</span><span class="value">${d.legionella_days_since_last}d ago, ${d.legionella_days_until_due > 0 ? `due ${fmtDateDdMmYy(d.legionella_due_date)}` : `overdue ${fmtDateDdMmYy(d.legionella_due_date)}`}</span></div>` : ""}
     ${d.force_heat_active ? `<div class="row"><span class="label">Force heat</span><span class="value"><span class="badge warn">Active</span></span></div>` : ""}
     ${d.legionella_cycle_in_progress ? `<div class="row"><span class="label">Legionella cycle</span><span class="value"><span class="badge warn">In progress</span></span></div>` : ""}
-    ${d.automation_holiday_active ? `<div class="row"><span class="label">Automation holiday</span><span class="value"><span class="badge warn">Active until ${escapeHtml(d.automation_holiday_until ?? "")}</span></span></div>` : ""}
+    ${d.automation_holiday_active ? `<div class="row"><span class="label">Automation holiday</span><span class="value"><span class="badge warn">Active until ${fmtDateTime(d.automation_holiday_until)}</span></span></div>` : ""}
   `;
   const details = `
     <div class="row"><span class="label">Power</span><span class="value">${d.power_on ? "On" : "Off"}</span></div>
