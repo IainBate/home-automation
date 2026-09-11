@@ -205,6 +205,14 @@ function fmtDateDdMmYy(isoDate) {
   const [y, m, d] = isoDate.split("-");
   return `${d}/${m}/${y.slice(2)}`;
 }
+function fmtDateTime(isoString) {
+  if (!isoString) return "&mdash;";
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return "&mdash;";
+  const datePart = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const timePart = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${datePart}, ${timePart}`;
+}
 function titleCase(s) {
   if (!s) return "Unknown";
   return s.replace(/_/g, " ").replace(/\\w\\S*/g, t => t[0].toUpperCase() + t.slice(1).toLowerCase());
