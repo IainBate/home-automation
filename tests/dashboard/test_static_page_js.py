@@ -321,7 +321,7 @@ def test_hot_water_card_shows_a_simple_holiday_end_message():
     )
 
     assert "Automation holiday" in html
-    assert "Active until 13 Sep, 07:36" in html
+    assert "Active until 13 Sept, 07:36" in html
     assert "06:36:14.704214" not in html
     assert "+00:00" not in html
 
