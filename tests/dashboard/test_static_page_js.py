@@ -299,6 +299,34 @@ def test_hot_water_card_shows_overdue_legionella_cycle():
 
 
 @requires_node
+def test_hot_water_card_shows_a_simple_holiday_end_message():
+    """The raw ISO timestamp (with microseconds and a UTC offset) used to be
+    shown verbatim - confirmed confusing/badly laid out 2026-09-11. Just a
+    short local date/time instead. TZ is pinned to the project's own
+    configured timezone (config.yaml's default_timezone_str) so this
+    assertion doesn't depend on whatever system timezone runs the suite."""
+    payload = {
+        "available": True,
+        "tank_temperature_c": 45.0,
+        "target_tank_temperature_c": 50.0,
+        "status": "idle",
+        "automation_holiday_active": True,
+        "automation_holiday_until": "2026-09-13T06:36:14.704214+00:00",
+        "power_on": True,
+        "holiday_mode": False,
+    }
+    html = _run_js(
+        "process.env.TZ = 'Europe/London';\n"
+        f"console.log(hotWaterCard({json.dumps(payload)}));"
+    )
+
+    assert "Automation holiday" in html
+    assert "Active until 13 Sep, 07:36" in html
+    assert "06:36:14.704214" not in html
+    assert "+00:00" not in html
+
+
+@requires_node
 def test_hot_water_card_omits_legionella_line_when_never_completed():
     payload = {
         "available": True,
